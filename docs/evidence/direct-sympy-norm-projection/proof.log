@@ -1,0 +1,11 @@
+..........
+----------------------------------------------------------------------
+Ran 10 tests in 5.106s
+
+OK
+Tight checkpoint update bounds: cases=888832 violations=0
+Composed projection bounds: cases=7110656 violations=0
+Correlated RMS linear bounds: cases=5332992 violations=0
+Correlated RMS projection bounds: cases=5332992 violations=0
+Tight projection bounds: cases=3555328 violations=0
+Certified SiLU magnitude bounds: cases=22530 violations=0

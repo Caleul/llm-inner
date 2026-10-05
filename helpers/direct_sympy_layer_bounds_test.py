@@ -2,7 +2,7 @@
 import os,struct,subprocess,tempfile,unittest
 from fractions import Fraction as F
 from pathlib import Path
-from direct_sympy_layer_bounds import dot,half,layer,silu_bound,composed_dot,norm_linear_bound,norm,sqrt_outward
+from direct_sympy_layer_bounds import dot,half,layer,silu_bound,composed_dot,norm_linear_bound,norm,norm_dot,sqrt_outward
 from direct_sympy_checkpoint import CheckpointStrings
 from direct_sympy_strings import StringCompiler
 from direct_sympy_partition_run import update_threshold
@@ -22,6 +22,43 @@ class Matrices:
 
 
 class LayerBoundTests(unittest.TestCase):
+    def test_correlated_projection_requires_valid_normalization_and_retains_fallback(self):
+        class Model:
+            width=2;config={'rms_norm_eps':1e-6}
+            def shape(self,name):return [2] if name=='norm' else [1,2]
+            def weight(self,name,*indices):return 1.0
+        m=Model();inputs=norm(m,'norm')
+        self.assertLess(norm_dot(m,'projection','norm',inputs)[0],dot(m,'projection',inputs)[0])
+        self.assertEqual(norm_dot(m,'projection','foreign',inputs),dot(m,'projection',inputs))
+        self.assertIsNone(norm_dot(m,'projection','norm',[None,inputs[1]]))
+        m.width=1
+        self.assertEqual(norm_dot(m,'projection','norm',inputs),dot(m,'projection',inputs))
+
+    def test_ordered_native_correlated_norm_projections_keep_storage(self):
+        records=[]
+        for weights in ((1.0,1.0),(.5,1.5),(-1.0,0.0)):
+            for coefficients in ((.75,.875),(-.75,.875)):
+                class Model:
+                    width=2;config={'rms_norm_eps':1e-6}
+                    def shape(self,name):return [2] if name=='norm' else [1,2]
+                    def weight(self,name,*indices):return weights[indices[0]] if name=='norm' else coefficients[indices[1]]
+                m=Model();bound=norm_dot(m,'projection','norm',norm(m,'norm'))[0]
+                records.append('{'+','.join(map(str,(*weights,*coefficients,bound)))+'}')
+        self.native('''struct Record{double g0,g1,c0,c1,bound;};Record records[]={'''+','.join(records)+'''};
+int main(){std::fesetround(FE_TONEAREST);unsigned long long cases=0,fail=0;
+ for(auto r:records)for(unsigned b=0;b<65536;b++){if((b&0x7c00)==0x7c00)continue;
+  for(uint16_t a:anchors){double x=word<_Float16>(uint16_t(b)),y=word<_Float16>(a);
+   float sum=float(float(x*x)+float(y*y));float mean=float(float(sum/2.0f)+1e-6f);
+   float inverse=float(1.0/double(float(std::sqrt(double(mean)))));
+   double nx=double(_Float16(float(x*double(inverse))));double ny=double(_Float16(float(y*double(inverse))));
+   nx=double(_Float16(float(nx*r.g0)));ny=double(_Float16(float(ny*r.g1)));
+   float lanes[4]={};lanes[0]=float(float(nx*r.c0)+0.0f);lanes[1]=float(float(ny*r.c1)+0.0f);
+   double stored=double(_Float16(float(float(lanes[0]+lanes[1])+float(lanes[2]+lanes[3]))));
+   fail+=std::abs(stored)>r.bound;cases++;
+  }
+ }std::printf("Correlated RMS projection bounds: cases=%llu violations=%llu\\n",cases,fail);return fail?1:0;}
+''','Correlated RMS projection bounds: cases=5332992 violations=0')
+
     def test_correlated_norm_proof_roots_and_validation(self):
         for value in (F(0),F(1),F(2),F(3,7),F(1,2**96),F(123456789,54321)):
             self.assertGreaterEqual(sqrt_outward(value,True)**2,value)

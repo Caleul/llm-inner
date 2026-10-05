@@ -1,0 +1,332 @@
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 13276.62it/s]
+{"domain": {"X1": [-18432, -10240], "X2": [10240, 18432]}, "added": 67125249, "covered": 67125249, "characters": 10269774, "sha256": "dcf749ca35f9dc0b4f5a560a6a169c89a71cdc6f79ffec203ffd30ad2b833f89", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 20619.27it/s]
+{"domain": {"X1": [10240, 18432], "X2": [-18432, -10240]}, "added": 67125249, "covered": 134250498, "characters": 10269774, "sha256": "dcf749ca35f9dc0b4f5a560a6a169c89a71cdc6f79ffec203ffd30ad2b833f89", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 20619.27it/s]
+{"domain": {"X1": [10240, 18432], "X2": [10240, 18432]}, "added": 67125249, "covered": 201375747, "characters": 11063008, "sha256": "70b5a90b91ff33a4a1d5742f3a2045c8c01923d3ae4c9d408b99aa995621264a", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 17937.15it/s]
+{"domain": {"X1": [-18432, -10240], "X2": [-18432, -10240]}, "added": 67125249, "covered": 268500996, "characters": 11066284, "sha256": "e5fa2f25910d00cf1ac09988ddb5eebd1aaa10f5e9b3ff4b829b0af927f1ec8b", "stop": null, "nativeCases": 8196, "mismatches": 0}
+{"domain": {"X1": [-16384, -10240], "X2": [10241, 15360]}, "added": 0, "covered": 268500996, "characters": null, "sha256": null, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [10240, 16384], "X2": [-15360, -10241]}, "added": 0, "covered": 268500996, "characters": null, "sha256": null, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [11264, 16384], "X2": [11264, 15360]}, "added": 0, "covered": 268500996, "characters": null, "sha256": null, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-16384, -11264], "X2": [-15360, -11264]}, "added": 0, "covered": 268500996, "characters": null, "sha256": null, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 21666.66it/s]
+{"domain": {"X1": [-64, 64], "X2": [-31743, -12288]}, "added": 2529280, "covered": 271030276, "characters": 952013, "sha256": "5da4b91a8eb1710a494dea259561f888d11fd8c634033701c503a100a9d041da", "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 44462.59it/s]
+{"domain": {"X1": [-64, 64], "X2": [12288, 31743]}, "added": 2529280, "covered": 273559556, "characters": 955219, "sha256": "2ea6671af9c07d1ac4916a80b00247373d41e47278e68eec10c69b8ceedc43ea", "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 62836.01it/s]
+{"domain": {"X1": [-256, 256], "X2": [-31743, -15360]}, "added": 6291456, "covered": 279851012, "characters": 37476, "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37", "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 27147.60it/s]
+{"domain": {"X1": [-256, 256], "X2": [15360, 31743]}, "added": 6291456, "covered": 286142468, "characters": 35411, "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2", "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 23290.91it/s]
+{"domain": {"X1": [-1024, 1024], "X2": [-31743, -19456]}, "added": 18874368, "covered": 305016836, "characters": 10, "sha256": "2d04da55c2dbcb40a964ab02c769dc6228ec2a6648923935ea31be758221d2bd", "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 19079.47it/s]
+{"domain": {"X1": [-1024, 1024], "X2": [19456, 31743]}, "added": 18874368, "covered": 323891204, "characters": 11, "sha256": "072d8877e3140356bfc8fc1bf736a04a2151659ad8e5b6c77ce84481bd9174fb", "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 26616.42it/s]
+{"domain": {"X1": [-15360, -10240], "X2": [-31743, -21504]}, "added": 52439040, "covered": 376330244, "characters": 171977, "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 24540.05it/s]
+{"domain": {"X1": [-31743, -21504], "X2": [-15360, -11264]}, "added": 41953280, "covered": 418283524, "characters": 171939, "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 42118.53it/s]
+{"domain": {"X1": [-15360, -10240], "X2": [21504, 31743]}, "added": 52439040, "covered": 470722564, "characters": 171897, "sha256": "3e90a66da98def9e92fd2d0981369eb6f220d916a5e0e4566877f23676c0a1ec", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 17272.36it/s]
+{"domain": {"X1": [-31743, -21504], "X2": [11264, 15360]}, "added": 41953280, "covered": 512675844, "characters": 171939, "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 34285.86it/s]
+{"domain": {"X1": [10240, 15360], "X2": [-31743, -21504]}, "added": 52439040, "covered": 565114884, "characters": 171977, "sha256": "0ef677da44b5bd97219e4632f8e1003a1e16131bccd87b01256f03c18e1ae8ea", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 26379.27it/s]
+{"domain": {"X1": [21504, 31743], "X2": [-15360, -11264]}, "added": 41953280, "covered": 607068164, "characters": 171943, "sha256": "0358dffba87a7ed1dec16baea195bfeb7049a933f61fa594d4e52ae188c79de3", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 52869.38it/s]
+{"domain": {"X1": [10240, 15360], "X2": [21504, 31743]}, "added": 52439040, "covered": 659507204, "characters": 171897, "sha256": "3e90a66da98def9e92fd2d0981369eb6f220d916a5e0e4566877f23676c0a1ec", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 43166.08it/s]
+{"domain": {"X1": [21504, 31743], "X2": [11264, 15360]}, "added": 41953280, "covered": 701460484, "characters": 171943, "sha256": "0358dffba87a7ed1dec16baea195bfeb7049a933f61fa594d4e52ae188c79de3", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 60860.52it/s]
+{"domain": {"X1": [-31743, -16385], "X2": [-31743, -15361]}, "added": 245335041, "covered": 946795525, "characters": 112371, "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 14833.97it/s]
+{"domain": {"X1": [-31743, -16385], "X2": [15361, 31743]}, "added": 245335041, "covered": 1192130566, "characters": 112371, "sha256": "5bf135edb1ec1074a714095767cb3cb546d3a6ad059664358a07420e0bfa4f54", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 30765.07it/s]
+{"domain": {"X1": [16385, 31743], "X2": [-31743, -15361]}, "added": 245335041, "covered": 1437465607, "characters": 112399, "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 22017.34it/s]
+{"domain": {"X1": [16385, 31743], "X2": [15361, 31743]}, "added": 245335041, "covered": 1682800648, "characters": 112399, "sha256": "f9cfcaf29f73735e42dbb944a858ec9448ef50950600f278b3c9b1a79f322a29", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 17337.81it/s]
+{"domain": {"X1": [-12288, 12288], "X2": [-31743, -24576]}, "added": 132106240, "covered": 1814906888, "characters": 200303, "sha256": "34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31", "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 12738.96it/s]
+{"domain": {"X1": [-8192, 8192], "X2": [-31743, -20480]}, "added": 58720256, "covered": 1873627144, "characters": 200303, "sha256": "34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31", "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 65879.12it/s]
+{"domain": {"X1": [-8192, 8192], "X2": [20480, 31743]}, "added": 161480704, "covered": 2035107848, "characters": 197871, "sha256": "159ad30fb89bcdc6d65aacd729ee26b703603e39b2804fd0c6b5f199ef245e1a", "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 65879.12it/s]
+{"domain": {"X1": [20480, 31743], "X2": [-8192, 8192]}, "added": 184571904, "covered": 2219679752, "characters": 12, "sha256": "66815c0e03525071185954d6f31b75089ee5120ac29140ed96ba72836afc2731", "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 29711.72it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-8192, 0]}, "added": 92297216, "covered": 2311976968, "characters": 11, "sha256": "6746e42184c7e92dd433e5da40fd9843c5f31c7aa733731c37b99a9bb8dcdbb6", "stop": null, "nativeCases": 8198, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 65965.46it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [1, 8192]}, "added": 92274688, "covered": 2404251656, "characters": 11, "sha256": "6746e42184c7e92dd433e5da40fd9843c5f31c7aa733731c37b99a9bb8dcdbb6", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 52703.30it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-19455, -14592]}, "added": 787456, "covered": 2405039112, "characters": 7372, "sha256": "1b5b9842b0466099fcb117cad7ce8cad4ba0b4044cf479b19776412d6cca4b28", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 20270.50it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-14591, -14440]}, "added": 155648, "covered": 2405194760, "characters": 3988, "sha256": "c4aab18e1df8ddaab54bc99b54707c24ad69a02dc04b24945893bec3e0fe8895", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 24291.34it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-14439, -14364]}, "added": 77824, "covered": 2405272584, "characters": 3988, "sha256": "c4aab18e1df8ddaab54bc99b54707c24ad69a02dc04b24945893bec3e0fe8895", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 27838.30it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14363, -14326]}, "added": 38912, "covered": 2405311496, "characters": 1817, "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 36927.11it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14325, -14288]}, "added": 38912, "covered": 2405350408, "characters": 1817, "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 22429.43it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14287, -14250]}, "added": 38912, "covered": 2405389320, "characters": 1817, "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 57130.13it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14249, -14212]}, "added": 38912, "covered": 2405428232, "characters": 1817, "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 33442.96it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14211, -14174]}, "added": 38912, "covered": 2405467144, "characters": 1817, "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 15524.88it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14173, -14136]}, "added": 38912, "covered": 2405506056, "characters": 1817, "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 21094.57it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14135, -14098]}, "added": 38912, "covered": 2405544968, "characters": 1817, "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 29262.59it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14097, -14060]}, "added": 38912, "covered": 2405583880, "characters": 1817, "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 19144.79it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14059, -14022]}, "added": 38912, "covered": 2405622792, "characters": 1817, "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 24001.74it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14021, -13984]}, "added": 38912, "covered": 2405661704, "characters": 1817, "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 47393.27it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-13983, -13946]}, "added": 38912, "covered": 2405700616, "characters": 1817, "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 18463.55it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-13945, -13908]}, "added": 38912, "covered": 2405739528, "characters": 1817, "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 22671.91it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-13907, -13870]}, "added": 38912, "covered": 2405778440, "characters": 1817, "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 54061.92it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-13869, -13832]}, "added": 38912, "covered": 2405817352, "characters": 1817, "sha256": "78b9b3c76bc707ff1fa9e466f77616dbe0d4444aba5303b371b6c4da5ece60e2", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 52211.25it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-13831, -13756]}, "added": 77824, "covered": 2405895176, "characters": 3988, "sha256": "c4aab18e1df8ddaab54bc99b54707c24ad69a02dc04b24945893bec3e0fe8895", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 30615.36it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-13755, -13680]}, "added": 77824, "covered": 2405973000, "characters": 3988, "sha256": "c4aab18e1df8ddaab54bc99b54707c24ad69a02dc04b24945893bec3e0fe8895", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 32346.82it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-13679, -13376]}, "added": 311296, "covered": 2406284296, "characters": 3988, "sha256": "c4aab18e1df8ddaab54bc99b54707c24ad69a02dc04b24945893bec3e0fe8895", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 43842.90it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-13375, -12160]}, "added": 1245184, "covered": 2407529480, "characters": 171939, "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 51254.22it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-12159, -9728]}, "added": 18219008, "covered": 2425748488, "characters": 171939, "sha256": "a002c3ee0563a0026148abed1f5d223e6bfe366fe7726331f9fb3c655d8f4ce2", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 33310.16it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-9727, -8193]}, "added": 17290240, "covered": 2443038728, "characters": 11, "sha256": "6746e42184c7e92dd433e5da40fd9843c5f31c7aa733731c37b99a9bb8dcdbb6", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 42871.93it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [8193, 19455]}, "added": 38787072, "covered": 2481825800, "characters": 525809, "sha256": "34160f82afe379489def9c5773b52c975807d34d02cd8c91128451801f3175d5", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 54236.69it/s]
+{"domain": {"X1": [-18431, -16384], "X2": [-31743, -19456]}, "added": 12288, "covered": 2481838088, "characters": 7372, "sha256": "c97892c3abe2fd563033879b0bd746426bf58ceb04ac5ff6ef851e4380f71735", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 24197.91it/s]
+{"domain": {"X1": [-16383, -12289], "X2": [-31743, -19456]}, "added": 18862080, "covered": 2500700168, "characters": 524269, "sha256": "60e8f842178f31891b823714bb9000f4470b380af7e306807790c5af83d8a1e7", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 70989.63it/s]
+{"domain": {"X1": [-12288, -11777], "X2": [-24575, -19456]}, "added": 1048576, "covered": 2501748744, "characters": 32224, "sha256": "542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 45466.71it/s]
+{"domain": {"X1": [-11776, -11521], "X2": [-24575, -19456]}, "added": 524288, "covered": 2502273032, "characters": 32224, "sha256": "542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 48770.98it/s]
+{"domain": {"X1": [-11520, -11393], "X2": [-24575, -19456]}, "added": 262144, "covered": 2502535176, "characters": 32224, "sha256": "542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 18429.75it/s]
+{"domain": {"X1": [-11392, -11329], "X2": [-24575, -19456]}, "added": 131072, "covered": 2502666248, "characters": 32224, "sha256": "542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 22509.68it/s]
+{"domain": {"X1": [-11328, -11265], "X2": [-21695, -21376]}, "added": 8192, "covered": 2502674440, "characters": 17424, "sha256": "91bdf602fb922f7f33fe5022304cfa1d9943c2cd783913c875703aab7b9a79e4", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 27030.96it/s]
+{"domain": {"X1": [-11328, -11265], "X2": [-21375, -21056]}, "added": 20480, "covered": 2502694920, "characters": 2493, "sha256": "aecc2ade9a069d09c67f8e73da84533a7a06a02bb84cf7810a714145568b2735", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 17266.43it/s]
+{"domain": {"X1": [-11328, -11265], "X2": [-21055, -20736]}, "added": 20480, "covered": 2502715400, "characters": 31629, "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 35595.22it/s]
+{"domain": {"X1": [-11328, -11265], "X2": [-20735, -20416]}, "added": 20480, "covered": 2502735880, "characters": 31629, "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 36472.21it/s]
+{"domain": {"X1": [-11328, -11265], "X2": [-20415, -20096]}, "added": 20480, "covered": 2502756360, "characters": 31629, "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 17943.55it/s]
+{"domain": {"X1": [-11328, -11265], "X2": [-20095, -19776]}, "added": 20480, "covered": 2502776840, "characters": 31629, "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 42690.12it/s]
+{"domain": {"X1": [-11328, -11265], "X2": [-19775, -19456]}, "added": 20480, "covered": 2502797320, "characters": 31629, "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 34146.30it/s]
+{"domain": {"X1": [-11264, -11201], "X2": [-22015, -20736]}, "added": 49152, "covered": 2502846472, "characters": 32224, "sha256": "542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 17647.84it/s]
+{"domain": {"X1": [-11264, -11201], "X2": [-20735, -20096]}, "added": 40960, "covered": 2502887432, "characters": 31629, "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 37172.56it/s]
+{"domain": {"X1": [-11264, -11201], "X2": [-20095, -19456]}, "added": 40960, "covered": 2502928392, "characters": 31629, "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 22017.34it/s]
+{"domain": {"X1": [-11200, -11137], "X2": [-22015, -20736]}, "added": 49152, "covered": 2502977544, "characters": 32224, "sha256": "542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 22692.36it/s]
+{"domain": {"X1": [-11200, -11137], "X2": [-20735, -20096]}, "added": 40960, "covered": 2503018504, "characters": 31629, "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 44620.26it/s]
+{"domain": {"X1": [-11200, -11137], "X2": [-20095, -19456]}, "added": 40960, "covered": 2503059464, "characters": 31629, "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 22600.65it/s]
+{"domain": {"X1": [-11136, -11073], "X2": [-22015, -20736]}, "added": 49152, "covered": 2503108616, "characters": 32224, "sha256": "542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 57325.34it/s]
+{"domain": {"X1": [-11136, -11073], "X2": [-20735, -20096]}, "added": 40960, "covered": 2503149576, "characters": 31629, "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 43314.67it/s]
+{"domain": {"X1": [-11136, -11073], "X2": [-20095, -19456]}, "added": 40960, "covered": 2503190536, "characters": 31629, "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 37986.15it/s]
+{"domain": {"X1": [-11072, -11009], "X2": [-22015, -20736]}, "added": 49152, "covered": 2503239688, "characters": 32224, "sha256": "542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 46345.90it/s]
+{"domain": {"X1": [-11072, -11009], "X2": [-20735, -20096]}, "added": 40960, "covered": 2503280648, "characters": 31629, "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 57325.34it/s]
+{"domain": {"X1": [-11072, -11009], "X2": [-20095, -19456]}, "added": 40960, "covered": 2503321608, "characters": 31629, "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 58593.30it/s]
+{"domain": {"X1": [-11008, -10945], "X2": [-22015, -20736]}, "added": 49152, "covered": 2503370760, "characters": 32224, "sha256": "542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 16992.45it/s]
+{"domain": {"X1": [-11008, -10945], "X2": [-20735, -20096]}, "added": 40960, "covered": 2503411720, "characters": 31629, "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 62523.79it/s]
+{"domain": {"X1": [-11008, -10945], "X2": [-20095, -19456]}, "added": 40960, "covered": 2503452680, "characters": 31629, "sha256": "6f4af0931376a1032ad1cece4d033845cd6498d86bf95c5d9364d8d38ac68fdb", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 14134.13it/s]
+{"domain": {"X1": [-10944, -10881], "X2": [-22015, -20736]}, "added": 49152, "covered": 2503501832, "characters": 32224, "sha256": "542d4663a26b347cb610b0828d70c6c61afa03308442f7f6dc2d21a87d54d810", "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 48210.39it/s]
+{"domain": {"X1": [-8192, 8192], "X2": [-20479, -19456]}, "added": 14680064, "covered": 2518181896, "characters": 200303, "sha256": "34dd1b8ab0d3ffe489f8f3fec3e8e311e0dce1785df2f775df3142d73d03bc31", "stop": null, "nativeCases": 8200, "mismatches": 0}

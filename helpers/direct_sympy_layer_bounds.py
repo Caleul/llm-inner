@@ -127,6 +127,32 @@ def norm_linear_bound(model,name,coefficients,inputs):
     return result
 
 
+def norm_dot(model,name,norm_name,inputs):
+    """Bound an original projection of the named actual RMS output.
+
+    Caller attaches the named normalization to its actual producer. The
+    Euclidean constraint complements independent component bounds; it
+    never reassociates generated arithmetic. Include the original F32
+    reduction error before monotone final Half storage.
+    """
+    independent=dot(model,name,inputs)
+    if independent is None:return None
+    shape=model.shape(name)
+    if shape[1]!=model.width:return independent
+    result=[]
+    for row,bound in enumerate(independent):
+        coefficients=[Fraction(float(model.weight(name,row,col))) for col in range(shape[1])]
+        correlated=norm_linear_bound(model,norm_name,coefficients,inputs)
+        if correlated is None:return independent
+        total=sum((abs(c)*Fraction(x) for c,x in zip(coefficients,inputs)),Fraction(0))
+        upper=correlated+total*Fraction(shape[1]+3,2**24-shape[1]-3)
+        value=float(upper)
+        if Fraction(value)<upper:value=math.nextafter(value,math.inf)
+        rounded=half(value)
+        result.append(min(bound,rounded) if rounded is not None else bound)
+    return result
+
+
 def composed_dot(model,first_name,second_name,inputs,mapping,*,max_products=2**20,input_norm=None):
     """Enclose two ordered stored-Half projections without reassociating them.
 
@@ -255,8 +281,8 @@ def layer(model,prefix):
     composed=composed_dot(model,prefix+'self_attn.v_proj.weight',prefix+'self_attn.o_proj.weight',pre,mapping,
         input_norm=prefix+'input_layernorm.weight')
     if composed is not None:attention=composed
-    gate=dot(model,prefix+'mlp.gate_proj.weight',post)
-    up=dot(model,prefix+'mlp.up_proj.weight',post)
+    gate=norm_dot(model,prefix+'mlp.gate_proj.weight',prefix+'post_attention_layernorm.weight',post)
+    up=norm_dot(model,prefix+'mlp.up_proj.weight',prefix+'post_attention_layernorm.weight',post)
     if gate is None or up is None or len(gate)!=len(up):return None
     # Tighten the activation before expanding its producer, using the same
     # certified Half polynomial as the expression compiler where admitted.
