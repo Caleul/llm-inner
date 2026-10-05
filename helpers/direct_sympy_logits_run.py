@@ -36,6 +36,8 @@ def worker(args):
     torch.set_num_threads(1);directory=Path(args.output);result={'dimension':args.dimension,'complete':False,'parityVerified':False}
     identity=live_identity(args.checkpoint,args.dimension);result['compilerIdentity']=identity
     started=time.monotonic();target=directory/f'logit-{args.dimension}.expr'
+    candidate=directory/f'.logit-{args.dimension}.pending.expr';plan=None;model=None
+    if target.exists()or candidate.exists():raise ValueError('Coordinate attempt already exists; inspect before restarting')
     budget=ArtifactBudget(directory/'artifact-budget.json',args.expression_bytes)
     try:
         with budget.lease(f'logit-{args.dimension}')as lease:
@@ -54,21 +56,29 @@ def worker(args):
                             progress={'dimension':args.dimension,'claimedCharacters':lease.claimed,'stats':plan.stats,'elapsedSeconds':time.monotonic()-started}
                             atomic(directory/f'logit-{args.dimension}.progress.json',canonical(progress))
                         def commit(self,amount):lease.commit(amount)
-                    result['artifact']=plan.write(target,expression,max_characters=args.expression_bytes,artifact_lease=ProgressLease())
+                    result['artifact']=plan.write(candidate,expression,max_characters=args.expression_bytes,artifact_lease=ProgressLease())
                     result['stats']=plan.stats;result['weightReads']=model.read_weights
             result['complete']=True;result['compileSeconds']=time.monotonic()-started
-            result['parity']=verify_region(args.checkpoint,args.dimension,target,domains,random_cases=args.parity_cases)
+            result['parity']=verify_region(args.checkpoint,args.dimension,candidate,domains,random_cases=args.parity_cases)
             if result['parity']['mismatches']:raise ValueError('Bit parity failed; coordinate not admitted')
+            if result['artifact']['sha256']!=result['parity']['sha256']or digest_file(candidate)!=result['artifact']['sha256']:
+                raise ValueError('Candidate changed during parity; coordinate not admitted')
             if live_identity(args.checkpoint,args.dimension)!=identity:raise ValueError('Compiler identity changed during parity')
+            os.replace(candidate,target)
+            result['artifact']['path']=str(target);result['parity']['artifact']=str(target)
             result['parityVerified']=True
-    except ValueError as error:
+    except Exception as error:
         result['stop']=str(error)
         if not result['parityVerified']:
             target.unlink(missing_ok=True);budget.change(f'logit-{args.dimension}',0,exact=True)
         if 'budget'not in str(error).lower():result['semanticFailure']=True
     finally:
+        if plan is not None:result['stats']=plan.stats
+        if model is not None:result.update(producersCompleted=len(model.memo),weightReads=model.read_weights)
         if not result['parityVerified']:
             target.unlink(missing_ok=True);budget.change(f'logit-{args.dimension}',0,exact=True)
+        candidate.unlink(missing_ok=True)
+        result['artifactPublished']=result['parityVerified']
         result['seconds']=time.monotonic()-started
         atomic(directory/f'logit-{args.dimension}.json',canonical(result))
     return 1 if result.get('semanticFailure')else 0
@@ -134,7 +144,10 @@ def run(args):
                     if process.poll()is None and time.monotonic()-task['started']>args.worker_seconds:raise ValueError('Coordinate wall-clock budget exceeded')
                     if process.poll()is None:continue
                     task['log'].close();active.remove(task)
-                    if process.returncode:raise ValueError(f'Coordinate {task["dimension"]} failed; see its log')
+                    if process.returncode:
+                        failed=directory/f'logit-{task["dimension"]}.json'
+                        if failed.exists():report['runs'].append(json.loads(failed.read_text()))
+                        raise ValueError(f'Coordinate {task["dimension"]} failed; see its log')
                     item=json.loads((directory/f'logit-{task["dimension"]}.json').read_text());completed.append(item);report['runs'].append(item);save()
                     if not item['complete']or not item['parityVerified']:return completed
                 save()
@@ -149,6 +162,7 @@ def run(args):
                 process.wait();task['log'].close()
                 budget.change(f'logit-{task["dimension"]}',0,exact=True)
                 (directory/f'logit-{task["dimension"]}.expr').unlink(missing_ok=True)
+                (directory/f'.logit-{task["dimension"]}.pending.expr').unlink(missing_ok=True)
     try:
         first=wave([args.dimension],1)
         if not first or not first[0]['complete']or not first[0]['parityVerified']:

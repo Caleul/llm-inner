@@ -245,5 +245,77 @@
     "fullCoordinateParity": false,
     "multipleTokenParity": false,
     "fullVectorParity": false
+  },
+  "validatedLogitPublication": {
+    "baselineCommit": "5af9ea55a49807cc102987b3ecd056a2daf110e7",
+    "publicationRequiresExactParityAndMatchingHashes": true,
+    "pendingCandidatePublishedBeforeParity": false,
+    "failedParityPublishesArtifact": false,
+    "changedCandidatePublishesArtifact": false,
+    "verifierCrashPublishesArtifact": false,
+    "existingArtifactsPreserved": true,
+    "failedClaimsReleased": true,
+    "failedWorkersRetainProducerAndBranchStatistics": true,
+    "expressionAndConditionBudgetBytes": 536870912,
+    "numericalOrderChanged": false,
+    "numericalOrIntegrityChecksRelaxed": false,
+    "historicalNumericalStatesReused": false,
+    "controllerTests": {
+      "tests": 3,
+      "passed": 3
+    },
+    "affectedIntegrations": {
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0
+    },
+    "schedulingFixture": "Disposable zero-head checkpoint; not original Llama output parity",
+    "realCheckpointBoundedAttemptDispatchesRemainingLogits": false,
+    "accessBrokerObservation": {
+      "observedAtUTC": "2026-10-05T12:34:24Z",
+      "integration": "colab",
+      "tool": "colab_cli",
+      "preRequestSessionsOperationId": "0c0f8342-38ca-40a3-81e2-59bb2d75e423",
+      "preRequestActiveSessions": 0,
+      "requestedArguments": [
+        "new",
+        "-s",
+        "llm-inner-h100-512-20261005",
+        "--gpu",
+        "H100"
+      ],
+      "creationOperationId": "09090e77-c6e6-448b-9723-d9c0464e2e1e",
+      "creationTerminalExitCode": 1,
+      "creationError": "Backend rejected accelerator 'H100'. You may not have quota or entitlement for this accelerator on your account.",
+      "postRequestSessionsOperationId": "15cf7b9f-53e5-448c-9eb9-0bba3c27dbab",
+      "postRequestActiveSessions": 0,
+      "H100Allocated": false,
+      "CUDAUsed": false,
+      "remoteCPUCount": null,
+      "remoteRAMBytes": null,
+      "remoteGPUVRAMBytes": null,
+      "alternativeGPUAuthorized": false
+    },
+    "sourceArchive": {
+      "path": "/private/tmp/llm-inner-h100-512-publication-20261005.tar.gz",
+      "bytes": 294568,
+      "sha256": "f6560b0a7661dee201e2f57265bb3df10c622d77d7489995921bcc510ba9d0a1",
+      "executionDispatched": false,
+      "requestedGPU": "H100",
+      "expressionAndConditionBudgetBytes": 536870912
+    },
+    "sources": {
+      "direct_sympy_logits_run.py": "d5c31bf91d5dd72d6c8e7c68d7503cb834e066c2186afafbf685d381d9504200",
+      "direct_sympy_logits_run_test.py": "98d391fba8520eb30ee4e13dd0e894f34d6aa5182b21792b2169c2f0c4f0ab55"
+    },
+    "CUDAUsed": false,
+    "production512MiBAttemptExecuted": false,
+    "fullCoordinateArtifactEmitted": false,
+    "fullCoordinateParity": false,
+    "multipleTokenParity": false,
+    "fullVectorParity": false,
+    "realCheckpointGeneratedCandidatesAtBudgetStop": 3,
+    "realCheckpointProducersAtBudgetStop": 25
   }
 }

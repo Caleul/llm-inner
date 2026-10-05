@@ -1,0 +1,7 @@
+...
+----------------------------------------------------------------------
+Ran 3 tests in 9.647s
+
+OK
+Parallel logit controller: completeCoordinates=4 maxWorkersLive=2 bitMismatches=0 vectorCharacters=17
+Coordinate publication fault injection: parityMismatch=refused changedCandidate=refused verifierCrash=refused

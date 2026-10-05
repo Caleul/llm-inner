@@ -388,9 +388,10 @@ test('Independent logits share the expression budget and validate one coordinate
     assert.match(budget.stderr,/Ran 3 tests/);
     assert.match(budget.stderr,/OK/);
     const controller=await promisify(execFile)(python!,['helpers/direct_sympy_logits_run_test.py'],{timeout:180_000,maxBuffer:1024*1024});
-    assert.match(controller.stderr,/Ran 2 tests/);
+    assert.match(controller.stderr,/Ran 3 tests/);
     assert.match(controller.stderr,/OK/);
     if(process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT){
       assert.match(controller.stdout,/Parallel logit controller: completeCoordinates=4 maxWorkersLive=2 bitMismatches=0/);
+      assert.match(controller.stdout,/Coordinate publication fault injection: parityMismatch=refused changedCandidate=refused verifierCrash=refused/);
     }
   });

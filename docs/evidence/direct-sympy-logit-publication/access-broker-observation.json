@@ -1,0 +1,19 @@
+{
+  "observedAtUTC": "2026-10-05T12:34:24Z",
+  "integration": "colab",
+  "tool": "colab_cli",
+  "preRequestSessionsOperationId": "0c0f8342-38ca-40a3-81e2-59bb2d75e423",
+  "preRequestActiveSessions": 0,
+  "requestedArguments": ["new", "-s", "llm-inner-h100-512-20261005", "--gpu", "H100"],
+  "creationOperationId": "09090e77-c6e6-448b-9723-d9c0464e2e1e",
+  "creationTerminalExitCode": 1,
+  "creationError": "Backend rejected accelerator 'H100'. You may not have quota or entitlement for this accelerator on your account.",
+  "postRequestSessionsOperationId": "15cf7b9f-53e5-448c-9eb9-0bba3c27dbab",
+  "postRequestActiveSessions": 0,
+  "H100Allocated": false,
+  "CUDAUsed": false,
+  "remoteCPUCount": null,
+  "remoteRAMBytes": null,
+  "remoteGPUVRAMBytes": null,
+  "alternativeGPUAuthorized": false
+}
