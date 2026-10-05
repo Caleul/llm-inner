@@ -1,0 +1,208 @@
+{
+  "seconds": 124.93754225003067,
+  "candidates": [
+    {
+      "candidate": 1,
+      "bodyCharacters": 6379,
+      "guardCharacters": 1948,
+      "guardSkeletonSHA256": "91a2b1cbc26dfbeb79094d14983391c4ef5792e31450f190a3896485f75ba5bb"
+    },
+    {
+      "candidate": 2,
+      "bodyCharacters": 6555,
+      "guardCharacters": 394,
+      "guardSkeletonSHA256": "243bd7dcb07ea96671b422fa8fa907c539d4ac765f0af8c51cd38309f678314c"
+    },
+    {
+      "candidate": 3,
+      "bodyCharacters": 9035,
+      "guardCharacters": 71882,
+      "guardSkeletonSHA256": "2fdc7bb6c5ce261597d11b997eb71d1a4d0a02018cf652ead1808c854f3583db"
+    },
+    {
+      "candidate": 4,
+      "bodyCharacters": 243347,
+      "guardCharacters": 38933,
+      "guardSkeletonSHA256": "de877567ca502c8e783969e6633c9087b7384dfc315d62275a043965ce9658e5"
+    },
+    {
+      "candidate": 5,
+      "bodyCharacters": 9211,
+      "guardCharacters": 38937,
+      "guardSkeletonSHA256": "df103e450b800ae5ef181ff041395b26bbec4e0ca07931859bf6f2ad4859c997"
+    },
+    {
+      "candidate": 6,
+      "bodyCharacters": 221351,
+      "guardCharacters": 116618,
+      "guardSkeletonSHA256": "edef680c037c7a582b25d173f29decfcf6bb79d97ca12baa136256a75d4c84f6"
+    },
+    {
+      "candidate": 7,
+      "bodyCharacters": 221351,
+      "guardCharacters": 5988,
+      "guardSkeletonSHA256": "af505561ddc6631772973c0f29ee406f3625bbbb9a2ba44512e868161cb6b671"
+    },
+    {
+      "candidate": 8,
+      "bodyCharacters": 167271,
+      "guardCharacters": 305144,
+      "guardSkeletonSHA256": "babfd717eefbad4c84dd6e58b6e8731108b39ee15fd4e576f6b42725feeb7c78"
+    },
+    {
+      "candidate": 9,
+      "bodyCharacters": 83631,
+      "guardCharacters": 221537,
+      "guardSkeletonSHA256": "75e8534fd18c691362ed115daf133a20e1d74dba7a36c44c260ce9ff741c1c58"
+    },
+    {
+      "candidate": 10,
+      "bodyCharacters": 167271,
+      "guardCharacters": 221554,
+      "guardSkeletonSHA256": "16f25d65c3b9e9a434bf30c4645b09e5150112ec2fb2816c0630384124e05996"
+    },
+    {
+      "candidate": 11,
+      "bodyCharacters": 83631,
+      "guardCharacters": 137947,
+      "guardSkeletonSHA256": "6799f2ae645a3fa46512c820f199d2dbca58a6ad2097f3dada2202a9ade27e2c"
+    },
+    {
+      "candidate": 12,
+      "bodyCharacters": 167271,
+      "guardCharacters": 305199,
+      "guardSkeletonSHA256": "7de972da64cc263610a2813ea45a1a1101553c2226f736020cfd8a520e2ecffd"
+    },
+    {
+      "candidate": 13,
+      "bodyCharacters": 83631,
+      "guardCharacters": 221592,
+      "guardSkeletonSHA256": "40ffe7a7fbff64c3b7d15bde57e2f461a4a0ba8cd9d92632050bacbd7e0e5d5e"
+    },
+    {
+      "candidate": 14,
+      "bodyCharacters": 14893667,
+      "guardCharacters": 7584807,
+      "guardSkeletonSHA256": "5a1b94f1c2ae59b87535d016b930f3325e41caa5135cf56d0c4da39f41b992b0"
+    },
+    {
+      "candidate": 15,
+      "bodyCharacters": 7446829,
+      "guardCharacters": 138002,
+      "guardSkeletonSHA256": "66661922902e0ed4d71f3a4c7e1e7b18c95b8ab072689e2035b746a796b9b196"
+    },
+    {
+      "candidate": 16,
+      "bodyCharacters": 167271,
+      "guardCharacters": 221550,
+      "guardSkeletonSHA256": "c23bea39a27c2b0f6ad9da72391e3ef824f488e8b6c9bb17617214eac3d0768a"
+    },
+    {
+      "candidate": 17,
+      "bodyCharacters": 83631,
+      "guardCharacters": 137943,
+      "guardSkeletonSHA256": "4152795ec97e840c6cccb5d7382d647a35f8d40b2990cec6d202d2a1bc3be4bd"
+    },
+    {
+      "candidate": 18,
+      "bodyCharacters": 10881187,
+      "guardCharacters": 5494918,
+      "guardSkeletonSHA256": "f48f1481ad26454aa9d82287d6da9529f7060d3837a0a07a3f0afb8025eef108"
+    },
+    {
+      "candidate": 19,
+      "bodyCharacters": 5440589,
+      "guardCharacters": 54353,
+      "guardSkeletonSHA256": "0ad22487aab0f3cea491d24bd33c1ffb59a54fd85d67029cd244f83c21e21b7f"
+    },
+    {
+      "candidate": 20,
+      "bodyCharacters": 114431,
+      "guardCharacters": 429871,
+      "guardSkeletonSHA256": "fa1435efac3fdabb599a77b6a928266e49466287903d1fe521c3a4b897258c04"
+    },
+    {
+      "candidate": 21,
+      "bodyCharacters": 57211,
+      "guardCharacters": 372684,
+      "guardSkeletonSHA256": "f93a14c461c6ed7d81c7541c50f04ffa7686c5af39a0052312d55d093f3a24f2"
+    },
+    {
+      "candidate": 22,
+      "bodyCharacters": 16141867,
+      "guardCharacters": 8386419,
+      "guardSkeletonSHA256": "da15e6b1a7e4e4b0055d66f346e66a88ad1e89c42ef308aaffddec7ebdc23b22"
+    },
+    {
+      "candidate": 23,
+      "bodyCharacters": 8070929,
+      "guardCharacters": 315514,
+      "guardSkeletonSHA256": "c6cdbe9f6cb5c1abbf005c804ec26a670d67ec686656e750e8eba9a69a9c970f"
+    },
+    {
+      "candidate": 24,
+      "bodyCharacters": 81677811,
+      "guardCharacters": 55749665,
+      "guardSkeletonSHA256": "b9153fd61495920a31d0b69bec5645975c230a775be296fed442aed90b223be3"
+    },
+    {
+      "candidate": 25,
+      "bodyCharacters": 40838901,
+      "guardCharacters": 14910788,
+      "guardSkeletonSHA256": "7a997c7a16b244b1aa39369ba77d40f95347138d5ad6fd1b86c3f43efc8570f3"
+    },
+    {
+      "candidate": 26,
+      "bodyCharacters": 85073063,
+      "guardCharacters": 55372214,
+      "guardSkeletonSHA256": "c100d8ee6a861a1a37c592514593f9ce2dbc5e3014b8a8a73cf6f62da24ff1d8"
+    },
+    {
+      "candidate": 27,
+      "bodyCharacters": 42536527,
+      "guardCharacters": 12835711,
+      "guardSkeletonSHA256": "cc2df96be2413cfe96bda151dc3930144d73baa23f633f9b0133c967ba2060af"
+    }
+  ],
+  "stats": {
+    "splitContexts": 41,
+    "completedPaths": 27,
+    "contradictions": 10,
+    "selectorSelections": 966,
+    "CASPasses": 26288,
+    "numericArithmeticEliminated": 6614,
+    "numericRecipeAttempts": 1344,
+    "numericRecipeAdmissions": 598,
+    "numericRecipeBudgetStops": 0,
+    "coupledProjectionContradictions": 0,
+    "rmsBranchRefinements": 1336,
+    "rmsConstantCells": 31,
+    "orderedGuardEliminations": 79,
+    "guardProofPasses": 258,
+    "guardProofBudgetStops": 0,
+    "numericGuardImplications": 343,
+    "recipeConstraintRefinements": 15860,
+    "recipeConstraintPasses": 972,
+    "backwardRoundingSteps": 90400,
+    "prospectiveGuardEliminations": 36,
+    "guardIdentityCacheHits": 220,
+    "backwardRMSVectorRefinements": 345,
+    "selectedRecipeIdentities": 36,
+    "rmsProjectionSignAdmissions": 160,
+    "selectedSignMaskEliminations": 16,
+    "prefixRecipeRefinements": 32
+  },
+  "completeCoordinate": false,
+  "dispatchTimings": {
+    "uncachedSeconds": 14.612588126095943,
+    "cachedSeconds": 4.394963001075666
+  },
+  "uncachedStats": {
+    "guardProofPasses": 258,
+    "guardProofBudgetStops": 0,
+    "orderedGuardEliminations": 79
+  },
+  "cacheResidentCharacterCharge": 645904,
+  "cacheCharacterBudget": 8388608,
+  "pathsSourceSHA256": "13f0e1a8a5b0eb58052e22bd72e530f121dfaea35dcac1df91ae4dc4e2cda0ab"
+}

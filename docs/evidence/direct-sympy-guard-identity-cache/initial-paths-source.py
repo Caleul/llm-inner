@@ -197,10 +197,7 @@ class OrderedGuardPruner:
                 self.cache_literal(literal,atom);return atom
         if self.atoms>=self.max_atoms:return None
         atom=self.sp.Symbol('GuardProof'+str(self.atoms));self.atoms+=1
-        # Retain the snapshot that was actually hashed. A reassigned caller
-        # view must not retroactively change a prior byte-identity witness.
-        frozen=Guard(copy.copy(guard.view),guard.expression,guard.truth)
-        bucket.append((frozen,atom));self.cache_literal(literal,atom);return atom
+        bucket.append((guard,atom));self.cache_literal(literal,atom);return atom
 
     def prune(self,arm):
         sp=self.sp;original=[];retained=[];prefix=self.remaining;eliminated=0

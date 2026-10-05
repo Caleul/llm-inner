@@ -1,0 +1,11 @@
+✔ Stabilized branches share decisions, preserve lazy guards and emit flat input-only expressions (6350.556833ms)
+✔ Identical emitted coordinate bodies coalesce without losing coverage, signed zeros or lazy guards (1709.138375ms)
+✔ Independent logits share the expression budget and validate one coordinate before memory-admitted parallel workers (14079.633209ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 22194.066166

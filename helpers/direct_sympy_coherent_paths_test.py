@@ -346,6 +346,22 @@ class CoherentPathTests(unittest.TestCase):
             pruner=OrderedGuardPruner(stats())
             self.assertNotEqual(pruner.atom(a),pruner.atom(b))
             self.assertEqual(pruner.atom(a),pruner.atom(Guard(view,a.expression,False)))
+            with patch.object(view,'chunks',side_effect=AssertionError('Repeated immutable literal must not expand')):
+                self.assertEqual(pruner.atom(a),pruner.atom(Guard(view,a.expression,False)))
+        changing=fixture(['X1*0.5']);mutable_view=LiteralView(changing,changing.definitions)
+        pruner=OrderedGuardPruner(stats());guard=Guard(mutable_view,'CompileValue0()>0.0',True)
+        with patch('direct_sympy_coherent_paths.hashlib.sha256',return_value=CollidingDigest()):
+            original=pruner.atom(guard)
+            mutable_view.definitions=('X2*0.5',)
+            self.assertNotEqual(original,pruner.atom(guard))
+        uncached=OrderedGuardPruner(stats(),max_cached_characters=0)
+        self.assertEqual(uncached.atom(a),uncached.atom(a))
+        self.assertFalse(uncached.literal_atoms)
+        bounded=OrderedGuardPruner(stats(),max_cached_characters=len(a.expression))
+        bounded.atom(a);bounded.atom(b)
+        self.assertLessEqual(bounded.literal_atom_characters,bounded.max_cached_characters)
+        self.assertEqual(len(bounded.literal_atoms),1)
+
         own=stats();pruner=OrderedGuardPruner(own,max_atoms=1)
         first=PathArm(view,'1.0',(a,));pruner.prune(first)
         next_arm=PathArm(view,'2.0',(Guard(view,a.expression,False),b))
