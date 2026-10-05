@@ -1,0 +1,525 @@
+{
+  "baselineCommit": "1bfe9530df58a942d202c081c82b373704f20191",
+  "compilerIdentity": {
+    "version": 1,
+    "dimension": 2,
+    "position": 0,
+    "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+    "sympy": "1.14.0",
+    "platform": "macOS-26.7.1-arm64-arm-64bit",
+    "byteOrder": "little",
+    "referenceBackend": {
+      "name": "torch CPU",
+      "version": "2.12.1",
+      "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+      "capability": "DEFAULT"
+    },
+    "checkpoint": {
+      "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+      "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+    },
+    "sources": {
+      "direct_sympy_arithmetic.py": "b67816f4954a9ef6877bc0b549044c3f2bf6878451f5b4a94fa13f0237072f6d",
+      "direct_sympy_checkpoint.py": "889ecefef40b7cbf1b87452e92decda5837ab9d01bc61affcb0274c045bac146",
+      "direct_sympy_coherent_paths.py": "ee86567bcee1a2946181945bac186a7d40aafbe143206e921c0fa39b08092abb",
+      "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+      "direct_sympy_conversions.py": "77ac9f3e14c873f2ac4c53e082db78f03596f6b985ee6286f39fc5bb83b167c2",
+      "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+      "direct_sympy_layer_bounds.py": "c1a93f951ff5ad5af8510671e42ac8c05d73c246dfb2460bacd43cf0e3774dae",
+      "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+      "direct_sympy_partition_run.py": "9985ec29e19e73f59ab0691be88f8278966d64fe2daaaf5fab77135901a66482",
+      "direct_sympy_projection_constraints.py": "568fb807619f566c8da2a1df85407455cde84164e1f9fd2ccca3fd69ee88189f",
+      "direct_sympy_recipe_bounds.py": "c75607053ee144fd76d591530dba9a06d28634a6bdc96978b0894ecac76621ae",
+      "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+      "direct_sympy_savepoints.py": "064a2a6ae267ac4338ae6bb102a5ddb2272869d63f0ff857a1d0116313de4cb7",
+      "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+      "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+      "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+      "direct_sympy_sqrt.py": "d6ddca4aeeb43e3d46e1db0a9ab1210430bca02cc00ff61fa745fbd6621a3b0d",
+      "direct_sympy_streaming_literals.py": "7310a1dd1a7ee97bcab7f792859a67cf02ea075e2e72c546b92231687ae0c9d6",
+      "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+      "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+      "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+      "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+    }
+  },
+  "regionalRootCertificateCases": 19398662,
+  "regionalRootEmittedScaleCases": 67895912,
+  "rootBitMismatches": 0,
+  "rootMidpoints": 0,
+  "noNewRuntimeKernelBranch": true,
+  "universalFallbackRetained": true,
+  "numericalOrderChanged": false,
+  "regionalCoordinatePreviousCharacters": 268753,
+  "regionalCoordinateCurrentCharacters": 229153,
+  "regionalCoordinateParityCases": 66049,
+  "regionalCoordinateBitMismatches": 0,
+  "regionalArtifact": {
+    "path": "/Users/caleul/Documents/Work/Projects/llm-inner/docs/evidence/direct-sympy-fixed-root-scale/smoke.expr",
+    "characters": 229153,
+    "sha256": "0923bc7f44ac34757842435c141df012634b6e1692d70429d60c469d3c81c652",
+    "paths": 2,
+    "compilerAliases": 0,
+    "complete": true
+  },
+  "regionalInputDomains": {
+    "X1": [
+      10240,
+      10496
+    ],
+    "X2": [
+      10240,
+      10496
+    ]
+  },
+  "sameOrderedBranchSkeletons": 27,
+  "candidateExpansionComparisons": [
+    {
+      "candidate": 1,
+      "previousBodyCharacters": 6379,
+      "currentBodyCharacters": 6379,
+      "previousGuardCharacters": 1948,
+      "currentGuardCharacters": 1948,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 2,
+      "previousBodyCharacters": 6555,
+      "currentBodyCharacters": 6555,
+      "previousGuardCharacters": 394,
+      "currentGuardCharacters": 394,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 3,
+      "previousBodyCharacters": 9035,
+      "currentBodyCharacters": 9035,
+      "previousGuardCharacters": 85954,
+      "currentGuardCharacters": 77722,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 4,
+      "previousBodyCharacters": 294255,
+      "currentBodyCharacters": 264351,
+      "previousGuardCharacters": 46141,
+      "currentGuardCharacters": 41941,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 5,
+      "previousBodyCharacters": 9211,
+      "currentBodyCharacters": 9211,
+      "previousGuardCharacters": 46145,
+      "currentGuardCharacters": 41945,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 6,
+      "previousBodyCharacters": 267683,
+      "currentBodyCharacters": 240467,
+      "previousGuardCharacters": 140128,
+      "currentGuardCharacters": 126352,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 7,
+      "previousBodyCharacters": 267683,
+      "currentBodyCharacters": 240467,
+      "previousGuardCharacters": 6332,
+      "currentGuardCharacters": 6164,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 8,
+      "previousBodyCharacters": 202163,
+      "currentBodyCharacters": 181667,
+      "previousGuardCharacters": 367836,
+      "currentGuardCharacters": 331044,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 9,
+      "previousBodyCharacters": 101077,
+      "currentBodyCharacters": 90829,
+      "previousGuardCharacters": 266783,
+      "currentGuardCharacters": 240239,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 10,
+      "previousBodyCharacters": 202163,
+      "currentBodyCharacters": 181667,
+      "previousGuardCharacters": 266800,
+      "currentGuardCharacters": 240256,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 11,
+      "previousBodyCharacters": 101077,
+      "currentBodyCharacters": 90829,
+      "previousGuardCharacters": 165747,
+      "currentGuardCharacters": 149451,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 12,
+      "previousBodyCharacters": 202163,
+      "currentBodyCharacters": 181667,
+      "previousGuardCharacters": 367891,
+      "currentGuardCharacters": 331099,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 13,
+      "previousBodyCharacters": 101077,
+      "currentBodyCharacters": 90829,
+      "previousGuardCharacters": 266838,
+      "currentGuardCharacters": 240294,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 14,
+      "previousBodyCharacters": 17994479,
+      "currentBodyCharacters": 16173023,
+      "previousGuardCharacters": 9163013,
+      "currentGuardCharacters": 8235989,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 15,
+      "previousBodyCharacters": 8997235,
+      "currentBodyCharacters": 8086507,
+      "previousGuardCharacters": 165802,
+      "currentGuardCharacters": 149506,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 16,
+      "previousBodyCharacters": 202163,
+      "currentBodyCharacters": 181667,
+      "previousGuardCharacters": 266796,
+      "currentGuardCharacters": 240252,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 17,
+      "previousBodyCharacters": 101077,
+      "currentBodyCharacters": 90829,
+      "previousGuardCharacters": 165743,
+      "currentGuardCharacters": 149447,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 18,
+      "previousBodyCharacters": 13146879,
+      "currentBodyCharacters": 11815983,
+      "previousGuardCharacters": 6638118,
+      "currentGuardCharacters": 5966622,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 19,
+      "previousBodyCharacters": 6573435,
+      "currentBodyCharacters": 5907987,
+      "previousGuardCharacters": 64707,
+      "currentGuardCharacters": 58659,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 20,
+      "previousBodyCharacters": 137883,
+      "currentBodyCharacters": 124107,
+      "previousGuardCharacters": 505849,
+      "currentGuardCharacters": 453349,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 21,
+      "previousBodyCharacters": 68937,
+      "currentBodyCharacters": 62049,
+      "previousGuardCharacters": 436936,
+      "currentGuardCharacters": 391324,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 22,
+      "previousBodyCharacters": 19448599,
+      "currentBodyCharacters": 17506183,
+      "previousGuardCharacters": 10092311,
+      "currentGuardCharacters": 9082379,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 23,
+      "previousBodyCharacters": 9724295,
+      "currentBodyCharacters": 8753087,
+      "previousGuardCharacters": 368040,
+      "currentGuardCharacters": 329316,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 24,
+      "previousBodyCharacters": 96061439,
+      "currentBodyCharacters": 85416287,
+      "previousGuardCharacters": 65564183,
+      "currentGuardCharacters": 58300703,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 25,
+      "previousBodyCharacters": 48030715,
+      "currentBodyCharacters": 42708139,
+      "previousGuardCharacters": 17533492,
+      "currentGuardCharacters": 15592588,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 26,
+      "previousBodyCharacters": 100045755,
+      "currentBodyCharacters": 88956915,
+      "previousGuardCharacters": 65114630,
+      "currentGuardCharacters": 57899534,
+      "sameOrderedGuardSkeleton": true
+    },
+    {
+      "candidate": 27,
+      "previousBodyCharacters": 50022873,
+      "currentBodyCharacters": 44478453,
+      "previousGuardCharacters": 15091781,
+      "currentGuardCharacters": 13421105,
+      "sameOrderedGuardSkeleton": true
+    }
+  ],
+  "initialFocusedIntegrations": {
+    "tests": 40,
+    "pass": 39,
+    "fail": 1,
+    "skipped": 0
+  },
+  "affectedIntegrationsAfterSizeAssertionUpdate": {
+    "tests": 2,
+    "pass": 2,
+    "fail": 0,
+    "skipped": 0
+  },
+  "initialFailureWasStaleSizeAssertion": true,
+  "portableSuite": {
+    "tests": 620,
+    "pass": 571,
+    "fail": 0,
+    "skipped": 49
+  },
+  "wholeDomainAttempt": {
+    "expressionAndConditionBudgetBytes": 536870912,
+    "measuredRAMBudgetBytes": 5926236979,
+    "peakObservedRSSBytes": 551059456,
+    "seconds": 161.92777441703947,
+    "workerExitCode": 0,
+    "stop": null,
+    "coordinate": {
+      "artifactPublished": false,
+      "compilerIdentity": {
+        "byteOrder": "little",
+        "checkpoint": {
+          "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+          "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+        },
+        "dimension": 2,
+        "platform": "macOS-26.7.1-arm64-arm-64bit",
+        "position": 0,
+        "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+        "referenceBackend": {
+          "capability": "DEFAULT",
+          "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+          "name": "torch CPU",
+          "version": "2.12.1"
+        },
+        "sources": {
+          "direct_sympy_arithmetic.py": "b67816f4954a9ef6877bc0b549044c3f2bf6878451f5b4a94fa13f0237072f6d",
+          "direct_sympy_checkpoint.py": "889ecefef40b7cbf1b87452e92decda5837ab9d01bc61affcb0274c045bac146",
+          "direct_sympy_coherent_paths.py": "ee86567bcee1a2946181945bac186a7d40aafbe143206e921c0fa39b08092abb",
+          "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+          "direct_sympy_conversions.py": "77ac9f3e14c873f2ac4c53e082db78f03596f6b985ee6286f39fc5bb83b167c2",
+          "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+          "direct_sympy_layer_bounds.py": "c1a93f951ff5ad5af8510671e42ac8c05d73c246dfb2460bacd43cf0e3774dae",
+          "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+          "direct_sympy_partition_run.py": "9985ec29e19e73f59ab0691be88f8278966d64fe2daaaf5fab77135901a66482",
+          "direct_sympy_projection_constraints.py": "568fb807619f566c8da2a1df85407455cde84164e1f9fd2ccca3fd69ee88189f",
+          "direct_sympy_recipe_bounds.py": "c75607053ee144fd76d591530dba9a06d28634a6bdc96978b0894ecac76621ae",
+          "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+          "direct_sympy_savepoints.py": "064a2a6ae267ac4338ae6bb102a5ddb2272869d63f0ff857a1d0116313de4cb7",
+          "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+          "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+          "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+          "direct_sympy_sqrt.py": "d6ddca4aeeb43e3d46e1db0a9ab1210430bca02cc00ff61fa745fbd6621a3b0d",
+          "direct_sympy_streaming_literals.py": "7310a1dd1a7ee97bcab7f792859a67cf02ea075e2e72c546b92231687ae0c9d6",
+          "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+          "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+          "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+          "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+        },
+        "sympy": "1.14.0",
+        "version": 1
+      },
+      "complete": false,
+      "dimension": 2,
+      "parityVerified": false,
+      "producersCompleted": 25,
+      "seconds": 158.9418605840183,
+      "stats": {
+        "CASPasses": 28797,
+        "backwardRMSVectorRefinements": 385,
+        "backwardRoundingSteps": 104130,
+        "completedPaths": 28,
+        "contradictions": 12,
+        "coupledProjectionContradictions": 0,
+        "guardProofBudgetStops": 0,
+        "guardProofPasses": 273,
+        "lastArm": {
+          "bodyCharacters": 63969293,
+          "decisions": 13,
+          "dependencyGrowth": [
+            {
+              "definition": 0,
+              "expandedCharacters": 169,
+              "storedCharacters": 167
+            },
+            {
+              "definition": 1,
+              "expandedCharacters": 1126,
+              "storedCharacters": 508
+            },
+            {
+              "definition": 2,
+              "expandedCharacters": 1264,
+              "storedCharacters": 151
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 1214,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 8,
+              "expandedCharacters": 2616,
+              "storedCharacters": 166
+            },
+            {
+              "definition": 11,
+              "expandedCharacters": 2613,
+              "storedCharacters": 163
+            },
+            {
+              "definition": 12,
+              "expandedCharacters": 10789,
+              "storedCharacters": 391
+            },
+            {
+              "definition": 14,
+              "expandedCharacters": 10793,
+              "storedCharacters": 395
+            },
+            {
+              "definition": 16,
+              "expandedCharacters": 21747,
+              "storedCharacters": 195
+            },
+            {
+              "definition": 17,
+              "expandedCharacters": 109240,
+              "storedCharacters": 583
+            },
+            {
+              "definition": 18,
+              "expandedCharacters": 120115,
+              "storedCharacters": 116
+            },
+            {
+              "definition": 20,
+              "expandedCharacters": 120119,
+              "storedCharacters": 116
+            },
+            {
+              "definition": 24,
+              "expandedCharacters": 480918,
+              "storedCharacters": 512
+            },
+            {
+              "definition": 25,
+              "expandedCharacters": 240364,
+              "storedCharacters": 160
+            },
+            {
+              "definition": 27,
+              "expandedCharacters": 721348,
+              "storedCharacters": 96
+            },
+            {
+              "definition": 29,
+              "expandedCharacters": 1453711,
+              "storedCharacters": 354
+            },
+            {
+              "definition": 31,
+              "expandedCharacters": 1453714,
+              "storedCharacters": 353
+            },
+            {
+              "definition": 33,
+              "expandedCharacters": 2907590,
+              "storedCharacters": 195
+            },
+            {
+              "definition": 34,
+              "expandedCharacters": 14538455,
+              "storedCharacters": 583
+            },
+            {
+              "definition": 35,
+              "expandedCharacters": 15992252,
+              "storedCharacters": 116
+            },
+            {
+              "definition": 37,
+              "expandedCharacters": 15992255,
+              "storedCharacters": 116
+            },
+            {
+              "definition": 39,
+              "expandedCharacters": 63969293,
+              "storedCharacters": 341
+            }
+          ],
+          "guardCharacters": 41998320
+        },
+        "numericArithmeticEliminated": 7103,
+        "numericGuardImplications": 343,
+        "numericRecipeAdmissions": 650,
+        "numericRecipeAttempts": 1469,
+        "numericRecipeBudgetStops": 0,
+        "orderedGuardEliminations": 81,
+        "prefixRecipeRefinements": 64,
+        "prospectiveGuardEliminations": 36,
+        "recipeConstraintBudgetStops": 1,
+        "recipeConstraintPasses": 1114,
+        "recipeConstraintRefinements": 18253,
+        "rmsBranchRefinements": 1461,
+        "rmsConstantCells": 31,
+        "rmsProjectionSignAdmissions": 188,
+        "selectedRecipeIdentities": 36,
+        "selectedSignMaskEliminations": 16,
+        "selectorSelections": 1062,
+        "splitContexts": 44
+      },
+      "stop": "Flat artifact budget exceeded; no complete result",
+      "weightReads": 2084
+    },
+    "previousControllerAdmissionStop": "Conservative 16xCAS reservation exceeded 80% available RAM; no worker dispatched by controller"
+  },
+  "fullCoordinateArtifactEmitted": false,
+  "fullCoordinateParity": false,
+  "multipleTokenParity": false,
+  "fullVectorParity": false,
+  "historicalNumericalStatesReused": false
+}

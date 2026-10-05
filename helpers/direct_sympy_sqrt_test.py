@@ -132,6 +132,7 @@ uint64_t normalized=0;for(unsigned m=262144;m<=524288;m++)for(unsigned p=0;p<2;p
             session=ConversionSession(StringCompiler(),{'X1':Domain(low,high,max(-149,exponent-23),True)})
             session.f32_values.add(session.key(syntax('X1')))
             expression=session.close('R32(sqrt(X1))')
+            self.assertNotIn('Bits64(X1)',expression)
             if exponent!=-149:self.assertEqual(expression.count('X1'),5)
             expressions.append((exponent,expression))
         with tempfile.TemporaryDirectory() as directory:

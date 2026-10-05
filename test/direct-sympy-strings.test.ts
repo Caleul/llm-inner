@@ -380,7 +380,7 @@ test('Projection sign simplification requires a strict branch error margin and p
     assert.match(stdout,/RMS projection sign parity: cases=37838852 selected=36904348 mismatches=0/);
     if(process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT){
       assert.match(stdout,/Selected checkpoint projection parity: cases=135184 accepted=117379 mismatches=0/);
-      assert.match(stdout,/Selected projection replacement: admittedCharacters=107 fallbackCharacters=8836 emittedCharacters=62059/);
+      assert.match(stdout,/Selected projection replacement: admittedCharacters=107 fallbackCharacters=8836 emittedCharacters=61355/);
     }
   });
 

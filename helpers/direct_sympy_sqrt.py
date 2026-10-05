@@ -75,6 +75,12 @@ def expand(source,session):
     bounds=session.bounds(syntax(source))
     first=math.frexp(bounds.minimum)[1]-1;last=math.frexp(bounds.maximum)[1]-1
     constant_scale=first==last
+    if constant_scale:
+        # Widened finite F32 (including subnormals) times this exact power
+        # of two is the same [1,2) mantissa as the word extraction above.
+        # F32 exponents fit safely in F64, so this operation neither rounds
+        # nor overflows/underflows. Keep the original rational order.
+        m='X999999997' if first==0 else f'(X999999997 * 2**({-first}))'
     kernel=certified_kernel(bounds.minimum,bounds.maximum)
     center,constant,fractions=(kernel[1:] if kernel is not None else (1.5,CONSTANT_TERM,PARTIAL_FRACTIONS))
     z=f'(({m}) - {center!r})'
