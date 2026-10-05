@@ -1,0 +1,776 @@
+{
+  "accumulatedArtifactCharacters": 46924,
+  "attempts": [
+    {
+      "artifact": {
+        "characters": 4861,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "/private/tmp/llm-inner-verified-corner-state-20261005/region-3213bda4ceff9af115ff9967d9b7714cff3e69523d4832c014447d63ce2abd87.expr",
+        "paths": 3,
+        "sha256": "e760df01524dd7ec3b9d5160203bb5feedded4498e9cdc6f9bc19aaa6fc0f6f0"
+      },
+      "complete": true,
+      "elidedUpdates": 4,
+      "inputDomains": {
+        "X1": [
+          -31743,
+          -16385
+        ],
+        "X2": [
+          -31743,
+          -15361
+        ]
+      },
+      "logicalCharacters": 27910,
+      "parity": {
+        "artifact": "/private/tmp/llm-inner-verified-corner-state-20261005/region-3213bda4ceff9af115ff9967d9b7714cff3e69523d4832c014447d63ce2abd87.expr",
+        "cases": 8196,
+        "characters": 4861,
+        "dimension": 2,
+        "firstMismatches": [],
+        "inputCorpusVersion": 2,
+        "mismatches": 0,
+        "position": 0,
+        "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity.",
+        "sha256": "e760df01524dd7ec3b9d5160203bb5feedded4498e9cdc6f9bc19aaa6fc0f6f0",
+        "tokens": 1,
+        "verifierSHA256": "a66f4633278d38cd9d270a23fdb4e22443613f59e6768091f2418ac65016c085"
+      },
+      "paths": {
+        "CASPasses": 287,
+        "backwardRoundingSteps": 225,
+        "completedPaths": 3,
+        "contradictions": 0,
+        "coupledProjectionContradictions": 0,
+        "guardIdentityCacheHits": 3,
+        "guardProofBudgetStops": 0,
+        "guardProofPasses": 5,
+        "lastArm": {
+          "bodyCharacters": 4413,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 1,
+              "expandedCharacters": 2051,
+              "storedCharacters": 2049
+            },
+            {
+              "definition": 2,
+              "expandedCharacters": 2139,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 3,
+              "expandedCharacters": 2139,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 4413,
+              "storedCharacters": 163
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 26,
+        "numericGuardImplications": 0,
+        "numericRecipeAdmissions": 4,
+        "numericRecipeAttempts": 15,
+        "numericRecipeBudgetStops": 0,
+        "orderedGuardEliminations": 3,
+        "prospectiveGuardEliminations": 1,
+        "recipeConstraintPasses": 15,
+        "recipeConstraintRefinements": 51,
+        "rmsBranchRefinements": 12,
+        "rmsConstantCells": 3,
+        "rmsProjectionSignAdmissions": 4,
+        "selectorSelections": 5,
+        "splitContexts": 2
+      },
+      "producers": 9,
+      "region": "00",
+      "seconds": 1.7101361250388436,
+      "selectionOrder": "update-cells",
+      "storedCharacters": 3449,
+      "workerSeconds": 2.60635945800459
+    },
+    {
+      "artifact": {
+        "characters": 18073,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "/private/tmp/llm-inner-verified-corner-state-20261005/region-5eeda607536550e84c762f22e47cdc2d828856c8efd4367e7f0669c78a44d6fc.expr",
+        "paths": 4,
+        "sha256": "85d3404a58d5e81f44f8d01a1d60a465966fb66a1f69450f1261abce36ecb977"
+      },
+      "complete": true,
+      "elidedUpdates": 4,
+      "inputDomains": {
+        "X1": [
+          -31743,
+          -16385
+        ],
+        "X2": [
+          15361,
+          31743
+        ]
+      },
+      "logicalCharacters": 37048,
+      "parity": {
+        "artifact": "/private/tmp/llm-inner-verified-corner-state-20261005/region-5eeda607536550e84c762f22e47cdc2d828856c8efd4367e7f0669c78a44d6fc.expr",
+        "cases": 8196,
+        "characters": 18073,
+        "dimension": 2,
+        "firstMismatches": [],
+        "inputCorpusVersion": 2,
+        "mismatches": 0,
+        "position": 0,
+        "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity.",
+        "sha256": "85d3404a58d5e81f44f8d01a1d60a465966fb66a1f69450f1261abce36ecb977",
+        "tokens": 1,
+        "verifierSHA256": "a66f4633278d38cd9d270a23fdb4e22443613f59e6768091f2418ac65016c085"
+      },
+      "paths": {
+        "CASPasses": 481,
+        "backwardRoundingSteps": 390,
+        "completedPaths": 4,
+        "contradictions": 0,
+        "coupledProjectionContradictions": 0,
+        "guardIdentityCacheHits": 6,
+        "guardProofBudgetStops": 0,
+        "guardProofPasses": 9,
+        "lastArm": {
+          "bodyCharacters": 4413,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 1,
+              "expandedCharacters": 2051,
+              "storedCharacters": 2049
+            },
+            {
+              "definition": 2,
+              "expandedCharacters": 2139,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 3,
+              "expandedCharacters": 2139,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 4413,
+              "storedCharacters": 163
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 43,
+        "numericGuardImplications": 0,
+        "numericRecipeAdmissions": 4,
+        "numericRecipeAttempts": 24,
+        "numericRecipeBudgetStops": 0,
+        "orderedGuardEliminations": 6,
+        "recipeConstraintPasses": 26,
+        "recipeConstraintRefinements": 72,
+        "rmsBranchRefinements": 19,
+        "rmsConstantCells": 3,
+        "rmsProjectionSignAdmissions": 4,
+        "selectorSelections": 10,
+        "splitContexts": 3
+      },
+      "producers": 9,
+      "region": "011",
+      "seconds": 2.746727958030533,
+      "selectionOrder": "update-cells",
+      "storedCharacters": 3677,
+      "workerSeconds": 3.6053682090132497
+    },
+    {
+      "artifact": {
+        "characters": 18073,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "/private/tmp/llm-inner-verified-corner-state-20261005/region-aaebb3f29f67416bbd6d2cf28fffd40ff2cf645fec1bf1352c4c0af241186aee.expr",
+        "paths": 4,
+        "sha256": "50b8150184d54af1f06bbcafb7b74fbff3cf0317370c3cc7d09c8012dbdbcc5c"
+      },
+      "complete": true,
+      "elidedUpdates": 4,
+      "inputDomains": {
+        "X1": [
+          16385,
+          31743
+        ],
+        "X2": [
+          -31743,
+          -15361
+        ]
+      },
+      "logicalCharacters": 37048,
+      "parity": {
+        "artifact": "/private/tmp/llm-inner-verified-corner-state-20261005/region-aaebb3f29f67416bbd6d2cf28fffd40ff2cf645fec1bf1352c4c0af241186aee.expr",
+        "cases": 8196,
+        "characters": 18073,
+        "dimension": 2,
+        "firstMismatches": [],
+        "inputCorpusVersion": 2,
+        "mismatches": 0,
+        "position": 0,
+        "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity.",
+        "sha256": "50b8150184d54af1f06bbcafb7b74fbff3cf0317370c3cc7d09c8012dbdbcc5c",
+        "tokens": 1,
+        "verifierSHA256": "a66f4633278d38cd9d270a23fdb4e22443613f59e6768091f2418ac65016c085"
+      },
+      "paths": {
+        "CASPasses": 481,
+        "backwardRoundingSteps": 390,
+        "completedPaths": 4,
+        "contradictions": 0,
+        "coupledProjectionContradictions": 0,
+        "guardIdentityCacheHits": 6,
+        "guardProofBudgetStops": 0,
+        "guardProofPasses": 9,
+        "lastArm": {
+          "bodyCharacters": 4413,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 1,
+              "expandedCharacters": 2051,
+              "storedCharacters": 2049
+            },
+            {
+              "definition": 2,
+              "expandedCharacters": 2139,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 3,
+              "expandedCharacters": 2139,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 4413,
+              "storedCharacters": 163
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 43,
+        "numericGuardImplications": 0,
+        "numericRecipeAdmissions": 4,
+        "numericRecipeAttempts": 24,
+        "numericRecipeBudgetStops": 0,
+        "orderedGuardEliminations": 6,
+        "recipeConstraintPasses": 26,
+        "recipeConstraintRefinements": 72,
+        "rmsBranchRefinements": 19,
+        "rmsConstantCells": 3,
+        "rmsProjectionSignAdmissions": 4,
+        "selectorSelections": 10,
+        "splitContexts": 3
+      },
+      "producers": 9,
+      "region": "110",
+      "seconds": 2.3847075419616885,
+      "selectionOrder": "update-cells",
+      "storedCharacters": 3677,
+      "workerSeconds": 3.250493249972351
+    },
+    {
+      "artifact": {
+        "characters": 4863,
+        "compilerAliases": 0,
+        "complete": true,
+        "path": "/private/tmp/llm-inner-verified-corner-state-20261005/region-f941434bf055ca70623cb119a75344a19acb49b2759de221e7c129d839675591.expr",
+        "paths": 3,
+        "sha256": "fd795dce19ee0c829725e2074a921bc4f2250b374f5c0afaecd8cfbc28e5119b"
+      },
+      "complete": true,
+      "elidedUpdates": 4,
+      "inputDomains": {
+        "X1": [
+          16385,
+          31743
+        ],
+        "X2": [
+          15361,
+          31743
+        ]
+      },
+      "logicalCharacters": 27770,
+      "parity": {
+        "artifact": "/private/tmp/llm-inner-verified-corner-state-20261005/region-f941434bf055ca70623cb119a75344a19acb49b2759de221e7c129d839675591.expr",
+        "cases": 8196,
+        "characters": 4863,
+        "dimension": 2,
+        "firstMismatches": [],
+        "inputCorpusVersion": 2,
+        "mismatches": 0,
+        "position": 0,
+        "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity.",
+        "sha256": "fd795dce19ee0c829725e2074a921bc4f2250b374f5c0afaecd8cfbc28e5119b",
+        "tokens": 1,
+        "verifierSHA256": "a66f4633278d38cd9d270a23fdb4e22443613f59e6768091f2418ac65016c085"
+      },
+      "paths": {
+        "CASPasses": 289,
+        "backwardRoundingSteps": 225,
+        "completedPaths": 3,
+        "contradictions": 0,
+        "coupledProjectionContradictions": 0,
+        "guardIdentityCacheHits": 3,
+        "guardProofBudgetStops": 0,
+        "guardProofPasses": 5,
+        "lastArm": {
+          "bodyCharacters": 4413,
+          "decisions": 0,
+          "dependencyGrowth": [
+            {
+              "definition": 1,
+              "expandedCharacters": 2051,
+              "storedCharacters": 2049
+            },
+            {
+              "definition": 2,
+              "expandedCharacters": 2139,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 3,
+              "expandedCharacters": 2139,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 4413,
+              "storedCharacters": 163
+            }
+          ],
+          "guardCharacters": 0
+        },
+        "numericArithmeticEliminated": 26,
+        "numericGuardImplications": 0,
+        "numericRecipeAdmissions": 4,
+        "numericRecipeAttempts": 15,
+        "numericRecipeBudgetStops": 0,
+        "orderedGuardEliminations": 3,
+        "prospectiveGuardEliminations": 1,
+        "recipeConstraintPasses": 15,
+        "recipeConstraintRefinements": 51,
+        "rmsBranchRefinements": 12,
+        "rmsConstantCells": 3,
+        "rmsProjectionSignAdmissions": 4,
+        "selectorSelections": 5,
+        "splitContexts": 2
+      },
+      "producers": 9,
+      "region": "1111",
+      "seconds": 1.6791417080094106,
+      "selectionOrder": "update-cells",
+      "storedCharacters": 3421,
+      "workerSeconds": 2.5848534159595147
+    }
+  ],
+  "coveredInputPatterns": 1006505988,
+  "finalArtifactEmitted": false,
+  "finalParity": false,
+  "frontierOrder": "update-cells",
+  "identity": {
+    "byteOrder": "little",
+    "checkpoint": {
+      "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+      "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+    },
+    "dimension": 2,
+    "platform": "macOS-26.7.1-arm64-arm-64bit",
+    "position": 0,
+    "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+    "referenceBackend": {
+      "capability": "DEFAULT",
+      "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+      "name": "torch CPU",
+      "version": "2.12.1"
+    },
+    "sources": {
+      "direct_sympy_arithmetic.py": "b67816f4954a9ef6877bc0b549044c3f2bf6878451f5b4a94fa13f0237072f6d",
+      "direct_sympy_checkpoint.py": "889ecefef40b7cbf1b87452e92decda5837ab9d01bc61affcb0274c045bac146",
+      "direct_sympy_coherent_paths.py": "13f0e1a8a5b0eb58052e22bd72e530f121dfaea35dcac1df91ae4dc4e2cda0ab",
+      "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+      "direct_sympy_conversions.py": "77ac9f3e14c873f2ac4c53e082db78f03596f6b985ee6286f39fc5bb83b167c2",
+      "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+      "direct_sympy_layer_bounds.py": "c1a93f951ff5ad5af8510671e42ac8c05d73c246dfb2460bacd43cf0e3774dae",
+      "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+      "direct_sympy_partition_run.py": "349979bcf10d43b75218589eb0862fb1401715353ec21d841bc975d42a3fe997",
+      "direct_sympy_projection_constraints.py": "568fb807619f566c8da2a1df85407455cde84164e1f9fd2ccca3fd69ee88189f",
+      "direct_sympy_recipe_bounds.py": "c75607053ee144fd76d591530dba9a06d28634a6bdc96978b0894ecac76621ae",
+      "direct_sympy_region_parity.py": "a66f4633278d38cd9d270a23fdb4e22443613f59e6768091f2418ac65016c085",
+      "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+      "direct_sympy_savepoints.py": "064a2a6ae267ac4338ae6bb102a5ddb2272869d63f0ff857a1d0116313de4cb7",
+      "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+      "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+      "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+      "direct_sympy_sqrt.py": "f4d7d61f2f10ade6772c1e39e97d93ccf17585fed03a65738ece656aa63bf587",
+      "direct_sympy_streaming_literals.py": "7310a1dd1a7ee97bcab7f792859a67cf02ea075e2e72c546b92231687ae0c9d6",
+      "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+      "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+      "direct_sympy_tandem.py": "68611918d2a30c66698c03fcdd5f01306e5318ca2640546ac1881b80ff988f00",
+      "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+    },
+    "sympy": "1.14.0",
+    "version": 1
+  },
+  "regionVerificationPolicy": {
+    "enabled": true,
+    "randomCases": 8192
+  },
+  "root": {
+    "X1": [
+      -31743,
+      31743
+    ],
+    "X2": [
+      -31743,
+      31743
+    ]
+  },
+  "runSeconds": 16.38578995905118,
+  "totalInputPatterns": 4030726144,
+  "tree": {
+    "": {
+      "axis": "X1",
+      "cut": -16385,
+      "domains": {
+        "X1": [
+          -31743,
+          31743
+        ],
+        "X2": [
+          -31743,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "0": {
+      "axis": "X2",
+      "cut": -15361,
+      "domains": {
+        "X1": [
+          -31743,
+          -16385
+        ],
+        "X2": [
+          -31743,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "00": {
+      "artifact": {
+        "characters": 4861,
+        "combinedCharacterCharge": 5090,
+        "file": "region-3213bda4ceff9af115ff9967d9b7714cff3e69523d4832c014447d63ce2abd87.expr",
+        "sha256": "e760df01524dd7ec3b9d5160203bb5feedded4498e9cdc6f9bc19aaa6fc0f6f0"
+      },
+      "domains": {
+        "X1": [
+          -31743,
+          -16385
+        ],
+        "X2": [
+          -31743,
+          -15361
+        ]
+      },
+      "parity": {
+        "artifact": "/private/tmp/llm-inner-verified-corner-state-20261005/region-3213bda4ceff9af115ff9967d9b7714cff3e69523d4832c014447d63ce2abd87.expr",
+        "cases": 8196,
+        "characters": 4861,
+        "dimension": 2,
+        "firstMismatches": [],
+        "inputCorpusVersion": 2,
+        "mismatches": 0,
+        "position": 0,
+        "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity.",
+        "sha256": "e760df01524dd7ec3b9d5160203bb5feedded4498e9cdc6f9bc19aaa6fc0f6f0",
+        "tokens": 1,
+        "verifierSHA256": "a66f4633278d38cd9d270a23fdb4e22443613f59e6768091f2418ac65016c085"
+      },
+      "status": "complete"
+    },
+    "01": {
+      "axis": "X2",
+      "cut": 15360,
+      "domains": {
+        "X1": [
+          -31743,
+          -16385
+        ],
+        "X2": [
+          -15360,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "010": {
+      "domains": {
+        "X1": [
+          -31743,
+          -16385
+        ],
+        "X2": [
+          -15360,
+          15360
+        ]
+      },
+      "status": "pending"
+    },
+    "011": {
+      "artifact": {
+        "characters": 18073,
+        "combinedCharacterCharge": 18372,
+        "file": "region-5eeda607536550e84c762f22e47cdc2d828856c8efd4367e7f0669c78a44d6fc.expr",
+        "sha256": "85d3404a58d5e81f44f8d01a1d60a465966fb66a1f69450f1261abce36ecb977"
+      },
+      "domains": {
+        "X1": [
+          -31743,
+          -16385
+        ],
+        "X2": [
+          15361,
+          31743
+        ]
+      },
+      "parity": {
+        "artifact": "/private/tmp/llm-inner-verified-corner-state-20261005/region-5eeda607536550e84c762f22e47cdc2d828856c8efd4367e7f0669c78a44d6fc.expr",
+        "cases": 8196,
+        "characters": 18073,
+        "dimension": 2,
+        "firstMismatches": [],
+        "inputCorpusVersion": 2,
+        "mismatches": 0,
+        "position": 0,
+        "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity.",
+        "sha256": "85d3404a58d5e81f44f8d01a1d60a465966fb66a1f69450f1261abce36ecb977",
+        "tokens": 1,
+        "verifierSHA256": "a66f4633278d38cd9d270a23fdb4e22443613f59e6768091f2418ac65016c085"
+      },
+      "status": "complete"
+    },
+    "1": {
+      "axis": "X1",
+      "cut": 16384,
+      "domains": {
+        "X1": [
+          -16384,
+          31743
+        ],
+        "X2": [
+          -31743,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "10": {
+      "axis": "X2",
+      "cut": -15361,
+      "domains": {
+        "X1": [
+          -16384,
+          16384
+        ],
+        "X2": [
+          -31743,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "100": {
+      "domains": {
+        "X1": [
+          -16384,
+          16384
+        ],
+        "X2": [
+          -31743,
+          -15361
+        ]
+      },
+      "status": "pending"
+    },
+    "101": {
+      "axis": "X2",
+      "cut": 15360,
+      "domains": {
+        "X1": [
+          -16384,
+          16384
+        ],
+        "X2": [
+          -15360,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "1010": {
+      "domains": {
+        "X1": [
+          -16384,
+          16384
+        ],
+        "X2": [
+          -15360,
+          15360
+        ]
+      },
+      "status": "pending"
+    },
+    "1011": {
+      "domains": {
+        "X1": [
+          -16384,
+          16384
+        ],
+        "X2": [
+          15361,
+          31743
+        ]
+      },
+      "status": "pending"
+    },
+    "11": {
+      "axis": "X2",
+      "cut": -15361,
+      "domains": {
+        "X1": [
+          16385,
+          31743
+        ],
+        "X2": [
+          -31743,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "110": {
+      "artifact": {
+        "characters": 18073,
+        "combinedCharacterCharge": 18372,
+        "file": "region-aaebb3f29f67416bbd6d2cf28fffd40ff2cf645fec1bf1352c4c0af241186aee.expr",
+        "sha256": "50b8150184d54af1f06bbcafb7b74fbff3cf0317370c3cc7d09c8012dbdbcc5c"
+      },
+      "domains": {
+        "X1": [
+          16385,
+          31743
+        ],
+        "X2": [
+          -31743,
+          -15361
+        ]
+      },
+      "parity": {
+        "artifact": "/private/tmp/llm-inner-verified-corner-state-20261005/region-aaebb3f29f67416bbd6d2cf28fffd40ff2cf645fec1bf1352c4c0af241186aee.expr",
+        "cases": 8196,
+        "characters": 18073,
+        "dimension": 2,
+        "firstMismatches": [],
+        "inputCorpusVersion": 2,
+        "mismatches": 0,
+        "position": 0,
+        "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity.",
+        "sha256": "50b8150184d54af1f06bbcafb7b74fbff3cf0317370c3cc7d09c8012dbdbcc5c",
+        "tokens": 1,
+        "verifierSHA256": "a66f4633278d38cd9d270a23fdb4e22443613f59e6768091f2418ac65016c085"
+      },
+      "status": "complete"
+    },
+    "111": {
+      "axis": "X2",
+      "cut": 15360,
+      "domains": {
+        "X1": [
+          16385,
+          31743
+        ],
+        "X2": [
+          -15360,
+          31743
+        ]
+      },
+      "status": "split"
+    },
+    "1110": {
+      "domains": {
+        "X1": [
+          16385,
+          31743
+        ],
+        "X2": [
+          -15360,
+          15360
+        ]
+      },
+      "status": "pending"
+    },
+    "1111": {
+      "artifact": {
+        "characters": 4863,
+        "combinedCharacterCharge": 5080,
+        "file": "region-f941434bf055ca70623cb119a75344a19acb49b2759de221e7c129d839675591.expr",
+        "sha256": "fd795dce19ee0c829725e2074a921bc4f2250b374f5c0afaecd8cfbc28e5119b"
+      },
+      "domains": {
+        "X1": [
+          16385,
+          31743
+        ],
+        "X2": [
+          15361,
+          31743
+        ]
+      },
+      "parity": {
+        "artifact": "/private/tmp/llm-inner-verified-corner-state-20261005/region-f941434bf055ca70623cb119a75344a19acb49b2759de221e7c129d839675591.expr",
+        "cases": 8196,
+        "characters": 4863,
+        "dimension": 2,
+        "firstMismatches": [],
+        "inputCorpusVersion": 2,
+        "mismatches": 0,
+        "position": 0,
+        "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity.",
+        "sha256": "fd795dce19ee0c829725e2074a921bc4f2250b374f5c0afaecd8cfbc28e5119b",
+        "tokens": 1,
+        "verifierSHA256": "a66f4633278d38cd9d270a23fdb4e22443613f59e6768091f2418ac65016c085"
+      },
+      "status": "complete"
+    }
+  },
+  "unfinishedInputPatterns": 3024220156,
+  "updateCellGeometry": {
+    "leafRegions": 9,
+    "maxRegions": 81,
+    "numericalResultsReused": false,
+    "seededAxes": [
+      "X1",
+      "X2"
+    ],
+    "thresholdRanks": {
+      "X1": 16385,
+      "X2": 15361
+    }
+  }
+}

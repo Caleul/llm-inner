@@ -1,0 +1,12 @@
+✔ Memory-admitted parallel regions preserve full geometry, ordered numerical bodies and native parity (33441.98575ms)
+✔ Fresh broad-region covers refine only pending intersections and preserve exact source compatibility (5567.656791ms)
+✔ Disjoint input partitions preserve complete Half coverage and emitted coordinate parity within each certified region (20962.302292ms)
+✔ Source changes retain only audited partition geometry and recompile numerical evidence (866.662666ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 61135.004625

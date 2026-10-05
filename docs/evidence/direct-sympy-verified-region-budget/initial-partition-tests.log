@@ -1,0 +1,9 @@
+{"region": "", "complete": false, "coveredInputPatterns": 0, "unfinishedInputPatterns": 4030726144, "attemptSeconds": 0}
+{"region": "", "complete": true, "coveredInputPatterns": 4030726144, "unfinishedInputPatterns": 0, "attemptSeconds": 0}
+...Partition domain proof: HalfPatterns=63488 vectorPatterns=4030726144 lost=0 overlaps=0
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]Loading weights: 100%|██████████| 12/12 [00:00<00:00, 11870.67it/s]
+...Emitted full region coordinate: cases=576 mismatches=0 characters=3451 position=0 dimension=2 fullInputCoverage=false
+{"region": "", "complete": false, "coveredInputPatterns": 0, "unfinishedInputPatterns": 4030726144, "attemptSeconds": 0}
+..{"region": "00", "complete": true, "coveredInputPatterns": 251626497, "unfinishedInputPatterns": 3779099647, "attemptSeconds": 1.6507137920125388}
+/Users/caleul/.local/share/uv/python/cpython-3.10.13-macos-aarch64-none/lib/python3.10/multiprocessing/resource_tracker.py:224: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '

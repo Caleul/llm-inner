@@ -1,0 +1,8 @@
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]Loading weights: 100%|██████████| 12/12 [00:00<00:00, 10498.88it/s]
+{"region": "00", "complete": true, "coveredInputPatterns": 251626497, "unfinishedInputPatterns": 3779099647, "attemptSeconds": 1.7101361250388436}
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]Loading weights: 100%|██████████| 12/12 [00:00<00:00, 20971.52it/s]
+{"region": "011", "complete": true, "coveredInputPatterns": 503252994, "unfinishedInputPatterns": 3527473150, "attemptSeconds": 2.746727958030533}
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]Loading weights: 100%|██████████| 12/12 [00:00<00:00, 27900.03it/s]
+{"region": "110", "complete": true, "coveredInputPatterns": 754879491, "unfinishedInputPatterns": 3275846653, "attemptSeconds": 2.3847075419616885}
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]Loading weights: 100%|██████████| 12/12 [00:00<00:00, 65196.44it/s]
+{"region": "1111", "complete": true, "coveredInputPatterns": 1006505988, "unfinishedInputPatterns": 3024220156, "attemptSeconds": 1.6791417080094106}

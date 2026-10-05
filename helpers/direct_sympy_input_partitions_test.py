@@ -158,8 +158,47 @@ class InputPartitionTests(unittest.TestCase):
             self.assertEqual(result['coveredInputPatterns'],63488**2)
             self.assertNotIn('CompileValue',final.read_text())
             self.assertFalse(result['parityVerified'])
+            expected='Piecewise('+', '.join(piece for _,node in sorted(tree.items()) if node['status']=='complete'
+                for piece in runner.region_pieces(root,node))+')'
+            self.assertEqual(final.read_text(),expected)
+            self.assertEqual(result['characters'],len(expected))
+            self.assertEqual(result['sha256'],digest_file(final))
             (root/'0.expr').write_text('X1 - X2')
             with self.assertRaisesRegex(ValueError,'integrity'):runner.combine(root,tree,final,100000)
+
+    @unittest.skipUnless(os.environ.get('LLM_INNER_DIRECT_JSON_CHECKPOINT'),'Checkpoint fixture required')
+    def test_accumulated_admission_and_parity_precede_region_promotion(self):
+        checkpoint=os.environ['LLM_INNER_DIRECT_JSON_CHECKPOINT']
+        def candidate(checkpoint,dimension,domains,path,**options):
+            atomic(path,b'X1 + X2')
+            return {'complete':True,'seconds':0,'artifact':{'path':str(path),'characters':7,'sha256':digest_file(path)}}
+        def proof(checkpoint,dimension,path,domains,**options):
+            return {'sha256':digest_file(path),'mismatches':0,'cases':4,'artifact':str(path)}
+        with tempfile.TemporaryDirectory()as directory:
+            root=Path(directory)
+            def args(name,limit):return argparse.Namespace(checkpoint=checkpoint,state=str(root/name),resume=False,
+                dimension=2,max_attempts=1,max_characters=1000,cas_characters=1000,max_paths=2,
+                region_seconds=1,min_values=32,total_characters=limit,verify_regions=True,parity_cases=4)
+            rejected=args('rejected',11)
+            with patch.object(runner,'compile_region',side_effect=candidate),patch('direct_sympy_region_parity.verify_region',side_effect=AssertionError('Budget before parity')):
+                self.assertEqual(runner.run(rejected),1)
+            state=json.loads((Path(rejected.state)/'frontier.json').read_text())
+            self.assertEqual(state['coveredInputPatterns'],0)
+            self.assertEqual(state['accumulatedArtifactCharacters'],10)
+            self.assertEqual(state['tree']['']['status'],'pending')
+            self.assertTrue(state['attempts'][0]['candidateArtifactRemoved'])
+            self.assertFalse(list(Path(rejected.state).glob('region-*.expr')))
+            admitted=args('admitted',10000)
+            with patch.object(runner,'compile_region',side_effect=candidate),patch('direct_sympy_region_parity.verify_region',side_effect=proof):
+                self.assertEqual(runner.run(admitted),0)
+            state=json.loads((Path(admitted.state)/'frontier.json').read_text())
+            self.assertEqual(state['tree']['']['parity']['mismatches'],0)
+            self.assertGreaterEqual(state['accumulatedArtifactCharacters'],state['finalArtifact']['characters'])
+            failed=args('failed',10000)
+            with patch.object(runner,'compile_region',side_effect=candidate),patch('direct_sympy_region_parity.verify_region',return_value={'sha256':'wrong','mismatches':1}):
+                with self.assertRaisesRegex(ValueError,'Region parity failed'):runner.run(failed)
+            self.assertFalse(list(Path(failed.state).glob('region-*.expr')))
+            self.assertFalse((Path(failed.state)/'coordinate.expr').exists())
 
     @unittest.skipUnless(os.environ.get('LLM_INNER_DIRECT_JSON_CHECKPOINT'),'Checkpoint fixture required')
     def test_external_worker_timeout_is_bounded_and_does_not_publish_partial_state(self):

@@ -191,13 +191,8 @@ def region_pieces(directory,node):
     for pair in arms:
         body,condition=map(ast.unparse,pair.elts)
         guard='And('+', '.join(guards+[condition])+')'
-        # This inner predicate already stabilized under its own IEEE context.
-        # Treat it as a closed Boolean when simplifying newly added bounds;
-        # reopening its numeric payload here is neither necessary nor safe.
         sp=sympy.Symbol('PartitionBody',real=True)
-        inner=symbolic(syntax(condition)) if condition in ('True','False') else sympy.Symbol('PartitionCondition',boolean=True)
-        outer=symbolic(syntax('And('+', '.join(guards)+')'))
-        sympy.simplify(sympy.factor(sympy.Piecewise((sp,sympy.And(outer,inner)),evaluate=False)))
+        sympy.simplify(sympy.factor(sympy.Piecewise((sp,symbolic(syntax(guard))),evaluate=False)))
         piece='(('+body+'), '+guard+')'
         if 'CompileValue' in piece:raise ValueError('Unsubstituted compiler alias')
         yield piece

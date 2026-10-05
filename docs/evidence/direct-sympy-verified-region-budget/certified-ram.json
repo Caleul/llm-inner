@@ -1,0 +1,10 @@
+{
+  "pid": 97817,
+  "createTime": 1791212331.951816,
+  "initialAvailableRamBytes": 12303679488,
+  "ramLimitBytes": 9842943590,
+  "peakAggregateRssBytes": 344260608,
+  "samples": 1,
+  "seconds": 0.21737604099325836,
+  "stop": "process ended"
+}

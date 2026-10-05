@@ -1,0 +1,134 @@
+[
+  {
+    "region": "00",
+    "domains": {
+      "X1": [
+        -31743,
+        -16385
+      ],
+      "X2": [
+        -31743,
+        -15361
+      ]
+    },
+    "artifact": {
+      "characters": 4861,
+      "combinedCharacterCharge": 5090,
+      "file": "region-3213bda4ceff9af115ff9967d9b7714cff3e69523d4832c014447d63ce2abd87.expr",
+      "sha256": "e760df01524dd7ec3b9d5160203bb5feedded4498e9cdc6f9bc19aaa6fc0f6f0"
+    },
+    "parity": {
+      "artifact": "/private/tmp/llm-inner-verified-corner-state-20261005/region-3213bda4ceff9af115ff9967d9b7714cff3e69523d4832c014447d63ce2abd87.expr",
+      "cases": 8196,
+      "characters": 4861,
+      "dimension": 2,
+      "firstMismatches": [],
+      "inputCorpusVersion": 2,
+      "mismatches": 0,
+      "position": 0,
+      "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity.",
+      "sha256": "e760df01524dd7ec3b9d5160203bb5feedded4498e9cdc6f9bc19aaa6fc0f6f0",
+      "tokens": 1,
+      "verifierSHA256": "a66f4633278d38cd9d270a23fdb4e22443613f59e6768091f2418ac65016c085"
+    }
+  },
+  {
+    "region": "011",
+    "domains": {
+      "X1": [
+        -31743,
+        -16385
+      ],
+      "X2": [
+        15361,
+        31743
+      ]
+    },
+    "artifact": {
+      "characters": 18073,
+      "combinedCharacterCharge": 18372,
+      "file": "region-5eeda607536550e84c762f22e47cdc2d828856c8efd4367e7f0669c78a44d6fc.expr",
+      "sha256": "85d3404a58d5e81f44f8d01a1d60a465966fb66a1f69450f1261abce36ecb977"
+    },
+    "parity": {
+      "artifact": "/private/tmp/llm-inner-verified-corner-state-20261005/region-5eeda607536550e84c762f22e47cdc2d828856c8efd4367e7f0669c78a44d6fc.expr",
+      "cases": 8196,
+      "characters": 18073,
+      "dimension": 2,
+      "firstMismatches": [],
+      "inputCorpusVersion": 2,
+      "mismatches": 0,
+      "position": 0,
+      "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity.",
+      "sha256": "85d3404a58d5e81f44f8d01a1d60a465966fb66a1f69450f1261abce36ecb977",
+      "tokens": 1,
+      "verifierSHA256": "a66f4633278d38cd9d270a23fdb4e22443613f59e6768091f2418ac65016c085"
+    }
+  },
+  {
+    "region": "110",
+    "domains": {
+      "X1": [
+        16385,
+        31743
+      ],
+      "X2": [
+        -31743,
+        -15361
+      ]
+    },
+    "artifact": {
+      "characters": 18073,
+      "combinedCharacterCharge": 18372,
+      "file": "region-aaebb3f29f67416bbd6d2cf28fffd40ff2cf645fec1bf1352c4c0af241186aee.expr",
+      "sha256": "50b8150184d54af1f06bbcafb7b74fbff3cf0317370c3cc7d09c8012dbdbcc5c"
+    },
+    "parity": {
+      "artifact": "/private/tmp/llm-inner-verified-corner-state-20261005/region-aaebb3f29f67416bbd6d2cf28fffd40ff2cf645fec1bf1352c4c0af241186aee.expr",
+      "cases": 8196,
+      "characters": 18073,
+      "dimension": 2,
+      "firstMismatches": [],
+      "inputCorpusVersion": 2,
+      "mismatches": 0,
+      "position": 0,
+      "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity.",
+      "sha256": "50b8150184d54af1f06bbcafb7b74fbff3cf0317370c3cc7d09c8012dbdbcc5c",
+      "tokens": 1,
+      "verifierSHA256": "a66f4633278d38cd9d270a23fdb4e22443613f59e6768091f2418ac65016c085"
+    }
+  },
+  {
+    "region": "1111",
+    "domains": {
+      "X1": [
+        16385,
+        31743
+      ],
+      "X2": [
+        15361,
+        31743
+      ]
+    },
+    "artifact": {
+      "characters": 4863,
+      "combinedCharacterCharge": 5080,
+      "file": "region-f941434bf055ca70623cb119a75344a19acb49b2759de221e7c129d839675591.expr",
+      "sha256": "fd795dce19ee0c829725e2074a921bc4f2250b374f5c0afaecd8cfbc28e5119b"
+    },
+    "parity": {
+      "artifact": "/private/tmp/llm-inner-verified-corner-state-20261005/region-f941434bf055ca70623cb119a75344a19acb49b2759de221e7c129d839675591.expr",
+      "cases": 8196,
+      "characters": 4863,
+      "dimension": 2,
+      "firstMismatches": [],
+      "inputCorpusVersion": 2,
+      "mismatches": 0,
+      "position": 0,
+      "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity.",
+      "sha256": "fd795dce19ee0c829725e2074a921bc4f2250b374f5c0afaecd8cfbc28e5119b",
+      "tokens": 1,
+      "verifierSHA256": "a66f4633278d38cd9d270a23fdb4e22443613f59e6768091f2418ac65016c085"
+    }
+  }
+]

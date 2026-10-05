@@ -1,0 +1,17 @@
+{"region": "", "complete": false, "coveredInputPatterns": 0, "unfinishedInputPatterns": 4030726144, "attemptSeconds": 0}
+{"region": "", "complete": true, "coveredInputPatterns": 4030726144, "unfinishedInputPatterns": 0, "attemptSeconds": 0}
+...Partition domain proof: HalfPatterns=63488 vectorPatterns=4030726144 lost=0 overlaps=0
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]Loading weights: 100%|██████████| 12/12 [00:00<00:00, 12849.54it/s]
+...Emitted full region coordinate: cases=576 mismatches=0 characters=3451 position=0 dimension=2 fullInputCoverage=false
+{"region": "", "complete": false, "coveredInputPatterns": 0, "unfinishedInputPatterns": 4030726144, "attemptSeconds": 0}
+..{"region": "00", "complete": true, "coveredInputPatterns": 251626497, "unfinishedInputPatterns": 3779099647, "attemptSeconds": 1.6912287499872036}
+{"region": "011", "complete": true, "coveredInputPatterns": 503252994, "unfinishedInputPatterns": 3527473150, "attemptSeconds": 2.3856848340365104}
+{"region": "110", "complete": true, "coveredInputPatterns": 754879491, "unfinishedInputPatterns": 3275846653, "attemptSeconds": 2.4461505839717574}
+{"region": "1111", "complete": true, "coveredInputPatterns": 1006505988, "unfinishedInputPatterns": 3024220156, "attemptSeconds": 1.7423890409991145}
+{"region": "010", "complete": false, "coveredInputPatterns": 1006505988, "unfinishedInputPatterns": 3024220156, "attemptSeconds": 0}
+.
+----------------------------------------------------------------------
+Ran 9 tests in 18.389s
+
+OK
+Checkpoint update-cell geometry: regions=4 covered=1006505988 lost=0 overlaps=0 finalParity=false
