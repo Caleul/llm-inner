@@ -1,0 +1,14 @@
+{
+  "device": "NVIDIA A100-SXM4-40GB",
+  "cuda": "13.0",
+  "expressionSha256": "b76687a671f101092ee6ef3f616c13e33c643fb62736a588a245d634e9ef6e74",
+  "normalizedInputs": 16777216,
+  "comparedOutputs": 33554432,
+  "mismatches": {
+    "root": 0,
+    "inverse": 0
+  },
+  "seconds": 0.8342517680002857,
+  "peakGPUAllocatedBytes": 50331648,
+  "purpose": "Primitive numerical validation only; not final artifact parity"
+}

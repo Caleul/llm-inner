@@ -10,12 +10,13 @@ export function lowerJsonFixedBinadeF32AsF64(x:JsonExpression,e:-1|0):JsonExpres
   return o('sub','f64',o('add','f64',x,offset),offset);
 }
 
-/** Positive finite normal F32 operand, exactly widened to F64. The normalized
- * rational seed and two Newton steps reproduce all 2^24 normalized F32 points
- * bitwise. Exact power-of-two covariance covers every normal F32 exponent.
- * See docs/experiments/direct-json-rational-sqrt-proof.cpp and the certificate
- * test which compiles this actual JSON expression, not a parallel formula.
- * No root, floating conversion, lookup, or compiler reference is emitted. */
+/** Positive finite normal F32 operand, exactly widened to F64. The five-term
+ * rational partial fraction evaluates the normalized root using five source
+ * occurrences instead of recursively substituting Newton refinements. Its
+ * rounded result is exhaustively checked for all 2^24 exponent-parity points
+ * by compiling this actual JSON, including the composed reciprocal boundary.
+ * Binary scaling then covers every normal F32 exponent. No root, conversion,
+ * table, intermediate binding or reference executor is emitted. */
 function normalizedRootParts(x:JsonExpression):{rounded:JsonExpression;powerExponent:JsonExpression} {
   if(x[1]!=='f64')throw new TypeError('Exactly widened positive normal F32 input required');
   const u=(n:bigint)=>c('u64',n),raw=o('reinterpret','u64',x);
@@ -27,17 +28,21 @@ function normalizedRootParts(x:JsonExpression):{rounded:JsonExpression;powerExpo
   const parityFraction=o('mul','u64',o('xor','u64',o('and','u64',exponent,u(1n)),u(1n)),u(0x6a09e667f3bcdn));
   const normalizedScale=o('reinterpret','f64',o('or','u64',u(0x3ff0000000000000n),parityFraction));
   const powerExponent=o('shr','u64',o('add','u64',exponent,u(1023n)),u(1n));
-  const a:JsonExpression=['constant','f64','0x3ffb8b124936d913'];
-  const b:JsonExpression=['constant','f64','0x400d07b36ff85ce5'];
-  const d:JsonExpression=['constant','f64','0x401166c4d8faa3bc'];
-  let y=o('div','f64',o('add','f64',a,o('mul','f64',b,m)),o('add','f64',d,m));
-  for(let step=0;step<2;step++)y=o('mul','f64',c('f64',.5),o('add','f64',y,o('div','f64',m,y)));
-  // The significand lies in [1,2]. At 2^29 the F64 quantum is 2^-23,
-  // exactly the F32 quantum in this binade. Addition performs the same
-  // tie-even quantization; subtraction is exact. Keep this real F64 rounding
-  // boundary. Scaling an already-rounded result by 2^k is exact here, because
-  // sqrt of every positive normal F32 stays normal and finite F32.
-  // Unlike dynamic bitword bias, this quantization uses y only once.
+  // Centering is exact by Sterbenz for m in [1,2]. Keep this particular
+  // summation order: real-number equivalence alone does not certify F64
+  // arithmetic close to a final F32 midpoint.
+  const z=o('sub','f64',m,c('f64',1.5));
+  let y:JsonExpression=c('f64',13.367174015436346);
+  for(const [residue,pole] of [
+    [-779.0174377628756,72.88886838020784],
+    [-9.032202101157678,8.541941977833192],
+    [-1.0005960489978687,3.4400824392419294],
+    [-0.1852754751106736,2.096193424586035],
+    [-0.029292444172441905,1.6235843576093156],
+  ])y=o('add','f64',y,o('div','f64',c('f64',residue!),o('add','f64',z,c('f64',pole!))));
+  // The F64 quantum at 2^29 is the final significand's F32 quantum.
+  // Preserve this addition/subtraction boundary and the following exact
+  // power-of-two scaling. The root is rounded before reciprocal division.
   const significand=o('mul','f64',y,normalizedScale);
   const rounded=lowerJsonFixedBinadeF32AsF64(significand,0);
   return {rounded,powerExponent};

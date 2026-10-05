@@ -1,0 +1,229 @@
+TAP version 13
+# Subtest: unchanged structural and precision fixed points retain completed producer identity
+ok 1 - unchanged structural and precision fixed points retain completed producer identity
+  ---
+  duration_ms: 2.992347
+  type: 'test'
+  ...
+# Subtest: incremental substitution stabilizes children before consumers and removes equivalent producer subtraction
+ok 2 - incremental substitution stabilizes children before consumers and removes equivalent producer subtraction
+  ---
+  duration_ms: 148.790189
+  type: 'test'
+  ...
+# Subtest: a selected coordinate is emitted as a complete scalar artifact without pretending to cover the vector
+ok 3 - a selected coordinate is emitted as a complete scalar artifact without pretending to cover the vector
+  ---
+  duration_ms: 17.638349
+  type: 'test'
+  ...
+# Subtest: one complete source-discovered coordinate preserves live PyTorch bits after each dependency is stabilized
+ok 4 - one complete source-discovered coordinate preserves live PyTorch bits after each dependency is stabilized # SKIP
+  ---
+  duration_ms: 0.193473
+  type: 'test'
+  ...
+# Subtest: Next-token literal vector contains four logits and reads only the selected causal prefix for lengths 1..8
+ok 5 - Next-token literal vector contains four logits and reads only the selected causal prefix for lengths 1..8
+  ---
+  duration_ms: 60.555406
+  type: 'test'
+  ...
+# Subtest: JSON exact constants survive serialization including signed zero and all finite F16 bits
+ok 6 - JSON exact constants survive serialization including signed zero and all finite F16 bits
+  ---
+  duration_ms: 200.51592
+  type: 'test'
+  ...
+# Subtest: JSON bitword mask and shift identities preserve all u16 values and unsigned width boundaries
+ok 7 - JSON bitword mask and shift identities preserve all u16 values and unsigned width boundaries
+  ---
+  duration_ms: 3467.056863
+  type: 'test'
+  ...
+# Subtest: JSON conditional facts remove repeated decisions without distributing branches
+ok 8 - JSON conditional facts remove repeated decisions without distributing branches
+  ---
+  duration_ms: 2.652691
+  type: 'test'
+  ...
+# Subtest: JSON shared conditions combine repeated queries after fixed point without changing floating path arithmetic
+ok 9 - JSON shared conditions combine repeated queries after fixed point without changing floating path arithmetic
+  ---
+  duration_ms: 5.194893
+  type: 'test'
+  ...
+# Subtest: JSON shared condition promotion does not expose lazy missing inputs or undefined integer operations
+ok 10 - JSON shared condition promotion does not expose lazy missing inputs or undefined integer operations
+  ---
+  duration_ms: 1.968307
+  type: 'test'
+  ...
+# Subtest: JSON fixed point propagates integer bounds to remove implied and contradictory conditions
+ok 11 - JSON fixed point propagates integer bounds to remove implied and contradictory conditions
+  ---
+  duration_ms: 1.894138
+  type: 'test'
+  ...
+# Subtest: JSON factoring is allowed for modular integers and withheld across float rounding
+ok 12 - JSON factoring is allowed for modular integers and withheld across float rounding
+  ---
+  duration_ms: 0.984343
+  type: 'test'
+  ...
+# Subtest: JSON simplification preserves -0 and does not hide undefined integer operations
+ok 13 - JSON simplification preserves -0 and does not hide undefined integer operations
+  ---
+  duration_ms: 0.896725
+  type: 'test'
+  ...
+# Subtest: JSON precision cancels redundant bit rounding only with a proved lattice and preserves signed zeros
+ok 14 - JSON precision cancels redundant bit rounding only with a proved lattice and preserves signed zeros
+  ---
+  duration_ms: 747.849836
+  type: 'test'
+  ...
+# Subtest: JSON certified F16 source ranges eliminate only unreachable sign, subnormal and overflow arms
+ok 15 - JSON certified F16 source ranges eliminate only unreachable sign, subnormal and overflow arms
+  ---
+  duration_ms: 3451.117755
+  type: 'test'
+  ...
+# Subtest: JSON working range analysis encloses F32 endpoint rounding and refuses unknown or zero-crossing divisors
+ok 16 - JSON working range analysis encloses F32 endpoint rounding and refuses unknown or zero-crossing divisors
+  ---
+  duration_ms: 2.326219
+  type: 'test'
+  ...
+# Subtest: JSON normal double rounding is fused with both widened even and odd tie cells preserved
+ok 17 - JSON normal double rounding is fused with both widened even and odd tie cells preserved
+  ---
+  duration_ms: 16643.607983
+  type: 'test'
+  ...
+# Subtest: JSON finite double rounding composes normal and subnormal arms without duplicating the F32 result
+ok 18 - JSON finite double rounding composes normal and subnormal arms without duplicating the F32 result
+  ---
+  duration_ms: 8027.167449
+  type: 'test'
+  ...
+# Subtest: JSON exponential truncation is certified over every possible bounded half-score difference
+ok 19 - JSON exponential truncation is certified over every possible bounded half-score difference
+  ---
+  duration_ms: 1142.872246
+  type: 'test'
+  ...
+# Subtest: JSON rejects hidden floating conversions and malformed operation types
+ok 20 - JSON rejects hidden floating conversions and malformed operation types
+  ---
+  duration_ms: 0.582939
+  type: 'test'
+  ...
+# Subtest: JSON F32 to F16 bitwise conversion preserves every finite F16 value including signed zeros
+ok 21 - JSON F32 to F16 bitwise conversion preserves every finite F16 value including signed zeros
+  ---
+  duration_ms: 2089.80544
+  type: 'test'
+  ...
+# Subtest: JSON F32 to F16 explicit decisions agree with independent dyadic rounding at ties and sampled F32 bits
+ok 22 - JSON F32 to F16 explicit decisions agree with independent dyadic rounding at ties and sampled F32 bits
+  ---
+  duration_ms: 269.158617
+  type: 'test'
+  ...
+# Subtest: JSON exact widening covers every finite F16 bit pattern and sampled F32 normal/subnormal values
+ok 23 - JSON exact widening covers every finite F16 bit pattern and sampled F32 normal/subnormal values
+  ---
+  duration_ms: 4219.149643
+  type: 'test'
+  ...
+# Subtest: JSON positive normal F32 square root is lowered without native sqrt and agrees bitwise on exponent and mantissa boundaries
+ok 24 - JSON positive normal F32 square root is lowered without native sqrt and agrees bitwise on exponent and mantissa boundaries
+  ---
+  duration_ms: 2343.451438
+  type: 'test'
+  ...
+# Subtest: JSON factorized SiLU polynomial is certified against every finite F16 point in its declared domain
+not ok 25 - JSON factorized SiLU polynomial is certified against every finite F16 point in its declared domain
+  ---
+  duration_ms: 1.41797
+  type: 'test'
+  location: '/content/llm-inner-final-logits-vector-scope/dist/test/direct-json.test.js:401:1'
+  failureType: 'testCodeFailure'
+  error: "ENOENT: no such file or directory, open '/content/llm-inner-final-logits-vector-scope/numeric-profiles/pytorch-2.12.1-cpu-f16-silu.bin'"
+  code: 'ENOENT'
+  stack: |-
+    Object.openSync (node:fs:560:18)
+    readFileSync (node:fs:444:35)
+    certifyJsonSmallSilu (file:///content/llm-inner-final-logits-vector-scope/dist/src/direct-json-silu.js:58:21)
+    TestContext.<anonymous> (file:///content/llm-inner-final-logits-vector-scope/dist/test/direct-json.test.js:402:25)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: JSON direct F64 to F16 composition matches an independent dyadic oracle at every half midpoint
+ok 26 - JSON direct F64 to F16 composition matches an independent dyadic oracle at every half midpoint
+  ---
+  duration_ms: 7313.711327
+  type: 'test'
+  ...
+# Subtest: JSON exponential eliminates constant range reduction and reproduces the pinned F32 polynomial in its proved domain
+ok 27 - JSON exponential eliminates constant range reduction and reproduces the pinned F32 polynomial in its proved domain
+  ---
+  duration_ms: 1574.687273
+  type: 'test'
+  ...
+# Subtest: JSON normal rounding followed by exact widening collapses to one bitword rounding expression
+ok 28 - JSON normal rounding followed by exact widening collapses to one bitword rounding expression
+  ---
+  duration_ms: 22.231293
+  type: 'test'
+  ...
+# Subtest: JSON composed F16 conversion and widening preserves all F16 values and sampled F32 rounding boundaries
+ok 29 - JSON composed F16 conversion and widening preserves all F16 values and sampled F32 rounding boundaries
+  ---
+  duration_ms: 1581.689256
+  type: 'test'
+  ...
+# Subtest: JSON F64 to F32 bitwise conversion agrees with IEEE rounding at boundaries and sampled binary64 values
+ok 30 - JSON F64 to F32 bitwise conversion agrees with IEEE rounding at boundaries and sampled binary64 values
+  ---
+  duration_ms: 296.26554
+  type: 'test'
+  ...
+# Subtest: JSON admission distinguishes shared decisions from expanded occurrences and rejects residual implicit rounding
+ok 31 - JSON admission distinguishes shared decisions from expanded occurrences and rejects residual implicit rounding
+  ---
+  duration_ms: 1.418837
+  type: 'test'
+  ...
+# Subtest: JSON admission rejects exponential duplication and longest shared paths without expanding the tree
+ok 32 - JSON admission rejects exponential duplication and longest shared paths without expanding the tree
+  ---
+  duration_ms: 15.879264
+  type: 'test'
+  ...
+# Subtest: JSON measurement predicts serialization and huge duplication without rendering expanded expressions
+ok 33 - JSON measurement predicts serialization and huge duplication without rendering expanded expressions
+  ---
+  duration_ms: 2.219881
+  type: 'test'
+  ...
+# Subtest: JSONL stream emits all scalar coordinates with exact syntax and refuses to publish incomplete vectors
+ok 34 - JSONL stream emits all scalar coordinates with exact syntax and refuses to publish incomplete vectors
+  ---
+  duration_ms: 50.614937
+  type: 'test'
+  ...
+1..34
+# tests 34
+# suites 0
+# pass 32
+# fail 1
+# cancelled 0
+# skipped 1
+# todo 0
+# duration_ms 53780.737776

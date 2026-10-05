@@ -1,0 +1,7 @@
+{
+  "dist/src/direct-json-compile.js": "88b07eb811fe50c4432149cf3d356d7efe3dd5fb1e918e16f8c9d8e4ac3c5e22",
+  "dist/src/direct-json-cli.js": "49256d93ae8b0a6fac5bdd946be9b3a7c6ada2b6c92e2106bb196c0678a6f6da",
+  "dist/src/direct-json-next-token.js": "fb1008201b8b312a146d9f1c23dc70491166890e001091410f35d01d9af178ba",
+  "dist/src/direct-json-stream.js": "11989376fca4463d3444bba9553164e8b70894342917d320a4bcb11379102813",
+  "dist/test/direct-json-next-token.test.js": "aee6c7827a02fa2fc8df785dadac96ac5c8815f27ef803ec098988c178203848"
+}

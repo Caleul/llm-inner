@@ -65,15 +65,43 @@ export function createJsonModelLowerer(facts:JsonModelLoweringFacts,
   }
   const magnitude=facts.inputMagnitudeBounds?jsonModelMagnitudeAnalysis(facts):undefined;
   const range=jsonModelRangeAnalysis(facts),sourceSign=createJsonModelSignProof(facts,visit,range);
-  const value=(node:JsonExpression)=>node[0]==='constant'?Number(jsonConstantValue(node)):undefined;
+  const value=(node:JsonExpression):number|undefined=>{
+    const completed=memo.get(node);
+    const constant=node[0]==='constant'?node:completed?.[0]==='constant'?completed:undefined;
+    if(constant?.[1].startsWith('f'))return Number(jsonConstantValue(constant));
+    // Completed source producers are proof results, not forward activations.
+    // Keep their constant value through exact widening before the consumer's
+    // zero/unit test; syntax alone misses singleton-attention probabilities.
+    return node[0]==='widen'?value(node[2]!):undefined;
+  };
   const halfConstant=(node:JsonExpression)=>{
-    if(node[0]!=='constant'||node[1]!=='f32')return false;
-    const x=value(node)!;if(!Number.isFinite(x))return false;
+    if(node[1]!=='f32')return false;
+    const x=value(node);if(x===undefined||!Number.isFinite(x))return false;
     if(Object.is(x,-0))return true;
     const data=new DataView(new ArrayBuffer(4));data.setFloat32(0,x);
     return Object.is(decodeIeeeF16ToF32(roundDyadicToF16IfElse(f32BitsToDyadic(data.getUint32(0)))),x);
   };
-  const halfOperand=(node:JsonExpression)=>node[0]==='widen'&&node[2]![1]==='f16'||halfConstant(node);
+  const halfOperandMemo=new WeakMap<object,boolean>();
+  function halfOperand(node:JsonExpression):boolean {
+    const hit=halfOperandMemo.get(node);if(hit!==undefined)return hit;
+    let result=node[0]==='widen'&&node[2]![1]==='f16'||halfConstant(node);
+    if(!result&&node[1]==='f32'){
+      const a=node[2] as JsonExpression|undefined,b=node[3] as JsonExpression|undefined;
+      // An exact Half value remains on the Half lattice through zero-only
+      // sums and unit products/divisions, including IEEE signed-zero changes.
+      // Retain these actual operations; only their subsequent Half conversion
+      // is redundant. A nonzero sum or nonunit scale has no such certificate.
+      if(a&&b){
+        if(node[0]==='add')result=value(a)===0&&halfOperand(b)||value(b)===0&&halfOperand(a);
+        else if(node[0]==='sub')result=value(b)===0&&halfOperand(a)||value(a)===0&&halfOperand(b);
+        else if(node[0]==='mul')result=Math.abs(value(a)??NaN)===1&&halfOperand(b)||Math.abs(value(b)??NaN)===1&&halfOperand(a);
+        else if(node[0]==='div')result=Math.abs(value(b)??NaN)===1&&halfOperand(a);
+      }
+    }
+    // Absence of a constant proof can change as source producers complete.
+    // A positive lattice proof is permanent within this coordinate session.
+    if(result)halfOperandMemo.set(node,true);return result;
+  }
   const zeroSignMemo=new WeakMap<JsonExpression,boolean>();
   // Within the admitted finite domain, addition/subtraction of F32 operands
   // cannot underflow to -0: their exact sum is a multiple of 2^-149. A zero
@@ -133,13 +161,7 @@ export function createJsonModelLowerer(facts:JsonModelLoweringFacts,
   function calculate(node:JsonExpression):JsonExpression {
     const halfSource=facts.halfSources.get(node);
     if(halfSource){
-      if(halfSource[0]==='widen'&&halfSource[2]![1]==='f16')return visit(halfSource[2]!);
-      if(halfConstant(halfSource))return c('f64',value(halfSource)!);
-      if(halfSource[0]==='mul'){
-        const a=halfSource[2]!,b=halfSource[3]!;
-        if(halfOperand(a)&&value(b)===1)return visit(a);
-        if(halfOperand(b)&&value(a)===1)return visit(b);
-      }
+      if(halfOperand(halfSource))return visit(halfSource);
       // For finite half operands, R16(R32(a ± b)) == R16(a ± b).
       // With exponent gap <=12 the exact sum has <=24 significant bits.
       // With larger gaps the smaller operand stays strictly inside the larger
@@ -148,15 +170,23 @@ export function createJsonModelLowerer(facts:JsonModelLoweringFacts,
       // sums of products: their operands can have 22 significant bits.
       if((halfSource[0]==='add'||halfSource[0]==='sub')&&
         halfOperand(halfSource[2]!)&&halfOperand(halfSource[3]!)){
+        const left=visit(halfSource[2]!),right=visit(halfSource[3]!);
+        // A zero lane may become constant only after its own substitution.
+        // Recheck before this early sum path introduces a Half quantizer.
+        if(halfOperand(halfSource))return visit(halfSource);
         if(magnitude){
           const a=magnitude(halfSource[2]!),b=magnitude(halfSource[3]!);
           const threshold=b?jsonResidualCellThreshold(b.maximum):undefined;
           if(a&&threshold!==undefined&&a.minimum>=threshold)return visit(halfSource[2]!);
         }
-        const raw=o(halfSource[0],'f64',visit(halfSource[2]!),visit(halfSource[3]!));
+        const raw=o(halfSource[0],'f64',left,right);
         return lowerJsonFiniteF16AsF64(raw,range(halfSource),sourceSign(halfSource,raw),magnitude?.(halfSource)?.minimum??0);
       }
       const source=visit(halfSource);
+      // Stabilizing the producer can prove nested zero lanes or unit factors
+      // which were not literal constants in its original syntax. Recheck the
+      // consumer after substitution, before rebuilding its quantizer.
+      if(halfOperand(halfSource))return source;
       if(source[0]==='constant'){
         const x=Number(jsonConstantValue(source));
         const data=new DataView(new ArrayBuffer(4));data.setFloat32(0,x);

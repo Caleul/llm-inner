@@ -29,11 +29,11 @@ function cpp(node:JsonExpression):string {
 test('normalized root and composed inverse JSON exhaust both F32 exponent parities against native IEEE boundaries',async()=>{
   const root=lowerJsonRationalPositiveNormalSqrtAsF64(jsonInput('f64','X1'));
   const inverse=lowerJsonRationalPositiveNormalInverseSqrtAsF64(jsonInput('f64','X1'));
-  assert.equal(measureJsonExpression(inverse).inputReferences,13n);
+  assert.equal(measureJsonExpression(inverse).inputReferences,7n);
   assert.equal(measureJsonExpression(inverse).uniqueDecisions,0);
   auditJsonExpression(inverse,{X1:{dtype:'f64',tokenPosition:0,coordinate:0}});
   const measure=measureJsonExpression(root),previous=measureJsonExpression(lowerJsonPositiveNormalSqrtAsF64(jsonInput('f64','X1')));
-  assert.equal(measure.inputReferences,13n);assert.equal(measure.uniqueDecisions,0);
+  assert.equal(measure.inputReferences,7n);assert.equal(measure.uniqueDecisions,0);
   assert.ok(measure.inputReferences<previous.inputReferences);
   auditJsonExpression(root,{X1:{dtype:'f64',tokenPosition:0,coordinate:0}});
   const dir=await mkdtemp(join(tmpdir(),'json-rational-root-')),run=promisify(execFile);

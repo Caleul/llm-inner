@@ -1,0 +1,1125 @@
+{
+  "results": [
+    {
+      "length": 1,
+      "position": 0,
+      "outputs": [
+        {
+          "dimension": 0,
+          "dependencies": 24,
+          "substitutions": 240,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 4468,
+          "simplificationCacheMisses": 16835,
+          "lastDependency": "output:0:0",
+          "measure": {
+            "uniqueNodes": 713,
+            "uniqueDecisions": 21,
+            "occurrences": "117433957092812041",
+            "decisions": "42693892934477",
+            "inputReferences": "22425783193048284",
+            "serializedBytes": "2679354850605462323",
+            "depth": 263
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 6.466353954000001
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 6.748359817000164,
+      "peakObservedAggregateRSSBytes": 134914048,
+      "coordinatorStop": null
+    },
+    {
+      "length": 1,
+      "position": 0,
+      "outputs": [
+        {
+          "dimension": 1,
+          "dependencies": 24,
+          "substitutions": 240,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 4468,
+          "simplificationCacheMisses": 16835,
+          "lastDependency": "output:0:1",
+          "measure": {
+            "uniqueNodes": 713,
+            "uniqueDecisions": 21,
+            "occurrences": "117433957092812041",
+            "decisions": "42693892934477",
+            "inputReferences": "22425783193048284",
+            "serializedBytes": "2679354850605462323",
+            "depth": 263
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 6.833381796
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 7.1255639239998345,
+      "peakObservedAggregateRSSBytes": 142352384,
+      "coordinatorStop": null
+    },
+    {
+      "length": 1,
+      "position": 0,
+      "outputs": [
+        {
+          "dimension": 2,
+          "dependencies": 24,
+          "substitutions": 240,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 4468,
+          "simplificationCacheMisses": 16835,
+          "lastDependency": "output:0:2",
+          "measure": {
+            "uniqueNodes": 713,
+            "uniqueDecisions": 21,
+            "occurrences": "117433957092812041",
+            "decisions": "42693892934477",
+            "inputReferences": "22425783193048284",
+            "serializedBytes": "2679354850605462323",
+            "depth": 263
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 6.9058211080000005
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 7.2310221430007005,
+      "peakObservedAggregateRSSBytes": 157171712,
+      "coordinatorStop": null
+    },
+    {
+      "length": 1,
+      "position": 0,
+      "outputs": [
+        {
+          "dimension": 3,
+          "dependencies": 24,
+          "substitutions": 240,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 4468,
+          "simplificationCacheMisses": 16835,
+          "lastDependency": "output:0:3",
+          "measure": {
+            "uniqueNodes": 713,
+            "uniqueDecisions": 21,
+            "occurrences": "117433957092812041",
+            "decisions": "42693892934477",
+            "inputReferences": "22425783193048284",
+            "serializedBytes": "2679354850605462323",
+            "depth": 263
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 6.947072659000001
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 7.181392431000859,
+      "peakObservedAggregateRSSBytes": 144957440,
+      "coordinatorStop": null
+    },
+    {
+      "length": 2,
+      "position": 1,
+      "outputs": [
+        {
+          "dimension": 0,
+          "dependencies": 48,
+          "substitutions": 490,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 17277,
+          "simplificationCacheMisses": 66261,
+          "lastDependency": "output:1:0",
+          "measure": {
+            "uniqueNodes": 1596,
+            "uniqueDecisions": 52,
+            "occurrences": "21460547528074639528373497",
+            "decisions": "7847265467179374461933",
+            "inputReferences": "4098284220024216789009660",
+            "serializedBytes": "489636977947500771688572755",
+            "depth": 382
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 24.026424796
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 24.34689183499995,
+      "peakObservedAggregateRSSBytes": 193036288,
+      "coordinatorStop": null
+    },
+    {
+      "length": 2,
+      "position": 1,
+      "outputs": [
+        {
+          "dimension": 1,
+          "dependencies": 48,
+          "substitutions": 490,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 17277,
+          "simplificationCacheMisses": 66261,
+          "lastDependency": "output:1:1",
+          "measure": {
+            "uniqueNodes": 1596,
+            "uniqueDecisions": 52,
+            "occurrences": "21460547528074639528373497",
+            "decisions": "7847265467179374461933",
+            "inputReferences": "4098284220024216789009660",
+            "serializedBytes": "489636977947500771688572755",
+            "depth": 382
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 23.670039343
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 23.933811287000026,
+      "peakObservedAggregateRSSBytes": 173199360,
+      "coordinatorStop": null
+    },
+    {
+      "length": 2,
+      "position": 1,
+      "outputs": [
+        {
+          "dimension": 2,
+          "dependencies": 48,
+          "substitutions": 490,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 17277,
+          "simplificationCacheMisses": 66261,
+          "lastDependency": "output:1:2",
+          "measure": {
+            "uniqueNodes": 1596,
+            "uniqueDecisions": 52,
+            "occurrences": "21460547528074639528373497",
+            "decisions": "7847265467179374461933",
+            "inputReferences": "4098284220024216789009660",
+            "serializedBytes": "489636977947500771688572755",
+            "depth": 382
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 23.811396187
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 24.067530669000007,
+      "peakObservedAggregateRSSBytes": 185114624,
+      "coordinatorStop": null
+    },
+    {
+      "length": 2,
+      "position": 1,
+      "outputs": [
+        {
+          "dimension": 3,
+          "dependencies": 48,
+          "substitutions": 490,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 17277,
+          "simplificationCacheMisses": 66261,
+          "lastDependency": "output:1:3",
+          "measure": {
+            "uniqueNodes": 1596,
+            "uniqueDecisions": 52,
+            "occurrences": "21460547528074639528373497",
+            "decisions": "7847265467179374461933",
+            "inputReferences": "4098284220024216789009660",
+            "serializedBytes": "489636977947500771688572755",
+            "depth": 382
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 23.582727452
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 23.86009372300032,
+      "peakObservedAggregateRSSBytes": 198590464,
+      "coordinatorStop": null
+    },
+    {
+      "length": 3,
+      "position": 2,
+      "outputs": [
+        {
+          "dimension": 0,
+          "dependencies": 62,
+          "substitutions": 629,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 27641,
+          "simplificationCacheMisses": 106297,
+          "lastDependency": "output:2:0",
+          "measure": {
+            "uniqueNodes": 2075,
+            "uniqueDecisions": 68,
+            "occurrences": "561850022590807442645922457",
+            "decisions": "205503734017090732782245",
+            "inputReferences": "107295117941469129899472252",
+            "serializedBytes": "12819000522441303335582959571",
+            "depth": 401
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 40.622429911
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 40.86824406300002,
+      "peakObservedAggregateRSSBytes": 231768064,
+      "coordinatorStop": null
+    },
+    {
+      "length": 3,
+      "position": 2,
+      "outputs": [
+        {
+          "dimension": 1,
+          "dependencies": 62,
+          "substitutions": 629,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 27641,
+          "simplificationCacheMisses": 106297,
+          "lastDependency": "output:2:1",
+          "measure": {
+            "uniqueNodes": 2075,
+            "uniqueDecisions": 68,
+            "occurrences": "561850022590807442645922457",
+            "decisions": "205503734017090732782245",
+            "inputReferences": "107295117941469129899472252",
+            "serializedBytes": "12819000522441303335582959571",
+            "depth": 401
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 40.539863115
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 40.861932853000326,
+      "peakObservedAggregateRSSBytes": 236863488,
+      "coordinatorStop": null
+    },
+    {
+      "length": 3,
+      "position": 2,
+      "outputs": [
+        {
+          "dimension": 2,
+          "dependencies": 62,
+          "substitutions": 629,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 27641,
+          "simplificationCacheMisses": 106297,
+          "lastDependency": "output:2:2",
+          "measure": {
+            "uniqueNodes": 2075,
+            "uniqueDecisions": 68,
+            "occurrences": "561850022590807442645922457",
+            "decisions": "205503734017090732782245",
+            "inputReferences": "107295117941469129899472252",
+            "serializedBytes": "12819000522441303335582959571",
+            "depth": 401
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 40.50050757499999
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 40.825727213999926,
+      "peakObservedAggregateRSSBytes": 227348480,
+      "coordinatorStop": null
+    },
+    {
+      "length": 3,
+      "position": 2,
+      "outputs": [
+        {
+          "dimension": 3,
+          "dependencies": 62,
+          "substitutions": 629,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 27641,
+          "simplificationCacheMisses": 106297,
+          "lastDependency": "output:2:3",
+          "measure": {
+            "uniqueNodes": 2075,
+            "uniqueDecisions": 68,
+            "occurrences": "561850022590807442645922457",
+            "decisions": "205503734017090732782245",
+            "inputReferences": "107295117941469129899472252",
+            "serializedBytes": "12819000522441303335582959571",
+            "depth": 401
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 41.078471603
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 41.377157287000045,
+      "peakObservedAggregateRSSBytes": 251736064,
+      "coordinatorStop": null
+    },
+    {
+      "length": 4,
+      "position": 3,
+      "outputs": [
+        {
+          "dimension": 0,
+          "dependencies": 76,
+          "substitutions": 756,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 37207,
+          "simplificationCacheMisses": 143655,
+          "lastDependency": "output:3:0",
+          "measure": {
+            "uniqueNodes": 2511,
+            "uniqueDecisions": 82,
+            "occurrences": "1539734808463160444400074953",
+            "decisions": "563239537990615507389341",
+            "inputReferences": "294039325749000246781327164",
+            "serializedBytes": "35130126801196086562217224259",
+            "depth": 402
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 59.233433712
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 59.58805064099943,
+      "peakObservedAggregateRSSBytes": 254775296,
+      "coordinatorStop": null
+    },
+    {
+      "length": 4,
+      "position": 3,
+      "outputs": [
+        {
+          "dimension": 1,
+          "dependencies": 76,
+          "substitutions": 756,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 37207,
+          "simplificationCacheMisses": 143655,
+          "lastDependency": "output:3:1",
+          "measure": {
+            "uniqueNodes": 2511,
+            "uniqueDecisions": 82,
+            "occurrences": "1539734808463160444400074953",
+            "decisions": "563239537990615507389341",
+            "inputReferences": "294039325749000246781327164",
+            "serializedBytes": "35130126801196086562217224259",
+            "depth": 402
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 60.330849762999996
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 60.58892543699949,
+      "peakObservedAggregateRSSBytes": 260878336,
+      "coordinatorStop": null
+    },
+    {
+      "length": 4,
+      "position": 3,
+      "outputs": [
+        {
+          "dimension": 2,
+          "dependencies": 76,
+          "substitutions": 756,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 37207,
+          "simplificationCacheMisses": 143655,
+          "lastDependency": "output:3:2",
+          "measure": {
+            "uniqueNodes": 2511,
+            "uniqueDecisions": 82,
+            "occurrences": "1539734808463160444400074953",
+            "decisions": "563239537990615507389341",
+            "inputReferences": "294039325749000246781327164",
+            "serializedBytes": "35130126801196086562217224259",
+            "depth": 402
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 59.540306394
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 59.88063539099949,
+      "peakObservedAggregateRSSBytes": 278339584,
+      "coordinatorStop": null
+    },
+    {
+      "length": 4,
+      "position": 3,
+      "outputs": [
+        {
+          "dimension": 3,
+          "dependencies": 76,
+          "substitutions": 756,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 37207,
+          "simplificationCacheMisses": 143655,
+          "lastDependency": "output:3:3",
+          "measure": {
+            "uniqueNodes": 2511,
+            "uniqueDecisions": 82,
+            "occurrences": "1539734808463160444400074953",
+            "decisions": "563239537990615507389341",
+            "inputReferences": "294039325749000246781327164",
+            "serializedBytes": "35130126801196086562217224259",
+            "depth": 402
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 59.922960399
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 60.29243900900019,
+      "peakObservedAggregateRSSBytes": 248795136,
+      "coordinatorStop": null
+    },
+    {
+      "length": 5,
+      "position": 4,
+      "outputs": [
+        {
+          "dimension": 0,
+          "dependencies": 90,
+          "substitutions": 890,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 50095,
+          "simplificationCacheMisses": 194118,
+          "lastDependency": "output:4:0",
+          "measure": {
+            "uniqueNodes": 2969,
+            "uniqueDecisions": 97,
+            "occurrences": "9559705780602908827463074441",
+            "decisions": "3497080013378318707702349",
+            "inputReferences": "1825593113921812785158668668",
+            "serializedBytes": "218659629673278168834268660193",
+            "depth": 420
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 81.096656024
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 81.3731485089993,
+      "peakObservedAggregateRSSBytes": 320176128,
+      "coordinatorStop": null
+    },
+    {
+      "length": 5,
+      "position": 4,
+      "outputs": [
+        {
+          "dimension": 1,
+          "dependencies": 90,
+          "substitutions": 890,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 50095,
+          "simplificationCacheMisses": 194118,
+          "lastDependency": "output:4:1",
+          "measure": {
+            "uniqueNodes": 2969,
+            "uniqueDecisions": 97,
+            "occurrences": "9559705780602908827463074441",
+            "decisions": "3497080013378318707702349",
+            "inputReferences": "1825593113921812785158668668",
+            "serializedBytes": "218659629673278168834268660193",
+            "depth": 420
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 81.245267957
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 81.61263135799982,
+      "peakObservedAggregateRSSBytes": 332181504,
+      "coordinatorStop": null
+    },
+    {
+      "length": 5,
+      "position": 4,
+      "outputs": [
+        {
+          "dimension": 2,
+          "dependencies": 90,
+          "substitutions": 890,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 50095,
+          "simplificationCacheMisses": 194118,
+          "lastDependency": "output:4:2",
+          "measure": {
+            "uniqueNodes": 2969,
+            "uniqueDecisions": 97,
+            "occurrences": "9559705780602908827463074441",
+            "decisions": "3497080013378318707702349",
+            "inputReferences": "1825593113921812785158668668",
+            "serializedBytes": "218659629673278168834268660193",
+            "depth": 420
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 81.700680924
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 82.01181325000016,
+      "peakObservedAggregateRSSBytes": 284487680,
+      "coordinatorStop": null
+    },
+    {
+      "length": 5,
+      "position": 4,
+      "outputs": [
+        {
+          "dimension": 3,
+          "dependencies": 90,
+          "substitutions": 890,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 50095,
+          "simplificationCacheMisses": 194118,
+          "lastDependency": "output:4:3",
+          "measure": {
+            "uniqueNodes": 2969,
+            "uniqueDecisions": 97,
+            "occurrences": "9559705780602908827463074441",
+            "decisions": "3497080013378318707702349",
+            "inputReferences": "1825593113921812785158668668",
+            "serializedBytes": "218659629673278168834268660193",
+            "depth": 420
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 81.087799197
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 81.44927366499996,
+      "peakObservedAggregateRSSBytes": 295137280,
+      "coordinatorStop": null
+    },
+    {
+      "length": 6,
+      "position": 5,
+      "outputs": [
+        {
+          "dimension": 0,
+          "dependencies": 104,
+          "substitutions": 1024,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 64767,
+          "simplificationCacheMisses": 251060,
+          "lastDependency": "output:5:0",
+          "measure": {
+            "uniqueNodes": 3423,
+            "uniqueDecisions": 112,
+            "occurrences": "39351144007637659519163915881",
+            "decisions": "14395552414552498583253245",
+            "inputReferences": "7514814105574929320290442172",
+            "serializedBytes": "902308227292814752781810909855",
+            "depth": 422
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 110.921117195
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 111.24519613899975,
+      "peakObservedAggregateRSSBytes": 400453632,
+      "coordinatorStop": null
+    },
+    {
+      "length": 6,
+      "position": 5,
+      "outputs": [
+        {
+          "dimension": 1,
+          "dependencies": 104,
+          "substitutions": 1024,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 64767,
+          "simplificationCacheMisses": 251060,
+          "lastDependency": "output:5:1",
+          "measure": {
+            "uniqueNodes": 3423,
+            "uniqueDecisions": 112,
+            "occurrences": "39351144007637659519163915881",
+            "decisions": "14395552414552498583253245",
+            "inputReferences": "7514814105574929320290442172",
+            "serializedBytes": "902308227292814752781810909855",
+            "depth": 422
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 110.344228353
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 110.7132622579993,
+      "peakObservedAggregateRSSBytes": 389173248,
+      "coordinatorStop": null
+    },
+    {
+      "length": 6,
+      "position": 5,
+      "outputs": [
+        {
+          "dimension": 2,
+          "dependencies": 104,
+          "substitutions": 1024,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 64767,
+          "simplificationCacheMisses": 251060,
+          "lastDependency": "output:5:2",
+          "measure": {
+            "uniqueNodes": 3423,
+            "uniqueDecisions": 112,
+            "occurrences": "39351144007637659519163915881",
+            "decisions": "14395552414552498583253245",
+            "inputReferences": "7514814105574929320290442172",
+            "serializedBytes": "902308227292814752781810909855",
+            "depth": 422
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 112.448459585
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 112.81145957999979,
+      "peakObservedAggregateRSSBytes": 379047936,
+      "coordinatorStop": null
+    },
+    {
+      "length": 6,
+      "position": 5,
+      "outputs": [
+        {
+          "dimension": 3,
+          "dependencies": 104,
+          "substitutions": 1024,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 64767,
+          "simplificationCacheMisses": 251060,
+          "lastDependency": "output:5:3",
+          "measure": {
+            "uniqueNodes": 3423,
+            "uniqueDecisions": 112,
+            "occurrences": "39351144007637659519163915881",
+            "decisions": "14395552414552498583253245",
+            "inputReferences": "7514814105574929320290442172",
+            "serializedBytes": "902308227292814752781810909855",
+            "depth": 422
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 110.107510383
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 110.422074737,
+      "peakObservedAggregateRSSBytes": 400846848,
+      "coordinatorStop": null
+    },
+    {
+      "length": 7,
+      "position": 6,
+      "outputs": [
+        {
+          "dimension": 0,
+          "dependencies": 118,
+          "substitutions": 1158,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 81299,
+          "simplificationCacheMisses": 315498,
+          "lastDependency": "output:6:0",
+          "measure": {
+            "uniqueNodes": 3880,
+            "uniqueDecisions": 127,
+            "occurrences": "133496978596278020818317804073",
+            "decisions": "48836648700576262621247405",
+            "inputReferences": "25493667776328981613891417596",
+            "serializedBytes": "3061152798211404983443438694879",
+            "depth": 424
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 148.94496791499998
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 149.35746688700056,
+      "peakObservedAggregateRSSBytes": 629411840,
+      "coordinatorStop": null
+    },
+    {
+      "length": 7,
+      "position": 6,
+      "outputs": [
+        {
+          "dimension": 1,
+          "dependencies": 118,
+          "substitutions": 1158,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 81299,
+          "simplificationCacheMisses": 315498,
+          "lastDependency": "output:6:1",
+          "measure": {
+            "uniqueNodes": 3880,
+            "uniqueDecisions": 127,
+            "occurrences": "133496978596278020818317804073",
+            "decisions": "48836648700576262621247405",
+            "inputReferences": "25493667776328981613891417596",
+            "serializedBytes": "3061152798211404983443438694879",
+            "depth": 424
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 148.217037824
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 148.52030681199994,
+      "peakObservedAggregateRSSBytes": 452214784,
+      "coordinatorStop": null
+    },
+    {
+      "length": 7,
+      "position": 6,
+      "outputs": [
+        {
+          "dimension": 2,
+          "dependencies": 118,
+          "substitutions": 1158,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 81299,
+          "simplificationCacheMisses": 315498,
+          "lastDependency": "output:6:2",
+          "measure": {
+            "uniqueNodes": 3880,
+            "uniqueDecisions": 127,
+            "occurrences": "133496978596278020818317804073",
+            "decisions": "48836648700576262621247405",
+            "inputReferences": "25493667776328981613891417596",
+            "serializedBytes": "3061152798211404983443438694879",
+            "depth": 424
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 148.602290958
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 149.0197206160001,
+      "peakObservedAggregateRSSBytes": 619413504,
+      "coordinatorStop": null
+    },
+    {
+      "length": 7,
+      "position": 6,
+      "outputs": [
+        {
+          "dimension": 3,
+          "dependencies": 118,
+          "substitutions": 1158,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 81299,
+          "simplificationCacheMisses": 315498,
+          "lastDependency": "output:6:3",
+          "measure": {
+            "uniqueNodes": 3880,
+            "uniqueDecisions": 127,
+            "occurrences": "133496978596278020818317804073",
+            "decisions": "48836648700576262621247405",
+            "inputReferences": "25493667776328981613891417596",
+            "serializedBytes": "3061152798211404983443438694879",
+            "depth": 424
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 148.709743411
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 149.06018397700063,
+      "peakObservedAggregateRSSBytes": 458158080,
+      "coordinatorStop": null
+    },
+    {
+      "length": 8,
+      "position": 7,
+      "outputs": [
+        {
+          "dimension": 0,
+          "dependencies": 132,
+          "substitutions": 1292,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 99695,
+          "simplificationCacheMisses": 387182,
+          "lastDependency": "output:7:0",
+          "measure": {
+            "uniqueNodes": 4335,
+            "uniqueDecisions": 142,
+            "occurrences": "405004367276053221589071402505",
+            "decisions": "148161594990150178211546717",
+            "inputReferences": "77342925398228034869891665980",
+            "serializedBytes": "9287113069629393596997432100991",
+            "depth": 426
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 200.36653499099998
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 200.69175867499962,
+      "peakObservedAggregateRSSBytes": 528191488,
+      "coordinatorStop": null
+    },
+    {
+      "length": 8,
+      "position": 7,
+      "outputs": [
+        {
+          "dimension": 1,
+          "dependencies": 132,
+          "substitutions": 1292,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 99695,
+          "simplificationCacheMisses": 387182,
+          "lastDependency": "output:7:1",
+          "measure": {
+            "uniqueNodes": 4335,
+            "uniqueDecisions": 142,
+            "occurrences": "405004367276053221589071402505",
+            "decisions": "148161594990150178211546717",
+            "inputReferences": "77342925398228034869891665980",
+            "serializedBytes": "9287113069629393596997432100991",
+            "depth": 426
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 198.484785726
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 198.947477961,
+      "peakObservedAggregateRSSBytes": 544456704,
+      "coordinatorStop": null
+    },
+    {
+      "length": 8,
+      "position": 7,
+      "outputs": [
+        {
+          "dimension": 2,
+          "dependencies": 132,
+          "substitutions": 1292,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 99695,
+          "simplificationCacheMisses": 387182,
+          "lastDependency": "output:7:2",
+          "measure": {
+            "uniqueNodes": 4335,
+            "uniqueDecisions": 142,
+            "occurrences": "405004367276053221589071402505",
+            "decisions": "148161594990150178211546717",
+            "inputReferences": "77342925398228034869891665980",
+            "serializedBytes": "9287113069629393596997432100991",
+            "depth": 426
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 204.834426882
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 205.20518475300014,
+      "peakObservedAggregateRSSBytes": 673898496,
+      "coordinatorStop": null
+    },
+    {
+      "length": 8,
+      "position": 7,
+      "outputs": [
+        {
+          "dimension": 3,
+          "dependencies": 132,
+          "substitutions": 1292,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 99695,
+          "simplificationCacheMisses": 387182,
+          "lastDependency": "output:7:3",
+          "measure": {
+            "uniqueNodes": 4335,
+            "uniqueDecisions": 142,
+            "occurrences": "405004367276053221589071402505",
+            "decisions": "148161594990150178211546717",
+            "inputReferences": "77342925398228034869891665980",
+            "serializedBytes": "9287113069629393596997432100991",
+            "depth": 426
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 199.781158307
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 200.09899753799982,
+      "peakObservedAggregateRSSBytes": 567873536,
+      "coordinatorStop": null
+    }
+  ],
+  "finalArtifactParity": false
+}

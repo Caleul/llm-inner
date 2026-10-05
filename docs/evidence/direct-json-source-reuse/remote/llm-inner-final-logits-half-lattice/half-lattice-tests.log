@@ -1,0 +1,88 @@
+TAP version 13
+# Subtest: Inverse bitcasts cancel within their existing arms and retain guards and signed zeros
+ok 1 - Inverse bitcasts cancel within their existing arms and retain guards and signed zeros
+  ---
+  duration_ms: 24.734385
+  type: 'test'
+  ...
+# Subtest: Conditional bitcasts keep an undefined unselected arm lazy and do not distribute arithmetic
+ok 2 - Conditional bitcasts keep an undefined unselected arm lazy and do not distribute arithmetic
+  ---
+  duration_ms: 2.038373
+  type: 'test'
+  ...
+# Subtest: finite half sum/difference needs no intermediate F32 boundary for every magnitude pair
+ok 3 - finite half sum/difference needs no intermediate F32 boundary for every magnitude pair
+  ---
+  duration_ms: 7631.363778
+  type: 'test'
+  ...
+# Subtest: JSON half sum fusion preserves signed zero, binade gaps, cancellation and overflow across all finite half operands
+ok 4 - JSON half sum fusion preserves signed zero, binade gaps, cancellation and overflow across all finite half operands
+  ---
+  duration_ms: 11396.538568
+  type: 'test'
+  ...
+# Subtest: half addition identity is not applied to higher-precision operands or sums of half products
+ok 5 - half addition identity is not applied to higher-precision operands or sums of half products
+  ---
+  duration_ms: 7.061185
+  type: 'test'
+  ...
+# Subtest: summing exact half products still needs the F32 boundary at an odd half tie
+ok 6 - summing exact half products still needs the F32 boundary at an odd half tie
+  ---
+  duration_ms: 5.650437
+  type: 'test'
+  ...
+# Subtest: Half reduction with zero lanes retains signed-zero arithmetic but eliminates repeated quantization
+ok 7 - Half reduction with zero lanes retains signed-zero arithmetic but eliminates repeated quantization
+  ---
+  duration_ms: 877.053971
+  type: 'test'
+  ...
+# Subtest: A nonzero addition or nonunit product cannot inherit the Half lattice
+ok 8 - A nonzero addition or nonunit product cannot inherit the Half lattice
+  ---
+  duration_ms: 7.37389
+  type: 'test'
+  ...
+# Subtest: normalized root and composed inverse JSON exhaust both F32 exponent parities against native IEEE boundaries
+ok 9 - normalized root and composed inverse JSON exhaust both F32 exponent parities against native IEEE boundaries
+  ---
+  duration_ms: 1068.340897
+  type: 'test'
+  ...
+# Subtest: rational root JSON preserves exact widening across normal exponent boundaries and all positive finite half values
+ok 10 - rational root JSON preserves exact widening across normal exponent boundaries and all positive finite half values
+  ---
+  duration_ms: 6731.166368
+  type: 'test'
+  ...
+# Subtest: composed inverse preserves the root rounding boundary instead of silently becoming reciprocal sqrt
+ok 11 - composed inverse preserves the root rounding boundary instead of silently becoming reciprocal sqrt
+  ---
+  duration_ms: 0.755398
+  type: 'test'
+  ...
+# Subtest: Completed producer proofs are reused only under the same relevant branch context
+ok 12 - Completed producer proofs are reused only under the same relevant branch context
+  ---
+  duration_ms: 11.952762
+  type: 'test'
+  ...
+# Subtest: Reusing numerical proof nodes cannot erase a reachable undefined branch
+ok 13 - Reusing numerical proof nodes cannot erase a reachable undefined branch
+  ---
+  duration_ms: 1.611844
+  type: 'test'
+  ...
+1..13
+# tests 13
+# suites 0
+# pass 13
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 19209.371544

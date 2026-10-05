@@ -5,6 +5,13 @@
 Compilar Safetensors + configuração em uma função especializada que recebe
 a entrada e retorna o vetor completo de valores para o próximo token.
 
+O vetor contém somente os logits da última posição válida da entrada
+(quatro no checkpoint de validação). A atenção dessa posição incorpora
+as contribuições causais dos demais tokens. Não emita uma matriz de logits
+para todas as posições. Para comprimentos variáveis, mantenha a seleção
+da última posição nas expressões finais, sem especializar o artefato para
+um comprimento. Coordenadas isoladas e matrizes são apenas diagnósticos.
+
 O objetivo é eliminar o modelo enquanto estrutura de execução: incorporar
 pesos, substituir intermediários e simplificar até que cada saída dependa
 exclusivamente da entrada. O checkpoint não participa da execução final.

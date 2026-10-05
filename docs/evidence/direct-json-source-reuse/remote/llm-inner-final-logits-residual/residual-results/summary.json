@@ -1,0 +1,76 @@
+{
+  "results": [
+    {
+      "length": 1,
+      "position": 0,
+      "outputs": [
+        {
+          "dimension": 0,
+          "dependencies": 24,
+          "substitutions": 256,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 6698,
+          "simplificationCacheMisses": 23278,
+          "lastDependency": "output:0:0",
+          "measure": {
+            "uniqueNodes": 742,
+            "uniqueDecisions": 35,
+            "occurrences": "3530238792515993995",
+            "decisions": "737637415915219",
+            "inputReferences": "709722403142851476",
+            "serializedBytes": "79777410950071681469",
+            "depth": 277
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 7.419719006
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 7.69508361499993,
+      "peakObservedAggregateRSSBytes": 159838208,
+      "coordinatorStop": null
+    },
+    {
+      "length": 8,
+      "position": 7,
+      "outputs": [
+        {
+          "dimension": 0,
+          "dependencies": 132,
+          "substitutions": 1276,
+          "verifiedLogits": 12,
+          "mismatches": [],
+          "status": "validated-without-emission",
+          "simplificationCacheHits": 123759,
+          "simplificationCacheMisses": 471615,
+          "lastDependency": "output:7:0",
+          "measure": {
+            "uniqueNodes": 4254,
+            "uniqueDecisions": 154,
+            "occurrences": "2435026975793468176095783633115",
+            "decisions": "507451573905749208459185659",
+            "inputReferences": "489547466377479175188254014836",
+            "serializedBytes": "55322666298998990870242433089025",
+            "depth": 431
+          },
+          "primitiveFree": true,
+          "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+          "seconds": 229.15391266600002
+        }
+      ],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "exitCode": 0,
+      "wallSeconds": 229.4990504540001,
+      "peakObservedAggregateRSSBytes": 838062080,
+      "coordinatorStop": null
+    }
+  ],
+  "finalArtifactParity": false,
+  "scope": "Experimental residual cell guards preserve the full complement; no domain cut"
+}

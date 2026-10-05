@@ -1,0 +1,19 @@
+{
+  "length": 7,
+  "position": 6,
+  "outputs": [
+    {
+      "dimension": 2,
+      "dependencies": 97,
+      "substitutions": 807,
+      "verifiedLogits": 0,
+      "mismatches": [],
+      "status": "compiling",
+      "simplificationCacheHits": 30339,
+      "simplificationCacheMisses": 114711,
+      "lastDependency": "projection:0:v:6:0"
+    }
+  ],
+  "finalArtifactEmitted": false,
+  "finalArtifactParity": false
+}

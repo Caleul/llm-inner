@@ -12,6 +12,8 @@ export interface JsonScalarHeader {
   inputWidth:number;
   context:number;
   outputWidth:number;
+  /** A single next-token vector, selected by the structural input length. */
+  outputSelection?:'last-position';
   inputs:Record<string,JsonInputBinding>;
 }
 export interface JsonScalarUnit {position:number;dimension:number;expression:JsonExpression}
@@ -70,6 +72,9 @@ export async function writeJsonScalarUnits(path:string,header:JsonScalarHeader,u
   for(const size of [header.inputWidth,header.context,header.outputWidth])if(!Number.isSafeInteger(size)||size<1)throw new RangeError('Invalid discovered JSON geometry');
   if(!Number.isSafeInteger(header.context*header.outputWidth))throw new RangeError('JSON coordinate count is not exactly representable');
   if(header.schema!=='direct-scalar-json-v1')throw new TypeError('Unknown JSON schema');
+  if(header.outputSelection!==undefined&&header.outputSelection!=='last-position')throw new TypeError('Unknown JSON output selection');
+  if(header.outputSelection&&!Object.values(header.inputs).some(b=>'source' in b&&b.source==='inputLength'))
+    throw new TypeError('Last-position output requires the input length binding');
   for(const [name,b] of Object.entries(header.inputs)){
     if(!/^[A-Za-z][A-Za-z0-9_]*$/.test(name))throw new TypeError('Invalid fundamental input name');
     if('source' in b){if(b.source!=='inputLength'||b.dtype!=='u32')throw new TypeError('Invalid structural input binding');continue;}
@@ -78,6 +83,7 @@ export async function writeJsonScalarUnits(path:string,header:JsonScalarHeader,u
       b.coordinate<0||b.coordinate>=header.inputWidth)throw new TypeError('Invalid embedding input binding');
   }
   const coordinate=options.coordinate;
+  if(coordinate&&header.outputSelection)throw new TypeError('A diagnostic coordinate cannot declare a complete next-token vector');
   if(coordinate&&(!Number.isSafeInteger(coordinate.position)||coordinate.position<0||coordinate.position>=header.context||
     !Number.isSafeInteger(coordinate.dimension)||coordinate.dimension<0||coordinate.dimension>=header.outputWidth))
     throw new RangeError('Invalid selected JSON scalar coordinate');
@@ -103,7 +109,7 @@ export async function writeJsonScalarUnits(path:string,header:JsonScalarHeader,u
         // Canonical order proves coverage/uniqueness without retaining a set
         // proportional to checkpoint context multiplied by vocabulary size.
         if(coordinate?count!==0||position!==coordinate.position||dimension!==coordinate.dimension:
-          position!==Math.floor(count/header.outputWidth)||dimension!==count%header.outputWidth)
+          position!==(header.outputSelection?0:Math.floor(count/header.outputWidth))||dimension!==count%header.outputWidth)
           throw new Error('Missing, duplicate or unordered JSON scalar coordinate');
         const measure=measureJsonExpression(expression);
         rejectedCoordinate={position,dimension,predictedBytes:measure.serializedBytes.toString(),predictedOccurrences:measure.occurrences.toString()};
@@ -115,8 +121,9 @@ export async function writeJsonScalarUnits(path:string,header:JsonScalarHeader,u
         for(const token of expressionTokens(expression))await emit(token);
         await emit(',"audit":'+JSON.stringify(audit)+'}\n');count++;
       }
-      // A complete vector contains every dimension at every supported position.
-      if(count!==(coordinate?1:header.context*header.outputWidth))throw new Error('Incomplete JSON output vector');
+      // Last-position units contain their own length-dependent expression;
+      // position=0 is the logical vector row, not token position zero.
+      if(count!==(coordinate?1:header.outputSelection?header.outputWidth:header.context*header.outputWidth))throw new Error('Incomplete JSON output vector');
       await emit(JSON.stringify({kind:coordinate?'coordinate-end':'end',units:count,decisions,finalParity:false,...(coordinate?{coordinate,completeVector:false}:{})})+'\n');
       await flush();await file.sync();await file.close();
       const result={units:count,bytes,sha256:hash.digest('hex'),decisions};

@@ -1,0 +1,35 @@
+{
+  "length": 4,
+  "position": 3,
+  "outputs": [
+    {
+      "dimension": 1,
+      "dependencies": 76,
+      "substitutions": 728,
+      "verifiedLogits": 12,
+      "mismatches": [],
+      "status": "validated-without-emission",
+      "simplificationCacheHits": 39776,
+      "simplificationCacheMisses": 151990,
+      "lastDependency": "output:3:1",
+      "measure": {
+        "uniqueNodes": 2488,
+        "uniqueDecisions": 82,
+        "occurrences": "1539213516323657869895167355",
+        "decisions": "563239537990615507389341",
+        "inputReferences": "294039325749000246781327164",
+        "serializedBytes": "35116051913429517050584719113",
+        "depth": 402
+      },
+      "primitiveFree": true,
+      "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+      "seconds": 59.869407606
+    }
+  ],
+  "finalArtifactEmitted": false,
+  "finalArtifactParity": false,
+  "exitCode": 0,
+  "wallSeconds": 60.13515512499998,
+  "peakObservedAggregateRSSBytes": 305512448,
+  "coordinatorStop": null
+}

@@ -1,0 +1,347 @@
+{
+  "length": 1,
+  "position": 0,
+  "outputs": [
+    {
+      "dimension": 0,
+      "dependencies": 24,
+      "substitutions": 228,
+      "verifiedLogits": 12,
+      "mismatches": [],
+      "status": "validated-without-emission",
+      "simplificationCacheHits": 5235,
+      "simplificationCacheMisses": 19320,
+      "stageGrowth": [
+        {
+          "key": "exp:0:0:0:0",
+          "measure": {
+            "uniqueNodes": 1,
+            "uniqueDecisions": 0,
+            "occurrences": "1",
+            "decisions": "0",
+            "inputReferences": "0",
+            "serializedBytes": "39",
+            "depth": 1
+          }
+        },
+        {
+          "key": "denominator:0:0:0",
+          "measure": {
+            "uniqueNodes": 1,
+            "uniqueDecisions": 0,
+            "occurrences": "1",
+            "decisions": "0",
+            "inputReferences": "0",
+            "serializedBytes": "39",
+            "depth": 1
+          }
+        },
+        {
+          "key": "prob:0:0:0:0",
+          "measure": {
+            "uniqueNodes": 1,
+            "uniqueDecisions": 0,
+            "occurrences": "1",
+            "decisions": "0",
+            "inputReferences": "0",
+            "serializedBytes": "39",
+            "depth": 1
+          }
+        },
+        {
+          "key": "h:-1:0:0",
+          "measure": {
+            "uniqueNodes": 1,
+            "uniqueDecisions": 0,
+            "occurrences": "1",
+            "decisions": "0",
+            "inputReferences": "1",
+            "serializedBytes": "20",
+            "depth": 1
+          }
+        },
+        {
+          "key": "h:-1:0:1",
+          "measure": {
+            "uniqueNodes": 1,
+            "uniqueDecisions": 0,
+            "occurrences": "1",
+            "decisions": "0",
+            "inputReferences": "1",
+            "serializedBytes": "20",
+            "depth": 1
+          }
+        },
+        {
+          "key": "pre:0:0:inverse",
+          "measure": {
+            "uniqueNodes": 72,
+            "uniqueDecisions": 0,
+            "occurrences": "1028",
+            "decisions": "0",
+            "inputReferences": "208",
+            "serializedBytes": "23219",
+            "depth": 36
+          }
+        },
+        {
+          "key": "pre:0:0:0",
+          "measure": {
+            "uniqueNodes": 104,
+            "uniqueDecisions": 1,
+            "occurrences": "5195",
+            "decisions": "1",
+            "inputReferences": "1046",
+            "serializedBytes": "117379",
+            "depth": 50
+          }
+        },
+        {
+          "key": "pre:0:0:1",
+          "measure": {
+            "uniqueNodes": 104,
+            "uniqueDecisions": 1,
+            "occurrences": "5195",
+            "decisions": "1",
+            "inputReferences": "1046",
+            "serializedBytes": "117379",
+            "depth": 50
+          }
+        },
+        {
+          "key": "projection:0:v:0:0",
+          "measure": {
+            "uniqueNodes": 164,
+            "uniqueDecisions": 3,
+            "occurrences": "72831",
+            "decisions": "15",
+            "inputReferences": "14644",
+            "serializedBytes": "1645833",
+            "depth": 66
+          }
+        },
+        {
+          "key": "context:0:0:0:0",
+          "measure": {
+            "uniqueNodes": 187,
+            "uniqueDecisions": 4,
+            "occurrences": "364197",
+            "decisions": "76",
+            "inputReferences": "73220",
+            "serializedBytes": "8230217",
+            "depth": 76
+          }
+        },
+        {
+          "key": "projection:0:v:0:1",
+          "measure": {
+            "uniqueNodes": 164,
+            "uniqueDecisions": 3,
+            "occurrences": "72831",
+            "decisions": "15",
+            "inputReferences": "14644",
+            "serializedBytes": "1645833",
+            "depth": 66
+          }
+        },
+        {
+          "key": "context:0:0:0:1",
+          "measure": {
+            "uniqueNodes": 187,
+            "uniqueDecisions": 4,
+            "occurrences": "364197",
+            "decisions": "76",
+            "inputReferences": "73220",
+            "serializedBytes": "8230217",
+            "depth": 76
+          }
+        },
+        {
+          "key": "residual:0:0:0",
+          "measure": {
+            "uniqueNodes": 289,
+            "uniqueDecisions": 8,
+            "occurrences": "25494337",
+            "decisions": "5326",
+            "inputReferences": "5125405",
+            "serializedBytes": "576128782",
+            "depth": 102
+          }
+        },
+        {
+          "key": "residual:0:0:1",
+          "measure": {
+            "uniqueNodes": 289,
+            "uniqueDecisions": 8,
+            "occurrences": "25494337",
+            "decisions": "5326",
+            "inputReferences": "5125405",
+            "serializedBytes": "576128782",
+            "depth": 102
+          }
+        },
+        {
+          "key": "post:0:0:inverse",
+          "measure": {
+            "uniqueNodes": 374,
+            "uniqueDecisions": 10,
+            "occurrences": "5302822916",
+            "decisions": "1107808",
+            "inputReferences": "1066084240",
+            "serializedBytes": "119834805715",
+            "depth": 137
+          }
+        },
+        {
+          "key": "post:0:0:0",
+          "measure": {
+            "uniqueNodes": 396,
+            "uniqueDecisions": 11,
+            "occurrences": "26646685175",
+            "decisions": "5566736",
+            "inputReferences": "5357073306",
+            "serializedBytes": "602169899249",
+            "depth": 151
+          }
+        },
+        {
+          "key": "post:0:0:1",
+          "measure": {
+            "uniqueNodes": 396,
+            "uniqueDecisions": 11,
+            "occurrences": "26646685175",
+            "decisions": "5566736",
+            "inputReferences": "5357073306",
+            "serializedBytes": "602169899249",
+            "depth": 151
+          }
+        },
+        {
+          "key": "gated:0:0:0",
+          "measure": {
+            "uniqueNodes": 528,
+            "uniqueDecisions": 18,
+            "occurrences": "24088603404976",
+            "decisions": "5032329417",
+            "inputReferences": "4842794268624",
+            "serializedBytes": "544361589090379",
+            "depth": 190
+          }
+        },
+        {
+          "key": "h:0:0:0",
+          "measure": {
+            "uniqueNodes": 724,
+            "uniqueDecisions": 25,
+            "occurrences": "240886161521592",
+            "decisions": "50323320801",
+            "inputReferences": "48427968313265",
+            "serializedBytes": "5443618771551337",
+            "depth": 210
+          }
+        },
+        {
+          "key": "h:0:0:1",
+          "measure": {
+            "uniqueNodes": 726,
+            "uniqueDecisions": 25,
+            "occurrences": "240886161521592",
+            "decisions": "50323320801",
+            "inputReferences": "48427968313265",
+            "serializedBytes": "5443618771551337",
+            "depth": 210
+          }
+        },
+        {
+          "key": "final:0:inverse",
+          "measure": {
+            "uniqueNodes": 636,
+            "uniqueDecisions": 20,
+            "occurrences": "50104321596491956",
+            "decisions": "10467250726608",
+            "inputReferences": "10073017409159120",
+            "serializedBytes": "1132272704482697155",
+            "depth": 245
+          }
+        },
+        {
+          "key": "final:0:0",
+          "measure": {
+            "uniqueNodes": 658,
+            "uniqueDecisions": 21,
+            "occurrences": "251774216022372101",
+            "decisions": "52597934901206",
+            "inputReferences": "50616912481024578",
+            "serializedBytes": "5689670340025553735",
+            "depth": 259
+          }
+        },
+        {
+          "key": "final:0:1",
+          "measure": {
+            "uniqueNodes": 658,
+            "uniqueDecisions": 21,
+            "occurrences": "251774216022372101",
+            "decisions": "52597934901206",
+            "inputReferences": "50616912481024578",
+            "serializedBytes": "5689670340025553735",
+            "depth": 259
+          }
+        },
+        {
+          "key": "output:0:0",
+          "measure": {
+            "uniqueNodes": 715,
+            "uniqueDecisions": 23,
+            "occurrences": "3524839024313209515",
+            "decisions": "736371088616885",
+            "inputReferences": "708636774734344092",
+            "serializedBytes": "79655384760357754817",
+            "depth": 275
+          }
+        }
+      ],
+      "lastDependency": "output:0:0",
+      "beforeCofactor": {
+        "uniqueNodes": 715,
+        "uniqueDecisions": 23,
+        "occurrences": "3524839024313209515",
+        "decisions": "736371088616885",
+        "inputReferences": "708636774734344092",
+        "serializedBytes": "79655384760357754817",
+        "depth": 275
+      },
+      "cofactor": {
+        "candidates": 78,
+        "reducingCandidates": 3,
+        "accepted": 2,
+        "unsafe": 0,
+        "overBudget": 0,
+        "beforeBytes": "79655384760357754817",
+        "afterBytes": "56393457973004369801",
+        "rounds": 3,
+        "roundBudgetFailures": 0,
+        "converged": true,
+        "stopReason": "fixed-point"
+      },
+      "measure": {
+        "uniqueNodes": 1298,
+        "uniqueDecisions": 40,
+        "occurrences": "2495472992528062297",
+        "decisions": "521327111454029",
+        "inputReferences": "501692111506955460",
+        "serializedBytes": "56393457973004369801",
+        "depth": 275
+      },
+      "primitiveFree": true,
+      "emissionStop": "Expanded literal JSON exceeds 512 MiB; no truncated artifact emitted",
+      "seconds": 23.856953011999998
+    }
+  ],
+  "finalArtifactEmitted": false,
+  "finalArtifactParity": false,
+  "exitCode": 0,
+  "wallSeconds": 24.08646408000004,
+  "peakObservedAggregateRSSBytes": 534355968,
+  "coordinatorStop": null
+}

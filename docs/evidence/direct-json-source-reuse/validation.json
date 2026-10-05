@@ -1,0 +1,202 @@
+{
+  "date": "2026-10-05",
+  "baselineCommit": "81f9b57dda79892fef74f464cf474e6a3d0c39f3",
+  "scope": "Four final-position logits for input lengths 1..8, on Colab A100",
+  "latestRun": "llm-inner-final-logits-half-lattice-fixedpoint-v2",
+  "closedCompilerCoordinates": 32,
+  "diagnosticBitComparisons": 384,
+  "bitMismatches": 0,
+  "finalArtifactsEmitted": 0,
+  "finalArtifactParity": false,
+  "rows": [
+    {
+      "length": 1,
+      "completeCompilerCoordinates": 4,
+      "diagnosticBitComparisons": 48,
+      "bitMismatches": 0,
+      "secondsPerCoordinate": [
+        6.466353954000001,
+        6.947072659000001
+      ],
+      "maximumWorkerTreeRSSBytes": 157171712,
+      "serializedBytesPerCoordinate": "2679354850605462323",
+      "uniqueNodes": 713,
+      "uniqueDecisions": 21
+    },
+    {
+      "length": 2,
+      "completeCompilerCoordinates": 4,
+      "diagnosticBitComparisons": 48,
+      "bitMismatches": 0,
+      "secondsPerCoordinate": [
+        23.582727452,
+        24.026424796
+      ],
+      "maximumWorkerTreeRSSBytes": 198590464,
+      "serializedBytesPerCoordinate": "489636977947500771688572755",
+      "uniqueNodes": 1596,
+      "uniqueDecisions": 52
+    },
+    {
+      "length": 3,
+      "completeCompilerCoordinates": 4,
+      "diagnosticBitComparisons": 48,
+      "bitMismatches": 0,
+      "secondsPerCoordinate": [
+        40.50050757499999,
+        41.078471603
+      ],
+      "maximumWorkerTreeRSSBytes": 251736064,
+      "serializedBytesPerCoordinate": "12819000522441303335582959571",
+      "uniqueNodes": 2075,
+      "uniqueDecisions": 68
+    },
+    {
+      "length": 4,
+      "completeCompilerCoordinates": 4,
+      "diagnosticBitComparisons": 48,
+      "bitMismatches": 0,
+      "secondsPerCoordinate": [
+        59.233433712,
+        60.330849762999996
+      ],
+      "maximumWorkerTreeRSSBytes": 278339584,
+      "serializedBytesPerCoordinate": "35130126801196086562217224259",
+      "uniqueNodes": 2511,
+      "uniqueDecisions": 82
+    },
+    {
+      "length": 5,
+      "completeCompilerCoordinates": 4,
+      "diagnosticBitComparisons": 48,
+      "bitMismatches": 0,
+      "secondsPerCoordinate": [
+        81.087799197,
+        81.700680924
+      ],
+      "maximumWorkerTreeRSSBytes": 332181504,
+      "serializedBytesPerCoordinate": "218659629673278168834268660193",
+      "uniqueNodes": 2969,
+      "uniqueDecisions": 97
+    },
+    {
+      "length": 6,
+      "completeCompilerCoordinates": 4,
+      "diagnosticBitComparisons": 48,
+      "bitMismatches": 0,
+      "secondsPerCoordinate": [
+        110.107510383,
+        112.448459585
+      ],
+      "maximumWorkerTreeRSSBytes": 400846848,
+      "serializedBytesPerCoordinate": "902308227292814752781810909855",
+      "uniqueNodes": 3423,
+      "uniqueDecisions": 112
+    },
+    {
+      "length": 7,
+      "completeCompilerCoordinates": 4,
+      "diagnosticBitComparisons": 48,
+      "bitMismatches": 0,
+      "secondsPerCoordinate": [
+        148.217037824,
+        148.94496791499998
+      ],
+      "maximumWorkerTreeRSSBytes": 629411840,
+      "serializedBytesPerCoordinate": "3061152798211404983443438694879",
+      "uniqueNodes": 3880,
+      "uniqueDecisions": 127
+    },
+    {
+      "length": 8,
+      "completeCompilerCoordinates": 4,
+      "diagnosticBitComparisons": 48,
+      "bitMismatches": 0,
+      "secondsPerCoordinate": [
+        198.484785726,
+        204.834426882
+      ],
+      "maximumWorkerTreeRSSBytes": 673898496,
+      "serializedBytesPerCoordinate": "9287113069629393596997432100991",
+      "uniqueNodes": 4335,
+      "uniqueDecisions": 142
+    }
+  ],
+  "primitiveCPU": {
+    "normalizedInputs": 16777216,
+    "rootAndInverseBitComparisons": 33554432,
+    "quantumBoundaryComparisons": 50331648,
+    "bitMismatches": 0
+  },
+  "primitiveCUDA": {
+    "device": "NVIDIA A100-SXM4-40GB",
+    "cuda": "13.0",
+    "expressionSha256": "b76687a671f101092ee6ef3f616c13e33c643fb62736a588a245d634e9ef6e74",
+    "normalizedInputs": 16777216,
+    "comparedOutputs": 33554432,
+    "mismatches": {
+      "root": 0,
+      "inverse": 0
+    },
+    "seconds": 0.8342517680002857,
+    "peakGPUAllocatedBytes": 50331648,
+    "purpose": "Primitive numerical validation only; not final artifact parity"
+  },
+  "focusedLowering": {
+    "pass": 14,
+    "fail": 0,
+    "skip": 0
+  },
+  "JSONRegression": {
+    "tests": 108,
+    "pass": 103,
+    "fail": 0,
+    "skip": 5,
+    "exitCode": 0,
+    "seconds": 92.5427145829999,
+    "peakTreeRSSBytes": 364900352,
+    "stop": null,
+    "testFiles": 25,
+    "testConcurrency": 2
+  },
+  "vectorRegressionInitial": {
+    "tests": 34,
+    "pass": 32,
+    "fail": 1,
+    "skip": 1,
+    "failure": "Pinned SiLU profile missing from test transport; not a model divergence"
+  },
+  "vectorRegressionRepaired": {
+    "pass": 3,
+    "fail": 0,
+    "skip": 0,
+    "tests": "New invalid-scope test, literal next-token selector, restored SiLU certificate",
+    "effectiveSelection": {
+      "tests": 35,
+      "pass": 34,
+      "fail": 0,
+      "skip": 1,
+      "singleRun": false
+    }
+  },
+  "CLISmoke": {
+    "passed": true,
+    "exitCode": 1,
+    "seconds": 21.628141764999782,
+    "status": {
+      "status": "pending",
+      "units": 0,
+      "bytes": 1376,
+      "finalParity": false,
+      "rejectedCoordinate": {
+        "position": 0,
+        "dimension": 0,
+        "predictedBytes": "1896904887992027903",
+        "predictedOccurrences": "83139807767657363"
+      },
+      "reason": "JSON output budget exceeded before expression emission"
+    },
+    "purpose": "Actual CLI, compatible snapshot, closed first coordinate and atomic budget rejection; not final artifact parity"
+  },
+  "remaining": "Literal checkpoint JSON emission, re-read artifact parity and full next-token vector integration; compiler sharing is not an artifact"
+}

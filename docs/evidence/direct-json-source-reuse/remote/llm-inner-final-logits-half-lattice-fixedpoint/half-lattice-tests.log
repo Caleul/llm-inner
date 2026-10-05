@@ -1,0 +1,112 @@
+TAP version 13
+# Subtest: Inverse bitcasts cancel within their existing arms and retain guards and signed zeros
+ok 1 - Inverse bitcasts cancel within their existing arms and retain guards and signed zeros
+  ---
+  duration_ms: 20.800497
+  type: 'test'
+  ...
+# Subtest: Conditional bitcasts keep an undefined unselected arm lazy and do not distribute arithmetic
+ok 2 - Conditional bitcasts keep an undefined unselected arm lazy and do not distribute arithmetic
+  ---
+  duration_ms: 1.990586
+  type: 'test'
+  ...
+# Subtest: finite half sum/difference needs no intermediate F32 boundary for every magnitude pair
+ok 3 - finite half sum/difference needs no intermediate F32 boundary for every magnitude pair
+  ---
+  duration_ms: 7520.025586
+  type: 'test'
+  ...
+# Subtest: JSON half sum fusion preserves signed zero, binade gaps, cancellation and overflow across all finite half operands
+ok 4 - JSON half sum fusion preserves signed zero, binade gaps, cancellation and overflow across all finite half operands
+  ---
+  duration_ms: 10910.094753
+  type: 'test'
+  ...
+# Subtest: half addition identity is not applied to higher-precision operands or sums of half products
+ok 5 - half addition identity is not applied to higher-precision operands or sums of half products
+  ---
+  duration_ms: 12.613792
+  type: 'test'
+  ...
+# Subtest: summing exact half products still needs the F32 boundary at an odd half tie
+ok 6 - summing exact half products still needs the F32 boundary at an odd half tie
+  ---
+  duration_ms: 7.642907
+  type: 'test'
+  ...
+# Subtest: Half reduction with zero lanes retains signed-zero arithmetic but eliminates repeated quantization
+not ok 7 - Half reduction with zero lanes retains signed-zero arithmetic but eliminates repeated quantization
+  ---
+  duration_ms: 254.32479
+  type: 'test'
+  location: '/content/llm-inner-final-logits-half-lattice-fixedpoint/dist/test/direct-json-half-zero-boundary.test.js:10:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+
+    5n !== 1n
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 1n
+  actual: 5n
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///content/llm-inner-final-logits-half-lattice-fixedpoint/dist/test/direct-json-half-zero-boundary.test.js:21:16)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.start (node:internal/test_runner/test:944:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:296:17)
+  ...
+# Subtest: A nonzero addition or nonunit product cannot inherit the Half lattice
+ok 8 - A nonzero addition or nonunit product cannot inherit the Half lattice
+  ---
+  duration_ms: 7.262776
+  type: 'test'
+  ...
+# Subtest: Completed singleton-attention probability is substituted before its consumer rounding
+ok 9 - Completed singleton-attention probability is substituted before its consumer rounding
+  ---
+  duration_ms: 2.428767
+  type: 'test'
+  ...
+# Subtest: normalized root and composed inverse JSON exhaust both F32 exponent parities against native IEEE boundaries
+ok 10 - normalized root and composed inverse JSON exhaust both F32 exponent parities against native IEEE boundaries
+  ---
+  duration_ms: 941.773312
+  type: 'test'
+  ...
+# Subtest: rational root JSON preserves exact widening across normal exponent boundaries and all positive finite half values
+ok 11 - rational root JSON preserves exact widening across normal exponent boundaries and all positive finite half values
+  ---
+  duration_ms: 6502.005938
+  type: 'test'
+  ...
+# Subtest: composed inverse preserves the root rounding boundary instead of silently becoming reciprocal sqrt
+ok 12 - composed inverse preserves the root rounding boundary instead of silently becoming reciprocal sqrt
+  ---
+  duration_ms: 0.558252
+  type: 'test'
+  ...
+# Subtest: Completed producer proofs are reused only under the same relevant branch context
+ok 13 - Completed producer proofs are reused only under the same relevant branch context
+  ---
+  duration_ms: 11.007071
+  type: 'test'
+  ...
+# Subtest: Reusing numerical proof nodes cannot erase a reachable undefined branch
+ok 14 - Reusing numerical proof nodes cannot erase a reachable undefined branch
+  ---
+  duration_ms: 1.538074
+  type: 'test'
+  ...
+1..14
+# tests 14
+# suites 0
+# pass 13
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 18597.869711

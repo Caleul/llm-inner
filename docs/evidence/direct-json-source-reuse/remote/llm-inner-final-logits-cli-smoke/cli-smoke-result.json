@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "exitCode": 1,
+  "seconds": 21.628141764999782,
+  "status": {
+    "status": "pending",
+    "units": 0,
+    "bytes": 1376,
+    "finalParity": false,
+    "rejectedCoordinate": {
+      "position": 0,
+      "dimension": 0,
+      "predictedBytes": "1896904887992027903",
+      "predictedOccurrences": "83139807767657363"
+    },
+    "reason": "JSON output budget exceeded before expression emission"
+  },
+  "purpose": "Actual CLI, compatible snapshot, closed first coordinate and atomic budget rejection; not final artifact parity"
+}
