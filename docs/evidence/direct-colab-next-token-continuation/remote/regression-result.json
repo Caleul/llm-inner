@@ -1,0 +1,14 @@
+[
+  {
+    "label": "cofactor-final",
+    "exitCode": 0,
+    "seconds": 3.2557807030000276,
+    "peakTreeRSSBytes": 143454208
+  },
+  {
+    "label": "native-final",
+    "exitCode": 0,
+    "seconds": 123.95378040500009,
+    "peakTreeRSSBytes": 392257536
+  }
+]

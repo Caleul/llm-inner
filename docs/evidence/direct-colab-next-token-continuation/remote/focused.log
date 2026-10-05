@@ -1,0 +1,259 @@
+TAP version 13
+# Subtest: parallel condition workers preserve alias facts, stable candidate choice and serial convergence
+ok 1 - parallel condition workers preserve alias facts, stable candidate choice and serial convergence
+  ---
+  duration_ms: 617.422286
+  type: 'test'
+  ...
+# Subtest: parallel conditions retain lazy missing inputs, undefined integer operations and signed floating paths
+ok 2 - parallel conditions retain lazy missing inputs, undefined integer operations and signed floating paths
+  ---
+  duration_ms: 104.56579
+  type: 'test'
+  ...
+# Subtest: parallel condition budgets match serial incomplete results and retain earlier progress
+ok 3 - parallel condition budgets match serial incomplete results and retain earlier progress
+  ---
+  duration_ms: 315.403305
+  type: 'test'
+  ...
+# Subtest: ineligible lazy decisions do not consume the eligible candidate budget
+not ok 4 - ineligible lazy decisions do not consume the eligible candidate budget
+  ---
+  duration_ms: 19.253758
+  type: 'test'
+  location: '/content/llm-inner-final-logits-eligible-candidates/dist/test/direct-json-cofactor-parallel.test.js:63:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(serial.stats.accepted > 0)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (file:///content/llm-inner-final-logits-eligible-candidates/dist/test/direct-json-cofactor-parallel.test.js:72:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: shared condition reduction continues past one promotion to its own fixed point
+ok 5 - shared condition reduction continues past one promotion to its own fixed point
+  ---
+  duration_ms: 21.473207
+  type: 'test'
+  ...
+# Subtest: condition candidate and round budgets never masquerade as convergence
+ok 6 - condition candidate and round budgets never masquerade as convergence
+  ---
+  duration_ms: 4.041107
+  type: 'test'
+  ...
+# Subtest: later resource exhaustion preserves the already-admitted reduction without claiming convergence
+ok 7 - later resource exhaustion preserves the already-admitted reduction without claiming convergence
+  ---
+  duration_ms: 4.807381
+  type: 'test'
+  ...
+# Subtest: Invalid compiler output scopes fail before opening any checkpoint
+ok 8 - Invalid compiler output scopes fail before opening any checkpoint
+  ---
+  duration_ms: 1.857474
+  type: 'test'
+  ...
+# Subtest: Next-token literal vector contains four logits and reads only the selected causal prefix for lengths 1..8
+ok 9 - Next-token literal vector contains four logits and reads only the selected causal prefix for lengths 1..8
+  ---
+  duration_ms: 732.510163
+  type: 'test'
+  ...
+# Subtest: JSON exact constants survive serialization including signed zero and all finite F16 bits
+ok 10 - JSON exact constants survive serialization including signed zero and all finite F16 bits
+  ---
+  duration_ms: 234.836344
+  type: 'test'
+  ...
+# Subtest: JSON bitword mask and shift identities preserve all u16 values and unsigned width boundaries
+ok 11 - JSON bitword mask and shift identities preserve all u16 values and unsigned width boundaries
+  ---
+  duration_ms: 6188.236113
+  type: 'test'
+  ...
+# Subtest: JSON conditional facts remove repeated decisions without distributing branches
+ok 12 - JSON conditional facts remove repeated decisions without distributing branches
+  ---
+  duration_ms: 7.293625
+  type: 'test'
+  ...
+# Subtest: JSON shared conditions combine repeated queries after fixed point without changing floating path arithmetic
+ok 13 - JSON shared conditions combine repeated queries after fixed point without changing floating path arithmetic
+  ---
+  duration_ms: 11.372566
+  type: 'test'
+  ...
+# Subtest: JSON shared condition promotion does not expose lazy missing inputs or undefined integer operations
+ok 14 - JSON shared condition promotion does not expose lazy missing inputs or undefined integer operations
+  ---
+  duration_ms: 4.421527
+  type: 'test'
+  ...
+# Subtest: JSON fixed point propagates integer bounds to remove implied and contradictory conditions
+ok 15 - JSON fixed point propagates integer bounds to remove implied and contradictory conditions
+  ---
+  duration_ms: 7.565438
+  type: 'test'
+  ...
+# Subtest: JSON factoring is allowed for modular integers and withheld across float rounding
+ok 16 - JSON factoring is allowed for modular integers and withheld across float rounding
+  ---
+  duration_ms: 1.265694
+  type: 'test'
+  ...
+# Subtest: JSON simplification preserves -0 and does not hide undefined integer operations
+ok 17 - JSON simplification preserves -0 and does not hide undefined integer operations
+  ---
+  duration_ms: 3.30671
+  type: 'test'
+  ...
+# Subtest: JSON precision cancels redundant bit rounding only with a proved lattice and preserves signed zeros
+ok 18 - JSON precision cancels redundant bit rounding only with a proved lattice and preserves signed zeros
+  ---
+  duration_ms: 1606.955096
+  type: 'test'
+  ...
+# Subtest: JSON certified F16 source ranges eliminate only unreachable sign, subnormal and overflow arms
+ok 19 - JSON certified F16 source ranges eliminate only unreachable sign, subnormal and overflow arms
+  ---
+  duration_ms: 4243.129214
+  type: 'test'
+  ...
+# Subtest: JSON working range analysis encloses F32 endpoint rounding and refuses unknown or zero-crossing divisors
+ok 20 - JSON working range analysis encloses F32 endpoint rounding and refuses unknown or zero-crossing divisors
+  ---
+  duration_ms: 2.848586
+  type: 'test'
+  ...
+# Subtest: JSON normal double rounding is fused with both widened even and odd tie cells preserved
+ok 21 - JSON normal double rounding is fused with both widened even and odd tie cells preserved
+  ---
+  duration_ms: 26200.35301
+  type: 'test'
+  ...
+# Subtest: JSON finite double rounding composes normal and subnormal arms without duplicating the F32 result
+ok 22 - JSON finite double rounding composes normal and subnormal arms without duplicating the F32 result
+  ---
+  duration_ms: 10639.70773
+  type: 'test'
+  ...
+# Subtest: JSON exponential truncation is certified over every possible bounded half-score difference
+ok 23 - JSON exponential truncation is certified over every possible bounded half-score difference
+  ---
+  duration_ms: 2126.937897
+  type: 'test'
+  ...
+# Subtest: JSON rejects hidden floating conversions and malformed operation types
+ok 24 - JSON rejects hidden floating conversions and malformed operation types
+  ---
+  duration_ms: 0.796026
+  type: 'test'
+  ...
+# Subtest: JSON F32 to F16 bitwise conversion preserves every finite F16 value including signed zeros
+ok 25 - JSON F32 to F16 bitwise conversion preserves every finite F16 value including signed zeros
+  ---
+  duration_ms: 4353.905835
+  type: 'test'
+  ...
+# Subtest: JSON F32 to F16 explicit decisions agree with independent dyadic rounding at ties and sampled F32 bits
+ok 26 - JSON F32 to F16 explicit decisions agree with independent dyadic rounding at ties and sampled F32 bits
+  ---
+  duration_ms: 358.724932
+  type: 'test'
+  ...
+# Subtest: JSON exact widening covers every finite F16 bit pattern and sampled F32 normal/subnormal values
+ok 27 - JSON exact widening covers every finite F16 bit pattern and sampled F32 normal/subnormal values
+  ---
+  duration_ms: 5189.341267
+  type: 'test'
+  ...
+# Subtest: JSON positive normal F32 square root is lowered without native sqrt and agrees bitwise on exponent and mantissa boundaries
+ok 28 - JSON positive normal F32 square root is lowered without native sqrt and agrees bitwise on exponent and mantissa boundaries
+  ---
+  duration_ms: 2891.784622
+  type: 'test'
+  ...
+# Subtest: JSON factorized SiLU polynomial is certified against every finite F16 point in its declared domain
+ok 29 - JSON factorized SiLU polynomial is certified against every finite F16 point in its declared domain
+  ---
+  duration_ms: 14930.771501
+  type: 'test'
+  ...
+# Subtest: JSON direct F64 to F16 composition matches an independent dyadic oracle at every half midpoint
+ok 30 - JSON direct F64 to F16 composition matches an independent dyadic oracle at every half midpoint
+  ---
+  duration_ms: 11841.078647
+  type: 'test'
+  ...
+# Subtest: JSON exponential eliminates constant range reduction and reproduces the pinned F32 polynomial in its proved domain
+ok 31 - JSON exponential eliminates constant range reduction and reproduces the pinned F32 polynomial in its proved domain
+  ---
+  duration_ms: 1990.702817
+  type: 'test'
+  ...
+# Subtest: JSON normal rounding followed by exact widening collapses to one bitword rounding expression
+ok 32 - JSON normal rounding followed by exact widening collapses to one bitword rounding expression
+  ---
+  duration_ms: 27.450536
+  type: 'test'
+  ...
+# Subtest: JSON composed F16 conversion and widening preserves all F16 values and sampled F32 rounding boundaries
+ok 33 - JSON composed F16 conversion and widening preserves all F16 values and sampled F32 rounding boundaries
+  ---
+  duration_ms: 1971.322716
+  type: 'test'
+  ...
+# Subtest: JSON F64 to F32 bitwise conversion agrees with IEEE rounding at boundaries and sampled binary64 values
+ok 34 - JSON F64 to F32 bitwise conversion agrees with IEEE rounding at boundaries and sampled binary64 values
+  ---
+  duration_ms: 303.383681
+  type: 'test'
+  ...
+# Subtest: JSON admission distinguishes shared decisions from expanded occurrences and rejects residual implicit rounding
+ok 35 - JSON admission distinguishes shared decisions from expanded occurrences and rejects residual implicit rounding
+  ---
+  duration_ms: 1.139319
+  type: 'test'
+  ...
+# Subtest: JSON admission rejects exponential duplication and longest shared paths without expanding the tree
+ok 36 - JSON admission rejects exponential duplication and longest shared paths without expanding the tree
+  ---
+  duration_ms: 22.286749
+  type: 'test'
+  ...
+# Subtest: JSON measurement predicts serialization and huge duplication without rendering expanded expressions
+ok 37 - JSON measurement predicts serialization and huge duplication without rendering expanded expressions
+  ---
+  duration_ms: 2.639314
+  type: 'test'
+  ...
+# Subtest: JSONL stream emits all scalar coordinates with exact syntax and refuses to publish incomplete vectors
+ok 38 - JSONL stream emits all scalar coordinates with exact syntax and refuses to publish incomplete vectors
+  ---
+  duration_ms: 107.845776
+  type: 'test'
+  ...
+1..38
+# tests 38
+# suites 0
+# pass 37
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 97608.83344

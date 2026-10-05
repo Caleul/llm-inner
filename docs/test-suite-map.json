@@ -30,19 +30,19 @@
       "command": "npm run test:historical",
       "source": "test/historical/gemma4-calibration-evidence.test.ts",
       "tests": [
-        "evidência do default de oito threads vincula corpus e tokens autoritativos",
-        "evidência rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de latência",
-        "evidência do corte de prefill terminal preserva corpus e correção de raiz",
-        "evidência promove antecipação do prefixo exato somente em sessão com cache",
-        "evidência promove o maior prefixo exato entre sessões sem alterar logits",
-        "evidência promove contexto sensível exato sem replay do decoder",
-        "evidência adia prefill exato sem cache e preserva antecipação do contexto exato",
-        "evidência promove cabeça BF16 integral e rejeita prefill agrupado divergente",
-        "evidência promove cache de decisão exata e rejeita fronteira Q8 0-18",
-        "evidência promove a fronteira Q8 0-19 com menos fallbacks e paridade integral",
-        "evidência rejeita fronteiras Q8 esparsas que reduzem fallbacks mas pioram o híbrido",
-        "evidência rejeita Q8 na projeção down quando velocidade e verificação deixam de coexistir",
-        "evidência rejeita grupos Q8 que divergem ou ampliam o fallback"
+        "evid\u00eancia do default de oito threads vincula corpus e tokens autoritativos",
+        "evid\u00eancia rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de lat\u00eancia",
+        "evid\u00eancia do corte de prefill terminal preserva corpus e corre\u00e7\u00e3o de raiz",
+        "evid\u00eancia promove antecipa\u00e7\u00e3o do prefixo exato somente em sess\u00e3o com cache",
+        "evid\u00eancia promove o maior prefixo exato entre sess\u00f5es sem alterar logits",
+        "evid\u00eancia promove contexto sens\u00edvel exato sem replay do decoder",
+        "evid\u00eancia adia prefill exato sem cache e preserva antecipa\u00e7\u00e3o do contexto exato",
+        "evid\u00eancia promove cabe\u00e7a BF16 integral e rejeita prefill agrupado divergente",
+        "evid\u00eancia promove cache de decis\u00e3o exata e rejeita fronteira Q8 0-18",
+        "evid\u00eancia promove a fronteira Q8 0-19 com menos fallbacks e paridade integral",
+        "evid\u00eancia rejeita fronteiras Q8 esparsas que reduzem fallbacks mas pioram o h\u00edbrido",
+        "evid\u00eancia rejeita Q8 na proje\u00e7\u00e3o down quando velocidade e verifica\u00e7\u00e3o deixam de coexistir",
+        "evid\u00eancia rejeita grupos Q8 que divergem ou ampliam o fallback"
       ],
       "requirements": [
         "Original benchmark artifacts and their referenced inputs under artifacts/",
@@ -3495,5 +3495,71 @@
         "purpose": "Committed native checkpoint regression, compatible snapshot, converged/unfinished admission"
       }
     }
+  },
+  "directColabEligibleConditionsContinuation": {
+    "date": "2026-10-05",
+    "evidence": "docs/evidence/direct-colab-next-token-continuation",
+    "session": "llm-inner-final-logits-eligible-20261005",
+    "resources": {
+      "cpuCount": 2,
+      "RAMBytes": 13605830656,
+      "cudaAvailable": false,
+      "torch": "2.11.0+cpu"
+    },
+    "sourceBuild": "npm run build passed locally; compilation and heavy validations run remotely",
+    "firstFixtureAttempts": "Assertions assumed a reducing promotion for a nonreducing/repeated-factor example; corrected fixture distinguishes Gate branches and preserves lazy absent inputs. Both failed logs retained.",
+    "focusedPriorRun": {
+      "tests": 38,
+      "pass": 37,
+      "fail": 1,
+      "seconds": 97.67195415199998,
+      "failure": "New fixture assertion; production/native regressions passed"
+    },
+    "finalReruns": [
+      {
+        "label": "cofactor-final",
+        "exitCode": 0,
+        "seconds": 3.2557807030000276,
+        "peakTreeRSSBytes": 143454208
+      },
+      {
+        "label": "native-final",
+        "exitCode": 0,
+        "seconds": 123.95378040500009,
+        "peakTreeRSSBytes": 392257536
+      }
+    ],
+    "finalTests": {
+      "cofactor": {
+        "tests": 7,
+        "pass": 7,
+        "fail": 0
+      },
+      "nativeAdmission": {
+        "tests": 2,
+        "pass": 2,
+        "fail": 0
+      }
+    },
+    "workingCoordinate": {
+      "length": 1,
+      "dimension": 0,
+      "reachableProducers": 22,
+      "preparations": 12,
+      "pairMerges": 11,
+      "levels": 4,
+      "comparisonsPerMode": 12,
+      "mismatches": 0,
+      "workers": [
+        1,
+        2
+      ],
+      "characters": 209803,
+      "closureStop": "CPU composition/lowering deadline reached",
+      "complete": false,
+      "finalParity": false
+    },
+    "fullVariableLengthCoordinate": "Prior session observation: 654 dependency events, one prepared dimension of four, condition candidate budget exhausted, no artifact; remote session subsequently lost",
+    "GPU": "A100 rejected; T4 Service Unavailable; CPU Colab fallback, no new CUDA claim"
   }
 }

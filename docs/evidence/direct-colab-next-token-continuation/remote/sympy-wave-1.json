@@ -1,0 +1,198 @@
+{
+  "completedJobs": 23,
+  "completedBlocks": 0,
+  "completedPairMerges": 0,
+  "seededLanes": 0,
+  "maxWorkersAdmitted": 1,
+  "peakObservedRSSBytes": 493682688,
+  "compositionLevels": 3,
+  "peakAccumulatedBytes": 233020,
+  "operatorPreparations": 12,
+  "operatorPairMerges": 11,
+  "growth": [
+    {
+      "characters": 296,
+      "inputBytes": 296,
+      "kind": "operator-prepare",
+      "seconds": 0.013301448999982313,
+      "pid": 1936,
+      "rssBytes": 204959744
+    },
+    {
+      "characters": 291,
+      "inputBytes": 291,
+      "kind": "operator-prepare",
+      "seconds": 0.0063113919999864265,
+      "pid": 1936,
+      "rssBytes": 204963840
+    },
+    {
+      "characters": 186,
+      "inputBytes": 186,
+      "kind": "operator-prepare",
+      "seconds": 0.005944688999989012,
+      "pid": 1936,
+      "rssBytes": 204963840
+    },
+    {
+      "characters": 298,
+      "inputBytes": 298,
+      "kind": "operator-prepare",
+      "seconds": 0.00689049499999328,
+      "pid": 1936,
+      "rssBytes": 204963840
+    },
+    {
+      "characters": 92,
+      "inputBytes": 92,
+      "kind": "operator-prepare",
+      "seconds": 0.0024602969999705238,
+      "pid": 1936,
+      "rssBytes": 204963840
+    },
+    {
+      "characters": 310,
+      "inputBytes": 310,
+      "kind": "operator-prepare",
+      "seconds": 0.006766093000010187,
+      "pid": 1936,
+      "rssBytes": 204963840
+    },
+    {
+      "characters": 304,
+      "inputBytes": 304,
+      "kind": "operator-prepare",
+      "seconds": 0.0065442410000287055,
+      "pid": 1936,
+      "rssBytes": 204963840
+    },
+    {
+      "characters": 90,
+      "inputBytes": 90,
+      "kind": "operator-prepare",
+      "seconds": 0.0030940309999891724,
+      "pid": 1936,
+      "rssBytes": 204963840
+    },
+    {
+      "characters": 215,
+      "inputBytes": 215,
+      "kind": "operator-prepare",
+      "seconds": 0.005077478000032443,
+      "pid": 1936,
+      "rssBytes": 204963840
+    },
+    {
+      "characters": 92,
+      "inputBytes": 92,
+      "kind": "operator-prepare",
+      "seconds": 0.0023962060000144447,
+      "pid": 1936,
+      "rssBytes": 204963840
+    },
+    {
+      "characters": 298,
+      "inputBytes": 298,
+      "kind": "operator-prepare",
+      "seconds": 0.005257251999978507,
+      "pid": 1936,
+      "rssBytes": 204963840
+    },
+    {
+      "characters": 157,
+      "inputBytes": 157,
+      "kind": "operator-prepare",
+      "seconds": 0.0023724989999891477,
+      "pid": 1936,
+      "rssBytes": 204963840
+    },
+    {
+      "characters": 765,
+      "inputBytes": 587,
+      "kind": "operator-merge",
+      "seconds": 0.03012645599994812,
+      "pid": 1939,
+      "rssBytes": 204742656
+    },
+    {
+      "characters": 531,
+      "inputBytes": 484,
+      "kind": "operator-merge",
+      "seconds": 0.030711748999976862,
+      "pid": 1939,
+      "rssBytes": 204746752
+    },
+    {
+      "characters": 514,
+      "inputBytes": 402,
+      "kind": "operator-merge",
+      "seconds": 0.024695320000034826,
+      "pid": 1939,
+      "rssBytes": 205070336
+    },
+    {
+      "characters": 322,
+      "inputBytes": 394,
+      "kind": "operator-merge",
+      "seconds": 0.01728394499997421,
+      "pid": 1939,
+      "rssBytes": 205070336
+    },
+    {
+      "characters": 235,
+      "inputBytes": 307,
+      "kind": "operator-merge",
+      "seconds": 0.013473920000024009,
+      "pid": 1939,
+      "rssBytes": 205070336
+    },
+    {
+      "characters": 407,
+      "inputBytes": 455,
+      "kind": "operator-merge",
+      "seconds": 0.01353345199999012,
+      "pid": 1939,
+      "rssBytes": 205070336
+    },
+    {
+      "characters": 1940,
+      "inputBytes": 1296,
+      "kind": "operator-merge",
+      "seconds": 0.04497361399995725,
+      "pid": 1942,
+      "rssBytes": 204750848
+    },
+    {
+      "characters": 1174,
+      "inputBytes": 836,
+      "kind": "operator-merge",
+      "seconds": 0.04691214700000046,
+      "pid": 1942,
+      "rssBytes": 205078528
+    },
+    {
+      "characters": 1318,
+      "inputBytes": 642,
+      "kind": "operator-merge",
+      "seconds": 0.03888554099995645,
+      "pid": 1942,
+      "rssBytes": 205086720
+    },
+    {
+      "characters": 21862,
+      "inputBytes": 3114,
+      "kind": "operator-merge",
+      "seconds": 0.08742206900001293,
+      "pid": 1945,
+      "rssBytes": 205074432
+    },
+    {
+      "characters": 209840,
+      "inputBytes": 23180,
+      "kind": "operator-merge",
+      "seconds": 0.08835839699997905,
+      "pid": 1948,
+      "rssBytes": 206454784
+    }
+  ]
+}

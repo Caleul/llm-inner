@@ -17,7 +17,7 @@ async function round(root:JsonExpression,options:JsonParallelConditionOptions){
   const maxVisits=Math.min(1000000,maxNodes*8),
     base=shareJsonExpression(simplifyJsonFixedPoint(root,32,maxVisits).expression,maxVisits).expression;
   const before=measureJsonExpression(base,maxNodes);
-  const stats:JsonCofactorStats={candidates:0,reducingCandidates:0,accepted:0,unsafe:0,overBudget:0,
+  const stats:JsonCofactorStats={candidates:0,testedCandidates:0,reducingCandidates:0,accepted:0,unsafe:0,overBudget:0,
     beforeBytes:before.serializedBytes,afterBytes:before.serializedBytes,rounds:1,roundBudgetFailures:0,
     converged:false,stopReason:'round-budget'};
   const order:JsonExpression[]=[],seen=new WeakSet<object>(),allInputs=new WeakMap<object,Set<string>>(),strictInputs=new WeakMap<object,Set<string>>();
@@ -44,10 +44,16 @@ async function round(root:JsonExpression,options:JsonParallelConditionOptions){
       weight.set(arg,(weight.get(arg)??0n)+count);
   }
   const candidates=[...counts].filter(([,count])=>count>1n).sort((a,b)=>a[1]>b[1]?-1:a[1]<b[1]?1:0),safe:Condition[]=[];
-  for(const [condition] of candidates.slice(0,maxCandidates)){
-    const ordinal=stats.candidates++;
-    if(!jsonExpressionIsTotal(condition)||[...allInputs.get(condition)!].some(x=>!strictInputs.get(base)!.has(x)))stats.unsafe++;
-    else safe.push({index:ordinal,condition});
+  let exhausted=false;
+  const totalMemo=new WeakMap<object,boolean>();
+  for(const [condition] of candidates){
+    const ordinal=stats.candidates;
+    if([...allInputs.get(condition)!].some(x=>!strictInputs.get(base)!.has(x))||!jsonExpressionIsTotal(condition,totalMemo)){
+      stats.candidates++;stats.unsafe++;
+    }else{
+      if(safe.length>=maxCandidates){exhausted=true;break;}
+      stats.candidates++;stats.testedCandidates++;safe.push({index:ordinal,condition});
+    }
   }
   const workerCount=Math.min(options.workers??availableParallelism(),availableParallelism(),safe.length),workers:Worker[]=[];
   const groups=Array.from({length:workerCount},()=>[] as Condition[]);
@@ -70,7 +76,7 @@ async function round(root:JsonExpression,options:JsonParallelConditionOptions){
     }
   }finally{await Promise.allSettled(workers.map(worker=>worker.terminate()));}
   if(stats.accepted===0){
-    stats.converged=stats.overBudget===0&&stats.candidates===candidates.length;
+    stats.converged=stats.overBudget===0&&!exhausted;
     stats.stopReason=stats.overBudget>0?'resource-budget':stats.converged?'fixed-point':'candidate-budget';
   }
   return {expression:best,stats};
@@ -94,7 +100,7 @@ export async function simplifyJsonSharedConditionsParallel(root:JsonExpression,o
     expression=result.expression;
     if(!aggregate)aggregate={...result.stats};
     else{
-      for(const key of ['candidates','reducingCandidates','accepted','unsafe','overBudget','rounds','roundBudgetFailures'] as const)aggregate[key]+=result.stats[key];
+      for(const key of ['candidates','testedCandidates','reducingCandidates','accepted','unsafe','overBudget','rounds','roundBudgetFailures'] as const)aggregate[key]+=result.stats[key];
       aggregate.afterBytes=result.stats.afterBytes;aggregate.converged=result.stats.converged;aggregate.stopReason=result.stats.stopReason;
     }
     if(result.stats.accepted===0)return {expression,stats:aggregate};

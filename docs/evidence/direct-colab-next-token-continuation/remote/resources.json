@@ -1,0 +1,6 @@
+{
+  "cpuCount": 2,
+  "RAMBytes": 13605830656,
+  "cudaAvailable": false,
+  "torch": "2.11.0+cpu"
+}

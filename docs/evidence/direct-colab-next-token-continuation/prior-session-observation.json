@@ -1,0 +1,27 @@
+{
+  "evidenceKind": "Prior live Colab status observation; remote session later lost, not a recovered result file",
+  "sourceCommit": "b6eea2a10568de58f68bacf9955dc62720b85628",
+  "session": "llm-inner-final-logits-20261005",
+  "wallSeconds": 778.846478714,
+  "peakTreeRSSBytes": 1339662336,
+  "dependencyStabilizationEventsByPosition": {
+    "7": 132,
+    "6": 118,
+    "5": 104,
+    "4": 90,
+    "3": 76,
+    "2": 62,
+    "1": 48,
+    "0": 24
+  },
+  "totalDependencyStabilizationEvents": 654,
+  "preparedDimensions": 1,
+  "totalDimensions": 4,
+  "conditionConverged": false,
+  "stopReason": "candidate-budget",
+  "promotions": 0,
+  "literalPredictedBytes": "13511419317943308591004057725066",
+  "finalArtifactEmitted": false,
+  "finalArtifactParity": false,
+  "subsequentSourceGuard": "161d611 rejects unfinished conditions before attempting byte admission"
+}

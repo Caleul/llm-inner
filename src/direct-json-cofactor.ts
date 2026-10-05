@@ -3,7 +3,7 @@ import {measureJsonExpression} from './direct-json-measure.js';
 import {simplifyJsonFixedPoint,simplifyJsonExpression,jsonExpressionIsTotal} from './direct-json-simplify.js';
 import {shareJsonExpression} from './direct-json-share.js';
 
-export interface JsonCofactorStats {candidates:number;reducingCandidates:number;accepted:number;unsafe:number;overBudget:number;
+export interface JsonCofactorStats {candidates:number;testedCandidates:number;reducingCandidates:number;accepted:number;unsafe:number;overBudget:number;
   beforeBytes:bigint;afterBytes:bigint;rounds:number;converged:boolean;roundBudgetFailures:number;
   stopReason:'fixed-point'|'round-budget'|'candidate-budget'|'resource-budget'}
 /** Select one existing pure decision, propagate its truth into the whole scalar,
@@ -20,7 +20,7 @@ function simplifyOneSharedCondition(root:JsonExpression,
   const maxVisits=Math.min(1_000_000,maxNodes*8);
   const base=shareJsonExpression(simplifyJsonFixedPoint(root,32,maxVisits).expression,maxVisits).expression,
     before=measureJsonExpression(base,maxNodes);
-  const stats:JsonCofactorStats={candidates:0,reducingCandidates:0,accepted:0,unsafe:0,overBudget:0,beforeBytes:before.serializedBytes,afterBytes:before.serializedBytes,rounds:1,converged:false,roundBudgetFailures:0,stopReason:'round-budget'};
+  const stats:JsonCofactorStats={candidates:0,testedCandidates:0,reducingCandidates:0,accepted:0,unsafe:0,overBudget:0,beforeBytes:before.serializedBytes,afterBytes:before.serializedBytes,rounds:1,converged:false,roundBudgetFailures:0,stopReason:'round-budget'};
   // Postorder compiler nodes, never expanded occurrences. Weight each node by
   // its expanded multiplicity when ranking duplicated condition queries.
   const order:JsonExpression[]=[],seen=new WeakSet<object>();
@@ -49,14 +49,18 @@ function simplifyOneSharedCondition(root:JsonExpression,
       weight.set(arg,(weight.get(arg)??0n)+count);
   }
   const candidates=[...counts].filter(([,count])=>count>1n).sort((a,b)=>a[1]>b[1]?-1:a[1]<b[1]?1:0);
-  let best=base;
+  let best=base,tested=0,exhausted=false;
+  const totalMemo=new WeakMap<object,boolean>();
   for(const [condition] of candidates){
-    if(stats.candidates>=maxCandidates)break;stats.candidates++;
     // Moving a decision must neither expose an undefined integer operation nor
     // require an input that the original lazy expression could leave absent.
-    if(!jsonExpressionIsTotal(condition)||[...allInputs.get(condition)!].some(x=>!strictInputs.get(base)!.has(x))){
-      stats.unsafe++;continue;
+    if([...allInputs.get(condition)!].some(x=>!strictInputs.get(base)!.has(x))||!jsonExpressionIsTotal(condition,totalMemo)){
+      stats.candidates++;stats.unsafe++;continue;
     }
+    // The budget bounds expensive cofactor transformations, not metadata
+    // rejections. Unsafe length-specific decisions cannot starve safe ones.
+    if(tested>=maxCandidates){exhausted=true;break;}
+    tested++;stats.testedCandidates++;stats.candidates++;
     let candidate:JsonExpression,size;
     try{
       const yes=simplifyJsonFixedPoint(simplifyJsonExpression(base,undefined,[[condition,true]],maxVisits),32,maxVisits).expression;
@@ -70,7 +74,7 @@ function simplifyOneSharedCondition(root:JsonExpression,
     if(size.serializedBytes<stats.afterBytes){best=candidate;stats.afterBytes=size.serializedBytes;stats.accepted=1;}
   }
   if(stats.accepted===0){
-    stats.converged=stats.overBudget===0&&stats.candidates===candidates.length;
+    stats.converged=stats.overBudget===0&&!exhausted;
     stats.stopReason=stats.overBudget>0?'resource-budget':stats.converged?'fixed-point':'candidate-budget';
   }
   return {expression:best,stats};
@@ -97,7 +101,7 @@ export function simplifyJsonSharedConditions(root:JsonExpression,
     expression=result.expression;
     if(!aggregate)aggregate={...result.stats};
     else {
-      for(const key of ['candidates','reducingCandidates','accepted','unsafe','overBudget','rounds','roundBudgetFailures'] as const)
+      for(const key of ['candidates','testedCandidates','reducingCandidates','accepted','unsafe','overBudget','rounds','roundBudgetFailures'] as const)
         aggregate[key]+=result.stats[key];
       aggregate.afterBytes=result.stats.afterBytes;
       aggregate.converged=result.stats.converged;aggregate.stopReason=result.stats.stopReason;

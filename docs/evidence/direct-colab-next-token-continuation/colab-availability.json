@@ -1,0 +1,8 @@
+{
+  "previousSession": "404/401; inventory confirmed no active sessions",
+  "A100": "Backend rejected accelerator; quota or entitlement unavailable",
+  "T4": "Backend Service Unavailable; inventory confirmed no active sessions",
+  "replacementSession": "llm-inner-final-logits-eligible-20261005",
+  "replacementKind": "CPU",
+  "GPUAccelerationClaimed": false
+}

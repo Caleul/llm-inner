@@ -1,0 +1,1 @@
+{"outputScope": "last-position-only", "coordinate": 0, "length": 1, "artifactComplete": false, "finalParity": false, "selectedOutputIndices": [0], "reachableProducers": 22, "seconds": 124.04286605000004, "peakRSSBytes": 353353728, "stop": "CPU composition/lowering deadline reached"}

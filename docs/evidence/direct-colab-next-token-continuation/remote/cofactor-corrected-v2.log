@@ -1,0 +1,52 @@
+TAP version 13
+# Subtest: parallel condition workers preserve alias facts, stable candidate choice and serial convergence
+ok 1 - parallel condition workers preserve alias facts, stable candidate choice and serial convergence
+  ---
+  duration_ms: 638.268482
+  type: 'test'
+  ...
+# Subtest: parallel conditions retain lazy missing inputs, undefined integer operations and signed floating paths
+ok 2 - parallel conditions retain lazy missing inputs, undefined integer operations and signed floating paths
+  ---
+  duration_ms: 94.82677
+  type: 'test'
+  ...
+# Subtest: parallel condition budgets match serial incomplete results and retain earlier progress
+ok 3 - parallel condition budgets match serial incomplete results and retain earlier progress
+  ---
+  duration_ms: 321.760127
+  type: 'test'
+  ...
+# Subtest: ineligible lazy decisions do not consume the eligible candidate budget
+ok 4 - ineligible lazy decisions do not consume the eligible candidate budget
+  ---
+  duration_ms: 214.866227
+  type: 'test'
+  ...
+# Subtest: shared condition reduction continues past one promotion to its own fixed point
+ok 5 - shared condition reduction continues past one promotion to its own fixed point
+  ---
+  duration_ms: 21.761658
+  type: 'test'
+  ...
+# Subtest: condition candidate and round budgets never masquerade as convergence
+ok 6 - condition candidate and round budgets never masquerade as convergence
+  ---
+  duration_ms: 3.883794
+  type: 'test'
+  ...
+# Subtest: later resource exhaustion preserves the already-admitted reduction without claiming convergence
+ok 7 - later resource exhaustion preserves the already-admitted reduction without claiming convergence
+  ---
+  duration_ms: 5.056903
+  type: 'test'
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 7
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1535.126706

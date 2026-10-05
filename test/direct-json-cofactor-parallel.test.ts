@@ -44,3 +44,33 @@ test('parallel condition budgets match serial incomplete results and retain earl
   for(const P of [true,false])for(const Q of [true,false])assert.equal(evaluate(result.expression,{P,Q}),evaluate(root,{P,Q}));
   await assert.rejects(simplifyJsonSharedConditionsParallel(root,{workers:0}),/budget/);
 });
+
+test('ineligible lazy decisions do not consume the eligible candidate budget',async()=>{
+  const gate=input('bool','Gate'),missing=input('bool','Missing');
+  const branch=(condition:typeof gate,a:number,b:number)=>o('if','u32',condition,c('u32',a),c('u32',b));
+  let lazy=branch(missing,3,7);
+  for(let i=0;i<12;i++)lazy=o('add','u32',lazy,branch(missing,i+4,i+8));
+  const gated=(offset:number)=>o('if','u32',gate,o('add','u32',lazy,c('u32',offset)),c('u32',offset+40));
+  const root=o('add','u32',gated(1),o('add','u32',gated(2),gated(3)));
+  const serial=simplifyJsonSharedConditions(root,{maxCandidates:1});
+  assert.ok(serial.stats.unsafe>0);assert.ok(serial.stats.accepted>0);
+  assert.equal(serial.stats.testedCandidates,1);
+  assert.equal(serial.stats.candidates,serial.stats.testedCandidates+serial.stats.unsafe);
+  assert.equal(serial.stats.converged,true);assert.equal(serial.stats.stopReason,'fixed-point');
+  for(const workers of [2,4]){
+    const parallel=await simplifyJsonSharedConditionsParallel(root,{maxCandidates:1,workers});
+    assert.deepEqual(parallel.stats,serial.stats);assert.ok(sameJsonExpression(parallel.expression,serial.expression));
+    for(const Gate of [false,true])for(const Missing of [false,true]){
+      const values=Gate?{Gate,Missing}:{Gate};
+      assert.equal(evaluate(parallel.expression,values),evaluate(root,values));
+    }
+  }
+  // No eligible repeated decisions remain: a zero transformation budget is
+  // sufficient to prove closure, and absent inputs stay absent.
+  const unsafeOnly=o('if','u32',gate,lazy,c('u32',0));
+  const zero=simplifyJsonSharedConditions(unsafeOnly,{maxCandidates:0});
+  assert.equal(zero.stats.converged,true);assert.ok(zero.stats.unsafe>0);
+  assert.equal(zero.stats.testedCandidates,0);
+  assert.equal(evaluate(zero.expression,{Gate:false}),0n);
+  assert.deepEqual((await simplifyJsonSharedConditionsParallel(unsafeOnly,{workers:2,maxCandidates:0})).stats,zero.stats);
+});
