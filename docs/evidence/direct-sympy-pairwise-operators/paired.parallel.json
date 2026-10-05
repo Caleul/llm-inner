@@ -1,0 +1,200 @@
+[
+  {
+    "completedJobs": 3,
+    "completedBlocks": 0,
+    "completedPairMerges": 0,
+    "seededLanes": 0,
+    "maxWorkersAdmitted": 2,
+    "peakObservedRSSBytes": 290504704,
+    "compositionLevels": 1,
+    "peakAccumulatedBytes": 19716,
+    "operatorPreparations": 2,
+    "operatorPairMerges": 1,
+    "growth": [
+      {
+        "characters": 9692,
+        "kind": "operator-prepare",
+        "seconds": 0.0035221249563619494,
+        "pid": 59390,
+        "rssBytes": 24182784
+      },
+      {
+        "characters": 154,
+        "kind": "operator-prepare",
+        "seconds": 0.003478917002212256,
+        "pid": 59391,
+        "rssBytes": 25149440
+      },
+      {
+        "characters": 9802,
+        "kind": "operator-merge",
+        "seconds": 0.006684916967060417,
+        "pid": 59394,
+        "rssBytes": 26869760
+      }
+    ],
+    "seconds": 0.07423012499930337
+  },
+  {
+    "completedJobs": 2,
+    "completedBlocks": 1,
+    "completedPairMerges": 0,
+    "seededLanes": 1,
+    "maxWorkersAdmitted": 1,
+    "peakObservedRSSBytes": 273383424,
+    "operatorPreparations": 0,
+    "operatorPairMerges": 0,
+    "growth": [
+      {
+        "characters": 39218,
+        "kind": "block",
+        "seconds": 0.005722832982428372,
+        "pid": 59414,
+        "rssBytes": 25935872
+      },
+      {
+        "characters": 39219,
+        "kind": "seed",
+        "seconds": 0.005885583988856524,
+        "pid": 59416,
+        "rssBytes": 26329088
+      }
+    ],
+    "seconds": 0.055545082956086844
+  },
+  {
+    "completedJobs": 3,
+    "completedBlocks": 0,
+    "completedPairMerges": 0,
+    "seededLanes": 0,
+    "maxWorkersAdmitted": 2,
+    "peakObservedRSSBytes": 304775168,
+    "compositionLevels": 1,
+    "peakAccumulatedBytes": 19710,
+    "operatorPreparations": 2,
+    "operatorPairMerges": 1,
+    "growth": [
+      {
+        "characters": 9692,
+        "kind": "operator-prepare",
+        "seconds": 0.00926858396269381,
+        "pid": 59421,
+        "rssBytes": 25264128
+      },
+      {
+        "characters": 151,
+        "kind": "operator-prepare",
+        "seconds": 0.00700445898110047,
+        "pid": 59422,
+        "rssBytes": 26132480
+      },
+      {
+        "characters": 9799,
+        "kind": "operator-merge",
+        "seconds": 0.007593709044158459,
+        "pid": 59426,
+        "rssBytes": 27525120
+      }
+    ],
+    "seconds": 0.08415825001429766
+  },
+  {
+    "completedJobs": 2,
+    "completedBlocks": 1,
+    "completedPairMerges": 0,
+    "seededLanes": 1,
+    "maxWorkersAdmitted": 1,
+    "peakObservedRSSBytes": 281247744,
+    "operatorPreparations": 0,
+    "operatorPairMerges": 0,
+    "growth": [
+      {
+        "characters": 39206,
+        "kind": "block",
+        "seconds": 0.007053209003061056,
+        "pid": 59452,
+        "rssBytes": 28049408
+      },
+      {
+        "characters": 39207,
+        "kind": "seed",
+        "seconds": 0.006611625023651868,
+        "pid": 59455,
+        "rssBytes": 27000832
+      }
+    ],
+    "seconds": 0.05579075001878664
+  },
+  {
+    "completedJobs": 3,
+    "completedBlocks": 0,
+    "completedPairMerges": 0,
+    "seededLanes": 0,
+    "maxWorkersAdmitted": 2,
+    "peakObservedRSSBytes": 309854208,
+    "compositionLevels": 1,
+    "peakAccumulatedBytes": 157212,
+    "operatorPreparations": 2,
+    "operatorPairMerges": 1,
+    "growth": [
+      {
+        "characters": 78444,
+        "kind": "operator-prepare",
+        "seconds": 0.0061717500211670995,
+        "pid": 59475,
+        "rssBytes": 28082176
+      },
+      {
+        "characters": 150,
+        "kind": "operator-prepare",
+        "seconds": 0.004874042002484202,
+        "pid": 59476,
+        "rssBytes": 26984448
+      },
+      {
+        "characters": 78554,
+        "kind": "operator-merge",
+        "seconds": 0.010791915992740542,
+        "pid": 59479,
+        "rssBytes": 29147136
+      }
+    ],
+    "seconds": 0.07826637499965727
+  },
+  {
+    "completedJobs": 3,
+    "completedBlocks": 0,
+    "completedPairMerges": 0,
+    "seededLanes": 0,
+    "maxWorkersAdmitted": 2,
+    "peakObservedRSSBytes": 370098176,
+    "compositionLevels": 1,
+    "peakAccumulatedBytes": 157216,
+    "operatorPreparations": 2,
+    "operatorPairMerges": 1,
+    "growth": [
+      {
+        "characters": 78444,
+        "kind": "operator-prepare",
+        "seconds": 0.00710929196793586,
+        "pid": 59494,
+        "rssBytes": 28573696
+      },
+      {
+        "characters": 152,
+        "kind": "operator-prepare",
+        "seconds": 0.006030458025634289,
+        "pid": 59495,
+        "rssBytes": 27164672
+      },
+      {
+        "characters": 78556,
+        "kind": "operator-merge",
+        "seconds": 0.010980708000715822,
+        "pid": 59498,
+        "rssBytes": 29884416
+      }
+    ],
+    "seconds": 0.09158679202664644
+  }
+]

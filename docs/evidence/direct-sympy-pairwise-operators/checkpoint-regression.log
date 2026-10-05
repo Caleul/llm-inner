@@ -1,0 +1,11 @@
+..........
+----------------------------------------------------------------------
+Ran 10 tests in 10.755s
+
+OK
+Closed gate/up projection parity: cases=1015808 mismatches=0 finalParity=false
+RMS predicate reduction: 6863 -> 4826 characters
+Closed RMS rounding parity: cases=888832 mismatches=0 unsafeEpsilon=6888 unsafeHalf=56 unsafeProduct=6
+Early Half product parity: cases=888832 mismatches=0
+Working string parity: 60 exact cases, position=0 dimension=2; numerical primitives remain, finalParity=false
+Expression file allocation parity: {"characters": 20971522, "byteIdentical": true, "peakAllocatedBytes": {"literal-copy": 41948798, "prior-scan-backend": 23075598, "chunked": 2103799}}

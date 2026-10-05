@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "completeCoordinateArtifact": false,
+  "completeCoordinateParity": false,
+  "sourceHashes": {
+    "direct_sympy_operators.py": "407f638851e3ac8123bb37c2bfa31aad3776e7bd13a4981d6c3a135b6507e675",
+    "direct_sympy_checkpoint.py": "a4cccbddb43f19499bc14665fb48b389ef50c7bddf641627bb41ac6657df761e",
+    "direct_sympy_parallel.py": "9cd56f2cfc5ce9174025776eede045c1ab3484162e1bc0351bf6d8110f4b0174",
+    "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+    "direct_sympy_savepoints.py": "d05b787218c3be7635fb405eb1f6791df7348809d0c0a15d3acdc75832b9a1f9"
+  },
+  "checkpointHashes": {
+    "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb",
+    "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969"
+  },
+  "evidenceHashes": {
+    "README.md": "d2e230ef26ef3b903a6385658933c631d9d89c46861e0d6e6ee10adc80c8fdc2",
+    "checkpoint-regression.log": "1503fd18ec9ba9eebdd494c72f9605249a3c21301f631fea7554a4a7ca8e8652",
+    "cleanup.json": "ef585fd85b7286d1cb69a882bbec18904b102784affdc434e4f0fc7cf7abc08e",
+    "compare.py": "008a8b1ccf9b4005059b55898bed82db79e6261422f9fba8dd0079bb32e3ffa5",
+    "comparison.json": "98c150474d377358c67be7fdd797358c5647a00a9f675ba802c26e05f5719d5a",
+    "cuda-projections.py": "12cb50830ca999aa4b6ef7c59b7f40adbe99a7f6d37347ac9b9787533ae50e11",
+    "cuda-validation.json": "38e31c3cfce60dec5b5c61933436b57d6f27a797fdf247e98b46d4994c3854c5",
+    "incomplete-prefixes.json": "56570e481096acf603ebcf7f0f542240ab39d81889133705011c3cb6d8d4f960",
+    "native-integration.log": "23f9d10e225850e52380c58474ed8001e95934b5d18e4b744bc089db331c7495",
+    "operator-tests.log": "0f7b857669224d4481f87f378c34ad5946cd8c6900d8daedf3b57d1f1e0814b9",
+    "paired.budget-simplifications.tsv": "0b78c0ec3c768893b0b299b6c06265259687271c9a8996f1feda6f0fe1cb91f8",
+    "paired.conditions.tsv": "ec5d3a39ba48d84e0c7e69d13a17fa8724dcdcff37457a9c4442b25d4728eb47",
+    "paired.frontier-closures.tsv": "a7ef7d604b0f5d42dd4ac95f27130ea6682849ce1792dd57e77f6eee19e035b1",
+    "paired.growth.tsv": "0e6ee9cb241bc13d52c71dab5f7409c3228f15f676c219f75d08308d7e13d2de",
+    "paired.log": "6684209b036ca012098572253adb7437aca133bf62474e07197d138cb31d0f45",
+    "paired.numeric-envelopes.tsv": "7e9a8d43a2ea73c5137b32825739c4d29a1cbafde1411ca89f2331eef3f305ee",
+    "paired.parallel.json": "e240d31fa64517b4764a9f76160d98889df7a0328eee2f135c9ab40d3945c25c",
+    "paired.substitutions.tsv": "67b344127a231156e9cf1fd7595b901f8c6a20a130f005c3042eb08b51695e20",
+    "paired.synchronization.tsv": "d577aebf0af93094e6bccfb7f0e604b720ccbc250c86a33710980685ec2be295",
+    "portable-tests.log": "baa44404550a09a2212912a467fd9e5098c30d7ce1d94f60200bd84245c1ee68",
+    "savepoint-tests.log": "d3e1be3369118f2019f8a1491bd2edb19b7485a80f7ad1a29759c65ccac07587",
+    "sequential.budget-simplifications.tsv": "fb456397183c8ffe45f5598b298287dd2c3a39c942d4f4eda0bbc52538944869",
+    "sequential.conditions.tsv": "ec5d3a39ba48d84e0c7e69d13a17fa8724dcdcff37457a9c4442b25d4728eb47",
+    "sequential.frontier-closures.tsv": "c0ed602b5d55da74f637989822a5575d48e62eebc84df2eb90f7f34c156edbab",
+    "sequential.growth.tsv": "df453367fef71a246446bbf786059da59c3faddc8c6955f17a06fab999aa2acc",
+    "sequential.log": "fe29b9fddf4b2ba2b118fd2aacfba3b6a4bf734dc57a4e7bb62a01b715fa80db",
+    "sequential.numeric-envelopes.tsv": "adf050bcdc16bd0c6c6fd4a12d93b6c6026532a8172b13d89f92afb828191bb1",
+    "sequential.parallel.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "sequential.substitutions.tsv": "b7c7392139bfae330724756892e3441937527e943261fd7f5e3f18493a1968aa",
+    "sequential.synchronization.tsv": "d577aebf0af93094e6bccfb7f0e604b720ccbc250c86a33710980685ec2be295"
+  },
+  "comparisonSourceNote": "Timed parallel backend precedes the final child-substitution logging instrumentation; arithmetic and CAS admission rules are unchanged. Final-source operator and checkpoint regressions were rerun.",
+  "runtime": {
+    "python": "3.10.13",
+    "torch": "2.12.1",
+    "sympy": "1.14.0",
+    "numericalPython": "/private/tmp/llm-inner-directed-residual-20261005/bin/python"
+  }
+}

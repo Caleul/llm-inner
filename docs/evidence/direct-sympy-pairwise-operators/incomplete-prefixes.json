@@ -1,0 +1,14 @@
+[
+  {
+    "label": "paired",
+    "characters": 10690159,
+    "sha256": "de4d197db8e887202e1c8bc24a186b5296b543fec432bb174950890bcb531ddb",
+    "status": "Incomplete producer prefix, not a coordinate artifact"
+  },
+  {
+    "label": "sequential",
+    "characters": 10690159,
+    "sha256": "de4d197db8e887202e1c8bc24a186b5296b543fec432bb174950890bcb531ddb",
+    "status": "Incomplete producer prefix, not a coordinate artifact"
+  }
+]

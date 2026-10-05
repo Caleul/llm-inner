@@ -14,6 +14,7 @@ import unittest
 from direct_sympy_checkpoint import CheckpointStrings,f32
 from direct_sympy_parallel import ParallelBudget,parallel_lanes,resident_bytes
 from direct_sympy_strings import Domain,StringCompiler,syntax
+from direct_sympy_operators import OperatorBlock,compose_operators
 
 
 def evaluate(expression,values):
@@ -33,6 +34,55 @@ def sequential(terms,compiler,domains):
 
 
 class ParallelTests(unittest.TestCase):
+    def test_accumulated_producers_charge_distinct_expressions_before_publication(self):
+        with tempfile.TemporaryDirectory() as directory:
+            Path(directory,'config.json').write_text(json.dumps({'model_type':'llama','hidden_size':1,'num_hidden_layers':1}))
+            model=CheckpointStrings(directory,StringCompiler(max_characters=9),lower_conversions=False)
+            model.producer('first',lambda:'12345.0')
+            model.producer('alias',lambda:'12345.0')
+            with self.assertRaisesRegex(ValueError,'Accumulated producer'):
+                model.producer('second',lambda:'23456.0')
+            self.assertNotIn('second',model.memo)
+            self.assertEqual(len(model.events),2)
+
+    def test_vector_operator_tree_preserves_rounding_branches_and_odd_tail(self):
+        blocks=[
+            OperatorBlock(('X1','X2'),('R32(X1 + 16777216.0)','X2')),
+            OperatorBlock(('X3','X4'),('R32(X3 + 1.0)','Piecewise((X4 * 0.5, X4 < 0.0), (X4 * 2.0, True))')),
+            OperatorBlock(('X5','X6'),('R32(X5 - 16777216.0)','X6')),
+            OperatorBlock(('X7','X8'),('R32(X7 + X8)',)),
+            OperatorBlock(('X9',),('R32(X9 * 0.5)',)),
+        ]
+        domains={'X1':Domain(F(-1),F(1),-24,False),'X2':Domain(F(-1),F(1),-24,False)}
+        compiler=StringCompiler()
+        actual,stats=compose_operators(blocks,compiler,domains,ParallelBudget(2,4*1024**3))
+        for x in [-1.0,-2**-24,-0.0,0.0,2**-24,0.5,1.0]:
+            for y in [-1.0,-0.0,0.0,0.5,1.0]:
+                values=(x,y)
+                for block in blocks:
+                    bindings=dict(zip(block.inputs,values))
+                    values=tuple(evaluate(expression,bindings) for expression in block.outputs)
+                self.assertEqual(struct.pack('d',evaluate(actual[0],{'X1':x,'X2':y})),struct.pack('d',values[0]))
+        self.assertEqual(stats['operatorPairMerges'],4)
+        self.assertEqual(stats['operatorPreparations'],5)
+        self.assertEqual(stats['compositionLevels'],3)
+        self.assertEqual(stats['maxWorkersAdmitted'],2)
+        self.assertTrue(all(e[2:4]==('factor','simplify') for e in compiler.events))
+        self.assertNotRegex(actual[0],r'\bX(?:[3-9]|[1-9][0-9]+)\b')
+
+    def test_operator_interfaces_and_accumulated_budget_are_enforced(self):
+        budget=ParallelBudget(2,4*1024**3)
+        left=OperatorBlock(('X1',),('X1',))
+        with self.assertRaisesRegex(ValueError,'disjoint'):
+            compose_operators([left,left],StringCompiler(),{},budget)
+        with self.assertRaisesRegex(ValueError,'inherit'):
+            compose_operators([left,OperatorBlock(('X2',),('X2',))],StringCompiler(),
+                {'X2':Domain(F(0),F(1),-24,False)},budget)
+        with self.assertRaisesRegex(ValueError,'undeclared'):
+            compose_operators([OperatorBlock(('X1',),('X2',))],StringCompiler(),{},budget)
+        with self.assertRaisesRegex(ValueError,'budget|reservation'):
+            compose_operators([left],StringCompiler(),{},budget,max_accumulated_characters=10)
+
     def test_pairs_compose_original_rounding_order_with_odd_blocks(self):
         terms=['16777216.0','0.0','0.0','0.0','1.0','0.0','0.0','0.0','-16777216.0']
         compiler=StringCompiler()
@@ -84,7 +134,7 @@ class ParallelTests(unittest.TestCase):
         import torch
         torch.set_num_threads(1)
         checkpoint=os.environ['LLM_INNER_DIRECT_JSON_CHECKPOINT']
-        with CheckpointStrings(checkpoint,StringCompiler(),lower_conversions=False,parallel_budget=ParallelBudget(2,4*1024**3,1)) as model:
+        with CheckpointStrings(checkpoint,StringCompiler(max_characters=512*1024**2),lower_conversions=False,parallel_budget=ParallelBudget(2,4*1024**3,1)) as model:
             expression=model.coordinate(2)
             self.assertTrue(model.parallel_events)
         with tempfile.TemporaryDirectory() as directory:

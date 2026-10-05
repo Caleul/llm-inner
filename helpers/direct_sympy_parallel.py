@@ -9,6 +9,8 @@ from concurrent.futures import ProcessPoolExecutor,wait,FIRST_COMPLETED
 from dataclasses import dataclass
 import multiprocessing
 import os
+import json
+import subprocess
 from pathlib import Path
 import resource
 import tempfile
@@ -24,7 +26,9 @@ def resident_bytes(pid=None):
             if line.startswith('VmRSS:'):return int(line.split()[1])*1024
         return 0
     except FileNotFoundError:
-        if pid!=os.getpid():return 0
+        if pid!=os.getpid():
+            result=subprocess.run(['ps','-o','rss=','-p',str(pid)],capture_output=True,text=True)
+            return int(result.stdout.strip() or '0')*1024
         value=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         return value if os.uname().sysname=='Darwin' else value*1024
 
@@ -47,7 +51,7 @@ class ParallelBudget:
 
 def _job(job):
     compiler,domains=_BASE
-    before=len(compiler.events);started=time.monotonic()
+    before=len(compiler.events);before_substitutions=len(compiler.substitution_events);started=time.monotonic()
     kind,paths,hole,output=job
     if kind=='block':
         expression=hole
@@ -59,9 +63,26 @@ def _job(job):
         left,right=(Path(path).read_text() for path in paths)
         expression=compiler.substitute(right,hole,left,domains)
     elif kind=='seed':expression=compiler.substitute(Path(paths[0]).read_text(),hole,'0.0',domains)
+    elif kind in ('operator-prepare','operator-merge'):
+        blocks=[json.loads(Path(path).read_text()) for path in paths]
+        left=blocks[0]
+        if kind=='operator-prepare':
+            expressions=[compiler.stabilize('('+value+')',domains) for value in left['outputs']]
+        else:
+            right=blocks[1]
+            if len(left['outputs'])!=len(right['inputs']):raise ValueError('Operator interface dimension mismatch')
+            expressions=[]
+            for value in right['outputs']:
+                for name,replacement in zip(right['inputs'],left['outputs']):
+                    value=compiler.substitute(value,name,replacement,domains)
+                expressions.append(compiler.stabilize('('+value+')',domains))
+        expression=json.dumps({'inputs':left['inputs'],'outputs':expressions},separators=(',',':'))
+        if len(expression.encode('utf-8'))>hole:
+            raise ValueError('Accumulated operator expression/condition reservation exceeded')
     else:raise ValueError('Unknown composition job')
     write_string(output,expression)
-    return {'path':output,'characters':len(expression),'events':compiler.events[before:],
+    return {'path':output,'characters':len(expression),'inputBytes':sum(Path(path).stat().st_size for path in paths),
+        'events':compiler.events[before:],'substitutionEvents':compiler.substitution_events[before_substitutions:],
         'kind':kind,'seconds':time.monotonic()-started,'pid':os.getpid(),'rssBytes':resident_bytes()}
 
 
@@ -98,9 +119,16 @@ def _wave(jobs,budget,compiler,domains,stats):
                 stats['completedBlocks']+=result['kind']=='block'
                 stats['completedPairMerges']+=result['kind']=='merge'
                 stats['seededLanes']+=result['kind']=='seed'
+                stats.setdefault('operatorPreparations',0)
+                stats.setdefault('operatorPairMerges',0)
+                stats['operatorPreparations']+=result['kind']=='operator-prepare'
+                stats['operatorPairMerges']+=result['kind']=='operator-merge'
+                stats.setdefault('growth',[]).append({k:v for k,v in result.items() if k not in ('events','substitutionEvents','path')})
         # Merge evidence in original descriptor order, independently of the
         # workers' completion order. No child compiler cache is published.
-        for result in results:compiler.events.extend(result['events'])
+        for result in results:
+            compiler.events.extend(result['events'])
+            compiler.substitution_events.extend(result['substitutionEvents'])
         return results
     finally:
         for process in list(executor._processes.values()):

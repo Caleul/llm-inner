@@ -3307,5 +3307,29 @@
     "fullCoordinateParity": false,
     "multipleTokenLastPositionParity": false,
     "fullVectorParity": false
+  },
+  "validatedPairwiseOperators": {
+    "date": "2026-10-05",
+    "evidenceDirectory": "docs/evidence/direct-sympy-pairwise-operators",
+    "nativeCommand": "LLM_INNER_DIRECT_JSON_CHECKPOINT=<checkpoint> <python> helpers/direct_sympy_parallel_test.py",
+    "operatorTests": 7,
+    "checkpointCases": 60,
+    "checkpointMismatches": 0,
+    "checkpointScope": "Position zero, dimension two, expression with numerical primitives retained; not final artifact parity",
+    "savepointTests": 9,
+    "resumedRoundingCases": 30722,
+    "resumedRoundingMismatches": 0,
+    "portableTests": 624,
+    "portablePass": 575,
+    "portableSkipped": 49,
+    "portableFailures": 0,
+    "CUDAComparedProjectionOutputs": 126976,
+    "CUDAMismatches": 0,
+    "completeCoordinateArtifact": false,
+    "remaining": "Compose full architecture blocks, control normalization growth and emit/validate an input-only coordinate before other logits",
+    "checkpointRegressionTests": 10,
+    "closedGateUpCases": 1015808,
+    "closedRMSCases": 888832,
+    "closedProjectionMismatches": 0
   }
 }

@@ -1,0 +1,10 @@
+✔ Parallel SymPy vector operators and folds preserve numerical order, branch contexts and memory admission (7072.233166ms)
+✔ SymPy savepoints preserve completed rounding frontiers and reject incompatible or corrupt state (4043.274417ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11183.668792

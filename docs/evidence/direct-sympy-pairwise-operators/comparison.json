@@ -1,0 +1,24 @@
+[
+  {
+    "label": "sequential",
+    "workers": 1,
+    "wallSeconds": 45.79519941698527,
+    "peakAggregateRSSBytes": 2018344960,
+    "exitCode": 1,
+    "completedDistinctProducers": 14,
+    "lastProducer": "model.layers.0.post:1",
+    "operatorPairMerges": 0,
+    "finalArtifactEmitted": false
+  },
+  {
+    "label": "paired",
+    "workers": 2,
+    "wallSeconds": 46.13548008399084,
+    "peakAggregateRSSBytes": 1970241536,
+    "exitCode": 1,
+    "completedDistinctProducers": 14,
+    "lastProducer": "model.layers.0.post:1",
+    "operatorPairMerges": 4,
+    "finalArtifactEmitted": false
+  }
+]

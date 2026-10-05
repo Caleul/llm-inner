@@ -17,6 +17,22 @@ from direct_sympy_conversions_test import cpp
 
 
 class SavepointTests(unittest.TestCase):
+    def test_operator_backend_change_rejects_saved_state_before_mutation(self):
+        self.assertIn('direct_sympy_operators.py',saves.SOURCES)
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);original=self.model(root)
+            with ProducerSavepoints(root/'state',original,0) as store:
+                original.on_completed=store.save
+                original.producer('fixture:constant',lambda:'1.0')
+            original_digest=saves.digest_file
+            def changed(path):
+                return '0'*64 if Path(path).name=='direct_sympy_operators.py' else original_digest(path)
+            fresh=self.model(root)
+            with patch.object(saves,'digest_file',side_effect=changed):
+                with ProducerSavepoints(root/'state',fresh,0) as store:
+                    with self.assertRaisesRegex(ValueError,'Incompatible'):store.restore(fresh)
+            self.assertFalse(fresh.memo)
+
     def model(self,root):
         checkpoint=root/'checkpoint';checkpoint.mkdir(exist_ok=True)
         if not (checkpoint/'config.json').exists():

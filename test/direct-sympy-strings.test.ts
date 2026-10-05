@@ -118,10 +118,10 @@ test('SymPy factors typed word polynomials modulo 2^64 without reassociating flo
     assert.match(stderr,/OK/);
     assert.match(stdout,/Modular word factor parity: comparisons=278568 mismatches=0/);
   });
-test('Parallel SymPy blocks preserve ordered F32 folds, branch contexts and memory admission',
+test('Parallel SymPy vector operators and folds preserve numerical order, branch contexts and memory admission',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_parallel_test.py'],{timeout:120_000,maxBuffer:1024*1024});
-    assert.match(stderr,/Ran 4 tests/);
+    assert.match(stderr,/Ran 7 tests/);
     assert.match(stderr,/OK/);
     if(process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT) assert.match(stdout,/cases=60 mismatches=0; finalParity=false/);
   });
@@ -136,7 +136,7 @@ test('Equivalent scan backend preserves Unicode regex results and byte-identical
 test('SymPy savepoints preserve completed rounding frontiers and reject incompatible or corrupt state',
   {skip:!python},async()=>{
     const {stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_savepoints_test.py'],{timeout:120_000});
-    assert.match(stderr,/Ran 8 tests/);
+    assert.match(stderr,/Ran 9 tests/);
     assert.match(stderr,/OK/);
   });
 test('SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs',

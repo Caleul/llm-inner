@@ -228,6 +228,9 @@ class CheckpointStrings:
                 if synchronized!=result:self.conversions.propagate_closed_identity(result,synchronized)
                 result=synchronized
         self.compiler.register_completed_region(result,self.domains,word_closed=self.conversions is not None)
+        accumulated=sum(len(value) for value in set(self.memo.values()) | {result})
+        if accumulated>self.compiler.max_characters:
+            raise ValueError(f'Accumulated producer expression/condition budget exceeded: characters={accumulated} limit={self.compiler.max_characters}')
         self.memo[key]=result
         # Attach only a projection that constitutes this entire producer.
         # A projection embedded in a residual sum is not that sum.
@@ -261,17 +264,39 @@ class CheckpointStrings:
                 if enclosed is not None and struct.pack('e',enclosed[0])==struct.pack('e',enclosed[1]):
                     self.constant_projections+=1
                     return repr(enclosed[0])
-        terms=[];operands=[]
+        terms=[];operands=[];coefficients=[]
         for column in range(shape[1]):
             coefficient=self.weight(name,row,column)
+            coefficients.append(coefficient)
             # +0 lane accumulation makes a signed zero product irrelevant.
             # Read the weight before asking for an irrelevant producer.
             if float(coefficient)==0:
                 terms.append("0.0");operands.append(None)
             else:
                 operand=input_value(column);operands.append(operand)
-                terms.append(operand if float(coefficient)==1 else self.op("*",operand,coefficient))
-        result=self.reduction(terms)
+                if self.parallel_budget is None:
+                    terms.append(operand if float(coefficient)==1 else self.op("*",operand,coefficient))
+        if self.parallel_budget is None:result=self.reduction(terms)
+        else:
+            from direct_sympy_operators import OperatorBlock,compose_operators
+            # Interfaces are compile-only and have no input-domain certificate.
+            # Keep numerical boundaries in the projection template; after the
+            # actual producers replace its ports, closure proves any elisions.
+            ports=tuple(f'X{self.width+i+1}' for i in range(len(operands)))
+            products=['0.0' if operand is None else port if float(weight)==1
+                else f'R32(({port}) * ({weight}))'
+                for port,weight,operand in zip(ports,coefficients,operands)]
+            lanes=[]
+            for lane in range(4):
+                value='0.0'
+                for product in products[lane::4]:value=f'R32(({value}) + ({product}))'
+                lanes.append(value)
+            template=f'R16(R32(R32(({lanes[0]}) + ({lanes[1]})) + R32(({lanes[2]}) + ({lanes[3]}))))'
+            outputs,stats=compose_operators([
+                OperatorBlock(tuple(self.domains),tuple(operand or '0.0' for operand in operands)),
+                OperatorBlock(ports,(template,))],self.compiler,self.domains,self.parallel_budget,
+                max_accumulated_characters=self.compiler.max_characters-sum(len(value) for value in set(self.memo.values())))
+            self.parallel_events.append(stats);result=outputs[0]
         if self._projection_capture:
             self._projection_capture[-1].append({"text":result,"name":name,"row":row,
                 "operands":tuple(operands),"context":self.compiler.context(self.domains)})

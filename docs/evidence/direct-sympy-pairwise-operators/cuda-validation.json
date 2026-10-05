@@ -1,0 +1,16 @@
+{
+  "operationId": "5431ab20-fbbe-4402-8976-2367ebf77503",
+  "device": "NVIDIA A100-SXM4-40GB",
+  "cuda": "13.0",
+  "cpuCount": 12,
+  "totalRAMBytes": 89629196288,
+  "totalGPUBytes": 42405855232,
+  "peakGPUAllocatedBytes": 10666496,
+  "pairs": 63488,
+  "comparedOutputs": 126976,
+  "mismatches": 0,
+  "cpuSeconds": 0.028083542999979727,
+  "residentGPUSeconds": 0.0015263000000231841,
+  "scope": "Actual checkpoint V/O weights, original four-lane ordered numerical projections; not full-coordinate artifact parity",
+  "provenance": "Read back from Access Broker operation output; result subsequently no longer retained by Broker"
+}

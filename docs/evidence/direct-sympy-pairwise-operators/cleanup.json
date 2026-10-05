@@ -1,0 +1,6 @@
+{
+  "stopOperationId": "420c7ac1-e20e-4bba-b73b-ff1b7afa4447",
+  "stopState": "SUCCEEDED",
+  "inventoryOperationId": "9568c8fe-9508-4924-8683-8bb5f2bb4276",
+  "inventoryStdout": "[colab] No active sessions found on server.\n"
+}
