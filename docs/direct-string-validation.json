@@ -11871,5 +11871,944 @@
     "fullCoordinateArtifactEmitted": false,
     "fullCoordinateParity": false,
     "multipleTokenParity": false
+  },
+  "earlyProjectionValidation": {
+    "report": "docs/evidence/direct-sympy-early-projection/validation.json",
+    "build": true,
+    "tests": 29,
+    "pass": 29,
+    "fail": 0,
+    "skipped": 0,
+    "earlyConstantProjectionHalfPairs": 8421376,
+    "earlyConstantProjectionMismatches": 0,
+    "halfNeighborCellNativeCases": 507888,
+    "allPositiveHalfCellsChecked": 31743,
+    "nonHalfEndpointsChecked": 31742,
+    "composedProjectionNativeCases": 7110656,
+    "correlatedRMSLinearNativeCases": 5332992,
+    "orderedProjectionNativeCases": 3555328,
+    "checkpointUpdateNativeCases": 888832,
+    "siluMagnitudeNativeCases": 22530,
+    "boundViolations": 0,
+    "originalNumericalOrderPreserved": true,
+    "oldNumericalResultsReused": false,
+    "oldCompleteDomainsRecompiled": 206,
+    "coveredInputPatterns": 2274846724,
+    "unfinishedInputPatterns": 1755879420,
+    "coveragePercent": 56.43764033401918,
+    "addedInputPatterns": 7108608,
+    "freshBroadRegionCompilations": 78,
+    "nativeCases": 639334,
+    "nativeMismatches": 0,
+    "completeRegions": 241,
+    "distinctExpressions": 26,
+    "sharedBodyCharacters": 4445260,
+    "previousDistinctExpressions": 20,
+    "previousSharedBodyCharacters": 2469152,
+    "previousBodiesRetained": 19,
+    "newBodyCharacters": 2178011,
+    "removedBodyCharacters": 201903,
+    "matchedModelPreviousProducers": 25,
+    "matchedModelConstantProjections": 4,
+    "matchedModelCurrentProducers": 17,
+    "matchedModelPreviousLogicalCharacters": 49592,
+    "matchedModelCurrentLogicalCharacters": 46328,
+    "matchedModelArtifactCharacters": 35411,
+    "matchedModelPreviousArtifactCharacters": 38963,
+    "matchedModelNativeCases": 16400,
+    "matchedModelNativeMismatches": 0,
+    "parallelComparison": {
+      "compilerIdentity": {
+        "version": 1,
+        "dimension": 2,
+        "position": 0,
+        "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+        "sympy": "1.14.0",
+        "platform": "macOS-26.7.1-arm64-arm-64bit",
+        "byteOrder": "little",
+        "referenceBackend": {
+          "name": "torch CPU",
+          "version": "2.12.1",
+          "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+          "capability": "DEFAULT"
+        },
+        "checkpoint": {
+          "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+          "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+        },
+        "sources": {
+          "direct_sympy_arithmetic.py": "fd9779759345c7b381a01b54fee545218735eb8c26e4f6a8ffb560109431ff43",
+          "direct_sympy_checkpoint.py": "9f5223ca7bbb13399c18e06eb4a9360f18b276999e4d95213a531a15699241dd",
+          "direct_sympy_coherent_paths.py": "f3f1c30975616741b87563613cad629ac39eb4da888032c791abb3ac0562766a",
+          "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+          "direct_sympy_conversions.py": "50847bb8ffc58153d7142867c5b5421f3f58b3869858176d2acd2b0ecdabcf4f",
+          "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+          "direct_sympy_layer_bounds.py": "92ff5195525ac44fd4e2450c9e9d75374a4470b706eeb643c13f2ae281c9c830",
+          "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+          "direct_sympy_partition_run.py": "9985ec29e19e73f59ab0691be88f8278966d64fe2daaaf5fab77135901a66482",
+          "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+          "direct_sympy_savepoints.py": "682783ebfd3f1337bbcf015faa34876963a9f1b63eae2cba1c3159cb0ed5d266",
+          "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+          "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+          "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+          "direct_sympy_sqrt.py": "ec9644071ed6ce1576f9550175ed768180d40d70c1bf610f0089785c5564e3fb",
+          "direct_sympy_streaming_literals.py": "5a0046367e570549e5c804c0f5aa0737db2c506600c9ae19c72450ba0f38824e",
+          "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+          "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+          "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+          "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+        }
+      },
+      "domains": [
+        {
+          "X1": [
+            -256,
+            0
+          ],
+          "X2": [
+            -31743,
+            -15360
+          ]
+        },
+        {
+          "X1": [
+            -256,
+            0
+          ],
+          "X2": [
+            15360,
+            31743
+          ]
+        },
+        {
+          "X1": [
+            1,
+            256
+          ],
+          "X2": [
+            -31743,
+            -15360
+          ]
+        },
+        {
+          "X1": [
+            1,
+            256
+          ],
+          "X2": [
+            15360,
+            31743
+          ]
+        }
+      ],
+      "coveredPatterns": 16842752,
+      "sequential": {
+        "workers": 1,
+        "seconds": 11.37179850001121,
+        "memory": {
+          "maxWorkersLive": 1,
+          "peakObservedRSSBytes": 562184192,
+          "workerReservationBytes": 939524096,
+          "seconds": 8.946069541969337
+        },
+        "compiled": [
+          {
+            "complete": true,
+            "inputDomains": {
+              "X1": [
+                -256,
+                0
+              ],
+              "X2": [
+                -31743,
+                -15360
+              ]
+            },
+            "producers": 17,
+            "elidedUpdates": 1,
+            "logicalCharacters": 48227,
+            "storedCharacters": 5229,
+            "artifact": {
+              "path": "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpk0t9icos/1/0.expr",
+              "characters": 37476,
+              "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+              "paths": 2,
+              "compilerAliases": 0,
+              "complete": true
+            },
+            "paths": {
+              "splitContexts": 2,
+              "completedPaths": 2,
+              "contradictions": 1,
+              "selectorSelections": 8,
+              "CASPasses": 331,
+              "numericArithmeticEliminated": 45,
+              "numericRecipeAttempts": 18,
+              "numericRecipeAdmissions": 0,
+              "numericRecipeBudgetStops": 0,
+              "lastArm": {
+                "bodyCharacters": 15630,
+                "guardCharacters": 2857,
+                "decisions": 2,
+                "dependencyGrowth": [
+                  {
+                    "definition": 0,
+                    "storedCharacters": 88,
+                    "expandedCharacters": 90
+                  },
+                  {
+                    "definition": 1,
+                    "storedCharacters": 88,
+                    "expandedCharacters": 90
+                  },
+                  {
+                    "definition": 2,
+                    "storedCharacters": 203,
+                    "expandedCharacters": 205
+                  },
+                  {
+                    "definition": 4,
+                    "storedCharacters": 292,
+                    "expandedCharacters": 749
+                  },
+                  {
+                    "definition": 6,
+                    "storedCharacters": 3331,
+                    "expandedCharacters": 14659
+                  },
+                  {
+                    "definition": 7,
+                    "storedCharacters": 114,
+                    "expandedCharacters": 15494
+                  },
+                  {
+                    "definition": 8,
+                    "storedCharacters": 149,
+                    "expandedCharacters": 15630
+                  }
+                ]
+              }
+            },
+            "seconds": 1.4492144999676384,
+            "workerSeconds": 2.2634458750253543,
+            "timeoutSeconds": 30
+          },
+          {
+            "complete": true,
+            "inputDomains": {
+              "X1": [
+                -256,
+                0
+              ],
+              "X2": [
+                15360,
+                31743
+              ]
+            },
+            "producers": 17,
+            "elidedUpdates": 1,
+            "logicalCharacters": 46328,
+            "storedCharacters": 5174,
+            "artifact": {
+              "path": "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpk0t9icos/1/1.expr",
+              "characters": 35411,
+              "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+              "paths": 2,
+              "compilerAliases": 0,
+              "complete": true
+            },
+            "paths": {
+              "splitContexts": 2,
+              "completedPaths": 2,
+              "contradictions": 1,
+              "selectorSelections": 8,
+              "CASPasses": 331,
+              "numericArithmeticEliminated": 45,
+              "numericRecipeAttempts": 18,
+              "numericRecipeAdmissions": 0,
+              "numericRecipeBudgetStops": 0,
+              "lastArm": {
+                "bodyCharacters": 14792,
+                "guardCharacters": 2690,
+                "decisions": 2,
+                "dependencyGrowth": [
+                  {
+                    "definition": 0,
+                    "storedCharacters": 89,
+                    "expandedCharacters": 91
+                  },
+                  {
+                    "definition": 1,
+                    "storedCharacters": 87,
+                    "expandedCharacters": 89
+                  },
+                  {
+                    "definition": 2,
+                    "storedCharacters": 175,
+                    "expandedCharacters": 177
+                  },
+                  {
+                    "definition": 4,
+                    "storedCharacters": 292,
+                    "expandedCharacters": 694
+                  },
+                  {
+                    "definition": 6,
+                    "storedCharacters": 3331,
+                    "expandedCharacters": 13875
+                  },
+                  {
+                    "definition": 7,
+                    "storedCharacters": 114,
+                    "expandedCharacters": 14655
+                  },
+                  {
+                    "definition": 8,
+                    "storedCharacters": 150,
+                    "expandedCharacters": 14792
+                  }
+                ]
+              }
+            },
+            "seconds": 1.433253249968402,
+            "workerSeconds": 2.165467582992278,
+            "timeoutSeconds": 30
+          },
+          {
+            "complete": true,
+            "inputDomains": {
+              "X1": [
+                1,
+                256
+              ],
+              "X2": [
+                -31743,
+                -15360
+              ]
+            },
+            "producers": 17,
+            "elidedUpdates": 1,
+            "logicalCharacters": 48227,
+            "storedCharacters": 5229,
+            "artifact": {
+              "path": "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpk0t9icos/1/2.expr",
+              "characters": 37476,
+              "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+              "paths": 2,
+              "compilerAliases": 0,
+              "complete": true
+            },
+            "paths": {
+              "splitContexts": 2,
+              "completedPaths": 2,
+              "contradictions": 1,
+              "selectorSelections": 8,
+              "CASPasses": 331,
+              "numericArithmeticEliminated": 45,
+              "numericRecipeAttempts": 18,
+              "numericRecipeAdmissions": 0,
+              "numericRecipeBudgetStops": 0,
+              "lastArm": {
+                "bodyCharacters": 15630,
+                "guardCharacters": 2857,
+                "decisions": 2,
+                "dependencyGrowth": [
+                  {
+                    "definition": 0,
+                    "storedCharacters": 88,
+                    "expandedCharacters": 90
+                  },
+                  {
+                    "definition": 1,
+                    "storedCharacters": 88,
+                    "expandedCharacters": 90
+                  },
+                  {
+                    "definition": 2,
+                    "storedCharacters": 203,
+                    "expandedCharacters": 205
+                  },
+                  {
+                    "definition": 4,
+                    "storedCharacters": 292,
+                    "expandedCharacters": 749
+                  },
+                  {
+                    "definition": 6,
+                    "storedCharacters": 3331,
+                    "expandedCharacters": 14659
+                  },
+                  {
+                    "definition": 7,
+                    "storedCharacters": 114,
+                    "expandedCharacters": 15494
+                  },
+                  {
+                    "definition": 8,
+                    "storedCharacters": 149,
+                    "expandedCharacters": 15630
+                  }
+                ]
+              }
+            },
+            "seconds": 1.4689112500054762,
+            "workerSeconds": 2.206724249990657,
+            "timeoutSeconds": 30
+          },
+          {
+            "complete": true,
+            "inputDomains": {
+              "X1": [
+                1,
+                256
+              ],
+              "X2": [
+                15360,
+                31743
+              ]
+            },
+            "producers": 17,
+            "elidedUpdates": 1,
+            "logicalCharacters": 46328,
+            "storedCharacters": 5174,
+            "artifact": {
+              "path": "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpk0t9icos/1/3.expr",
+              "characters": 35411,
+              "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+              "paths": 2,
+              "compilerAliases": 0,
+              "complete": true
+            },
+            "paths": {
+              "splitContexts": 2,
+              "completedPaths": 2,
+              "contradictions": 1,
+              "selectorSelections": 8,
+              "CASPasses": 331,
+              "numericArithmeticEliminated": 45,
+              "numericRecipeAttempts": 18,
+              "numericRecipeAdmissions": 0,
+              "numericRecipeBudgetStops": 0,
+              "lastArm": {
+                "bodyCharacters": 14792,
+                "guardCharacters": 2690,
+                "decisions": 2,
+                "dependencyGrowth": [
+                  {
+                    "definition": 0,
+                    "storedCharacters": 89,
+                    "expandedCharacters": 91
+                  },
+                  {
+                    "definition": 1,
+                    "storedCharacters": 87,
+                    "expandedCharacters": 89
+                  },
+                  {
+                    "definition": 2,
+                    "storedCharacters": 175,
+                    "expandedCharacters": 177
+                  },
+                  {
+                    "definition": 4,
+                    "storedCharacters": 292,
+                    "expandedCharacters": 694
+                  },
+                  {
+                    "definition": 6,
+                    "storedCharacters": 3331,
+                    "expandedCharacters": 13875
+                  },
+                  {
+                    "definition": 7,
+                    "storedCharacters": 114,
+                    "expandedCharacters": 14655
+                  },
+                  {
+                    "definition": 8,
+                    "storedCharacters": 150,
+                    "expandedCharacters": 14792
+                  }
+                ]
+              }
+            },
+            "seconds": 1.439440416987054,
+            "workerSeconds": 2.263843708031345,
+            "timeoutSeconds": 30
+          }
+        ],
+        "parity": [
+          {
+            "artifact": "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpk0t9icos/1/0.expr",
+            "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+            "characters": 37476,
+            "position": 0,
+            "tokens": 1,
+            "dimension": 2,
+            "inputCorpusVersion": 2,
+            "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+            "cases": 262,
+            "mismatches": 0,
+            "firstMismatches": [],
+            "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+          },
+          {
+            "artifact": "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpk0t9icos/1/1.expr",
+            "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+            "characters": 35411,
+            "position": 0,
+            "tokens": 1,
+            "dimension": 2,
+            "inputCorpusVersion": 2,
+            "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+            "cases": 262,
+            "mismatches": 0,
+            "firstMismatches": [],
+            "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+          },
+          {
+            "artifact": "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpk0t9icos/1/2.expr",
+            "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+            "characters": 37476,
+            "position": 0,
+            "tokens": 1,
+            "dimension": 2,
+            "inputCorpusVersion": 2,
+            "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+            "cases": 260,
+            "mismatches": 0,
+            "firstMismatches": [],
+            "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+          },
+          {
+            "artifact": "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpk0t9icos/1/3.expr",
+            "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+            "characters": 35411,
+            "position": 0,
+            "tokens": 1,
+            "dimension": 2,
+            "inputCorpusVersion": 2,
+            "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+            "cases": 260,
+            "mismatches": 0,
+            "firstMismatches": [],
+            "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+          }
+        ],
+        "artifactHashes": [
+          "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+          "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+          "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+          "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2"
+        ]
+      },
+      "parallel": {
+        "workers": 2,
+        "seconds": 6.3302367919823155,
+        "memory": {
+          "maxWorkersLive": 2,
+          "peakObservedRSSBytes": 849100800,
+          "workerReservationBytes": 939524096,
+          "seconds": 4.758157667005435
+        },
+        "compiled": [
+          {
+            "complete": true,
+            "inputDomains": {
+              "X1": [
+                -256,
+                0
+              ],
+              "X2": [
+                -31743,
+                -15360
+              ]
+            },
+            "producers": 17,
+            "elidedUpdates": 1,
+            "logicalCharacters": 48227,
+            "storedCharacters": 5229,
+            "artifact": {
+              "path": "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpk0t9icos/2/0.expr",
+              "characters": 37476,
+              "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+              "paths": 2,
+              "compilerAliases": 0,
+              "complete": true
+            },
+            "paths": {
+              "splitContexts": 2,
+              "completedPaths": 2,
+              "contradictions": 1,
+              "selectorSelections": 8,
+              "CASPasses": 331,
+              "numericArithmeticEliminated": 45,
+              "numericRecipeAttempts": 18,
+              "numericRecipeAdmissions": 0,
+              "numericRecipeBudgetStops": 0,
+              "lastArm": {
+                "bodyCharacters": 15630,
+                "guardCharacters": 2857,
+                "decisions": 2,
+                "dependencyGrowth": [
+                  {
+                    "definition": 0,
+                    "storedCharacters": 88,
+                    "expandedCharacters": 90
+                  },
+                  {
+                    "definition": 1,
+                    "storedCharacters": 88,
+                    "expandedCharacters": 90
+                  },
+                  {
+                    "definition": 2,
+                    "storedCharacters": 203,
+                    "expandedCharacters": 205
+                  },
+                  {
+                    "definition": 4,
+                    "storedCharacters": 292,
+                    "expandedCharacters": 749
+                  },
+                  {
+                    "definition": 6,
+                    "storedCharacters": 3331,
+                    "expandedCharacters": 14659
+                  },
+                  {
+                    "definition": 7,
+                    "storedCharacters": 114,
+                    "expandedCharacters": 15494
+                  },
+                  {
+                    "definition": 8,
+                    "storedCharacters": 149,
+                    "expandedCharacters": 15630
+                  }
+                ]
+              }
+            },
+            "seconds": 1.5245610420242883,
+            "workerSeconds": 2.34939679200761,
+            "timeoutSeconds": 30
+          },
+          {
+            "complete": true,
+            "inputDomains": {
+              "X1": [
+                -256,
+                0
+              ],
+              "X2": [
+                15360,
+                31743
+              ]
+            },
+            "producers": 17,
+            "elidedUpdates": 1,
+            "logicalCharacters": 46328,
+            "storedCharacters": 5174,
+            "artifact": {
+              "path": "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpk0t9icos/2/1.expr",
+              "characters": 35411,
+              "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+              "paths": 2,
+              "compilerAliases": 0,
+              "complete": true
+            },
+            "paths": {
+              "splitContexts": 2,
+              "completedPaths": 2,
+              "contradictions": 1,
+              "selectorSelections": 8,
+              "CASPasses": 331,
+              "numericArithmeticEliminated": 45,
+              "numericRecipeAttempts": 18,
+              "numericRecipeAdmissions": 0,
+              "numericRecipeBudgetStops": 0,
+              "lastArm": {
+                "bodyCharacters": 14792,
+                "guardCharacters": 2690,
+                "decisions": 2,
+                "dependencyGrowth": [
+                  {
+                    "definition": 0,
+                    "storedCharacters": 89,
+                    "expandedCharacters": 91
+                  },
+                  {
+                    "definition": 1,
+                    "storedCharacters": 87,
+                    "expandedCharacters": 89
+                  },
+                  {
+                    "definition": 2,
+                    "storedCharacters": 175,
+                    "expandedCharacters": 177
+                  },
+                  {
+                    "definition": 4,
+                    "storedCharacters": 292,
+                    "expandedCharacters": 694
+                  },
+                  {
+                    "definition": 6,
+                    "storedCharacters": 3331,
+                    "expandedCharacters": 13875
+                  },
+                  {
+                    "definition": 7,
+                    "storedCharacters": 114,
+                    "expandedCharacters": 14655
+                  },
+                  {
+                    "definition": 8,
+                    "storedCharacters": 150,
+                    "expandedCharacters": 14792
+                  }
+                ]
+              }
+            },
+            "seconds": 1.5107160840416327,
+            "workerSeconds": 2.342426625022199,
+            "timeoutSeconds": 30
+          },
+          {
+            "complete": true,
+            "inputDomains": {
+              "X1": [
+                1,
+                256
+              ],
+              "X2": [
+                -31743,
+                -15360
+              ]
+            },
+            "producers": 17,
+            "elidedUpdates": 1,
+            "logicalCharacters": 48227,
+            "storedCharacters": 5229,
+            "artifact": {
+              "path": "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpk0t9icos/2/2.expr",
+              "characters": 37476,
+              "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+              "paths": 2,
+              "compilerAliases": 0,
+              "complete": true
+            },
+            "paths": {
+              "splitContexts": 2,
+              "completedPaths": 2,
+              "contradictions": 1,
+              "selectorSelections": 8,
+              "CASPasses": 331,
+              "numericArithmeticEliminated": 45,
+              "numericRecipeAttempts": 18,
+              "numericRecipeAdmissions": 0,
+              "numericRecipeBudgetStops": 0,
+              "lastArm": {
+                "bodyCharacters": 15630,
+                "guardCharacters": 2857,
+                "decisions": 2,
+                "dependencyGrowth": [
+                  {
+                    "definition": 0,
+                    "storedCharacters": 88,
+                    "expandedCharacters": 90
+                  },
+                  {
+                    "definition": 1,
+                    "storedCharacters": 88,
+                    "expandedCharacters": 90
+                  },
+                  {
+                    "definition": 2,
+                    "storedCharacters": 203,
+                    "expandedCharacters": 205
+                  },
+                  {
+                    "definition": 4,
+                    "storedCharacters": 292,
+                    "expandedCharacters": 749
+                  },
+                  {
+                    "definition": 6,
+                    "storedCharacters": 3331,
+                    "expandedCharacters": 14659
+                  },
+                  {
+                    "definition": 7,
+                    "storedCharacters": 114,
+                    "expandedCharacters": 15494
+                  },
+                  {
+                    "definition": 8,
+                    "storedCharacters": 149,
+                    "expandedCharacters": 15630
+                  }
+                ]
+              }
+            },
+            "seconds": 1.5251779169775546,
+            "workerSeconds": 2.3755840419908054,
+            "timeoutSeconds": 30
+          },
+          {
+            "complete": true,
+            "inputDomains": {
+              "X1": [
+                1,
+                256
+              ],
+              "X2": [
+                15360,
+                31743
+              ]
+            },
+            "producers": 17,
+            "elidedUpdates": 1,
+            "logicalCharacters": 46328,
+            "storedCharacters": 5174,
+            "artifact": {
+              "path": "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpk0t9icos/2/3.expr",
+              "characters": 35411,
+              "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+              "paths": 2,
+              "compilerAliases": 0,
+              "complete": true
+            },
+            "paths": {
+              "splitContexts": 2,
+              "completedPaths": 2,
+              "contradictions": 1,
+              "selectorSelections": 8,
+              "CASPasses": 331,
+              "numericArithmeticEliminated": 45,
+              "numericRecipeAttempts": 18,
+              "numericRecipeAdmissions": 0,
+              "numericRecipeBudgetStops": 0,
+              "lastArm": {
+                "bodyCharacters": 14792,
+                "guardCharacters": 2690,
+                "decisions": 2,
+                "dependencyGrowth": [
+                  {
+                    "definition": 0,
+                    "storedCharacters": 89,
+                    "expandedCharacters": 91
+                  },
+                  {
+                    "definition": 1,
+                    "storedCharacters": 87,
+                    "expandedCharacters": 89
+                  },
+                  {
+                    "definition": 2,
+                    "storedCharacters": 175,
+                    "expandedCharacters": 177
+                  },
+                  {
+                    "definition": 4,
+                    "storedCharacters": 292,
+                    "expandedCharacters": 694
+                  },
+                  {
+                    "definition": 6,
+                    "storedCharacters": 3331,
+                    "expandedCharacters": 13875
+                  },
+                  {
+                    "definition": 7,
+                    "storedCharacters": 114,
+                    "expandedCharacters": 14655
+                  },
+                  {
+                    "definition": 8,
+                    "storedCharacters": 150,
+                    "expandedCharacters": 14792
+                  }
+                ]
+              }
+            },
+            "seconds": 1.5095042919856496,
+            "workerSeconds": 2.3695111660053954,
+            "timeoutSeconds": 30
+          }
+        ],
+        "parity": [
+          {
+            "artifact": "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpk0t9icos/2/0.expr",
+            "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+            "characters": 37476,
+            "position": 0,
+            "tokens": 1,
+            "dimension": 2,
+            "inputCorpusVersion": 2,
+            "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+            "cases": 262,
+            "mismatches": 0,
+            "firstMismatches": [],
+            "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+          },
+          {
+            "artifact": "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpk0t9icos/2/1.expr",
+            "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+            "characters": 35411,
+            "position": 0,
+            "tokens": 1,
+            "dimension": 2,
+            "inputCorpusVersion": 2,
+            "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+            "cases": 262,
+            "mismatches": 0,
+            "firstMismatches": [],
+            "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+          },
+          {
+            "artifact": "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpk0t9icos/2/2.expr",
+            "sha256": "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+            "characters": 37476,
+            "position": 0,
+            "tokens": 1,
+            "dimension": 2,
+            "inputCorpusVersion": 2,
+            "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+            "cases": 260,
+            "mismatches": 0,
+            "firstMismatches": [],
+            "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+          },
+          {
+            "artifact": "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/tmpk0t9icos/2/3.expr",
+            "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+            "characters": 35411,
+            "position": 0,
+            "tokens": 1,
+            "dimension": 2,
+            "inputCorpusVersion": 2,
+            "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+            "cases": 260,
+            "mismatches": 0,
+            "firstMismatches": [],
+            "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+          }
+        ],
+        "artifactHashes": [
+          "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+          "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+          "6e3500ce38d46d6df2d57baab2a0a69edb4cebea9286a913910ecfc8013d6a37",
+          "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2"
+        ]
+      },
+      "speedRatio": 1.796425453533489,
+      "identicalDomainsAndArtifactHashes": true,
+      "fullCoordinateParity": false,
+      "scope": "Only the same four signed regions; not full-coordinate timing."
+    },
+    "fullCoordinateArtifactEmitted": false,
+    "fullCoordinateParity": false,
+    "multipleTokenParity": false
   }
 }

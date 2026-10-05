@@ -1,0 +1,30 @@
+[
+  {
+    "artifact": "docs/evidence/direct-sympy-early-projection/previous.expr",
+    "sha256": "33ea581eae31fd99e37d9fd5dcab56c826c306dfca3f62872d56f43e80a6478d",
+    "characters": 38963,
+    "position": 0,
+    "tokens": 1,
+    "dimension": 2,
+    "inputCorpusVersion": 2,
+    "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+    "cases": 8200,
+    "mismatches": 0,
+    "firstMismatches": [],
+    "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+  },
+  {
+    "artifact": "docs/evidence/direct-sympy-early-projection/early.expr",
+    "sha256": "fddba599ec151bc2c1fe0f8af500e7c962c59094092a0ef3dc8d14ac0567e9d2",
+    "characters": 35411,
+    "position": 0,
+    "tokens": 1,
+    "dimension": 2,
+    "inputCorpusVersion": 2,
+    "verifierSHA256": "ec717ebfc1631b4ce005ef58fa2b50c002b82b838957afdcc1aea0044c2bb8d6",
+    "cases": 8200,
+    "mismatches": 0,
+    "firstMismatches": [],
+    "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+  }
+]

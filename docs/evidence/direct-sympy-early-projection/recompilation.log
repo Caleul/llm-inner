@@ -1,0 +1,530 @@
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 16507.59it/s]
+{"domain": {"X1": [-64, 64], "X2": [-31743, -12288]}, "added": 2529280, "covered": 2529280, "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 59283.45it/s]
+{"domain": {"X1": [-64, 64], "X2": [12288, 31743]}, "added": 2529280, "covered": 5058560, "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 60277.42it/s]
+{"domain": {"X1": [-256, 256], "X2": [-31743, -15360]}, "added": 6291456, "covered": 11350016, "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 42224.54it/s]
+{"domain": {"X1": [-256, 256], "X2": [15360, 31743]}, "added": 6291456, "covered": 17641472, "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 25653.24it/s]
+{"domain": {"X1": [-1024, 1024], "X2": [-31743, -19456]}, "added": 18874368, "covered": 36515840, "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 35797.76it/s]
+{"domain": {"X1": [-1024, 1024], "X2": [19456, 31743]}, "added": 18874368, "covered": 55390208, "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 25917.43it/s]
+{"domain": {"X1": [-15360, -10240], "X2": [-31743, -21504]}, "added": 52439040, "covered": 107829248, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 36684.87it/s]
+{"domain": {"X1": [-31743, -21504], "X2": [-15360, -11264]}, "added": 41953280, "covered": 149782528, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 25745.09it/s]
+{"domain": {"X1": [-15360, -10240], "X2": [21504, 31743]}, "added": 52439040, "covered": 202221568, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 42545.77it/s]
+{"domain": {"X1": [-31743, -21504], "X2": [11264, 15360]}, "added": 41953280, "covered": 244174848, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 21657.34it/s]
+{"domain": {"X1": [10240, 15360], "X2": [-31743, -21504]}, "added": 52439040, "covered": 296613888, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 27594.11it/s]
+{"domain": {"X1": [21504, 31743], "X2": [-15360, -11264]}, "added": 41953280, "covered": 338567168, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 28165.44it/s]
+{"domain": {"X1": [10240, 15360], "X2": [21504, 31743]}, "added": 52439040, "covered": 391006208, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 42438.15it/s]
+{"domain": {"X1": [21504, 31743], "X2": [11264, 15360]}, "added": 41953280, "covered": 432959488, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 48395.82it/s]
+{"domain": {"X1": [-31743, -16385], "X2": [-31743, -15361]}, "added": 251626497, "covered": 684585985, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 47215.43it/s]
+{"domain": {"X1": [-31743, -16385], "X2": [15361, 31743]}, "added": 251626497, "covered": 936212482, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 25588.03it/s]
+{"domain": {"X1": [16385, 31743], "X2": [-31743, -15361]}, "added": 251626497, "covered": 1187838979, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 66664.43it/s]
+{"domain": {"X1": [16385, 31743], "X2": [15361, 31743]}, "added": 251626497, "covered": 1439465476, "stop": null, "nativeCases": 8196, "mismatches": 0}
+{"domain": {"X1": [-15360, -10240], "X2": [-31743, -21504]}, "added": 0, "covered": 1439465476, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -21504], "X2": [-15360, -11264]}, "added": 0, "covered": 1439465476, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-15360, -10240], "X2": [21504, 31743]}, "added": 0, "covered": 1439465476, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -21504], "X2": [11264, 15360]}, "added": 0, "covered": 1439465476, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [10240, 15360], "X2": [-31743, -21504]}, "added": 0, "covered": 1439465476, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [21504, 31743], "X2": [-15360, -11264]}, "added": 0, "covered": 1439465476, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [10240, 15360], "X2": [21504, 31743]}, "added": 0, "covered": 1439465476, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [21504, 31743], "X2": [11264, 15360]}, "added": 0, "covered": 1439465476, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -16385], "X2": [-31743, -15361]}, "added": 0, "covered": 1439465476, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -16385], "X2": [15361, 31743]}, "added": 0, "covered": 1439465476, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [16385, 31743], "X2": [-31743, -15361]}, "added": 0, "covered": 1439465476, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [16385, 31743], "X2": [15361, 31743]}, "added": 0, "covered": 1439465476, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 67108.86it/s]
+{"domain": {"X1": [-12288, 12288], "X2": [-31743, -24576]}, "added": 132106240, "covered": 1571571716, "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 42295.50it/s]
+{"domain": {"X1": [-8192, 8192], "X2": [-31743, -20480]}, "added": 58720256, "covered": 1630291972, "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 21629.41it/s]
+{"domain": {"X1": [-8192, 8192], "X2": [20480, 31743]}, "added": 161480704, "covered": 1791772676, "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 25536.10it/s]
+{"domain": {"X1": [20480, 31743], "X2": [-8192, 8192]}, "added": 184571904, "covered": 1976344580, "stop": null, "nativeCases": 8200, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 26200.75it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-8192, 0]}, "added": 92297216, "covered": 2068641796, "stop": null, "nativeCases": 8198, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 35196.96it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [1, 8192]}, "added": 92274688, "covered": 2160916484, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 17219.17it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-19455, -14592]}, "added": 787456, "covered": 2161703940, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 29870.41it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-14591, -14440]}, "added": 155648, "covered": 2161859588, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 53601.33it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-14439, -14364]}, "added": 77824, "covered": 2161937412, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 61230.72it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14363, -14326]}, "added": 38912, "covered": 2161976324, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 22429.43it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14325, -14288]}, "added": 38912, "covered": 2162015236, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 41221.66it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14287, -14250]}, "added": 38912, "covered": 2162054148, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 19870.37it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14249, -14212]}, "added": 38912, "covered": 2162093060, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 26255.42it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14211, -14174]}, "added": 38912, "covered": 2162131972, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 29194.69it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14173, -14136]}, "added": 38912, "covered": 2162170884, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 37729.87it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14135, -14098]}, "added": 38912, "covered": 2162209796, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 26658.71it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14097, -14060]}, "added": 38912, "covered": 2162248708, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 47662.55it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14059, -14022]}, "added": 38912, "covered": 2162287620, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 51516.53it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-14021, -13984]}, "added": 38912, "covered": 2162326532, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 69327.34it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-13983, -13946]}, "added": 38912, "covered": 2162365444, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 38450.46it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-13945, -13908]}, "added": 38912, "covered": 2162404356, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 45839.39it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-13907, -13870]}, "added": 38912, "covered": 2162443268, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 25523.15it/s]
+{"domain": {"X1": [-26111, -20480], "X2": [-13869, -13832]}, "added": 38912, "covered": 2162482180, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 24303.07it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-13831, -13756]}, "added": 77824, "covered": 2162560004, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 20476.67it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-13755, -13680]}, "added": 77824, "covered": 2162637828, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 45964.98it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-13679, -13376]}, "added": 311296, "covered": 2162949124, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 45262.27it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-13375, -12160]}, "added": 1245184, "covered": 2164194308, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 18349.12it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-12159, -9728]}, "added": 18219008, "covered": 2182413316, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 45797.68it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [-9727, -8193]}, "added": 17290240, "covered": 2199703556, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 50031.46it/s]
+{"domain": {"X1": [-31743, -20480], "X2": [8193, 19455]}, "added": 38787072, "covered": 2238490628, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 21463.39it/s]
+{"domain": {"X1": [-18431, -16384], "X2": [-31743, -19456]}, "added": 12288, "covered": 2238502916, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 22692.36it/s]
+{"domain": {"X1": [-16383, -12289], "X2": [-31743, -19456]}, "added": 18862080, "covered": 2257364996, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 51046.30it/s]
+{"domain": {"X1": [-12288, -11777], "X2": [-24575, -19456]}, "added": 1048576, "covered": 2258413572, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 28039.92it/s]
+{"domain": {"X1": [-11776, -11521], "X2": [-24575, -19456]}, "added": 524288, "covered": 2258937860, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 50840.05it/s]
+{"domain": {"X1": [-11520, -11393], "X2": [-24575, -19456]}, "added": 262144, "covered": 2259200004, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 45797.68it/s]
+{"domain": {"X1": [-11392, -11329], "X2": [-24575, -19456]}, "added": 131072, "covered": 2259331076, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 25140.68it/s]
+{"domain": {"X1": [-11328, -11265], "X2": [-21695, -21376]}, "added": 8192, "covered": 2259339268, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 26616.42it/s]
+{"domain": {"X1": [-11328, -11265], "X2": [-21375, -21056]}, "added": 20480, "covered": 2259359748, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 25432.87it/s]
+{"domain": {"X1": [-11328, -11265], "X2": [-21055, -20736]}, "added": 20480, "covered": 2259380228, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 39352.34it/s]
+{"domain": {"X1": [-11328, -11265], "X2": [-20735, -20416]}, "added": 20480, "covered": 2259400708, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 35494.82it/s]
+{"domain": {"X1": [-11328, -11265], "X2": [-20415, -20096]}, "added": 20480, "covered": 2259421188, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 25420.02it/s]
+{"domain": {"X1": [-11328, -11265], "X2": [-20095, -19776]}, "added": 20480, "covered": 2259441668, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 43166.08it/s]
+{"domain": {"X1": [-11328, -11265], "X2": [-19775, -19456]}, "added": 20480, "covered": 2259462148, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 20468.34it/s]
+{"domain": {"X1": [-11264, -11201], "X2": [-22015, -20736]}, "added": 49152, "covered": 2259511300, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 16980.99it/s]
+{"domain": {"X1": [-11264, -11201], "X2": [-20735, -20096]}, "added": 40960, "covered": 2259552260, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 23344.92it/s]
+{"domain": {"X1": [-11264, -11201], "X2": [-20095, -19456]}, "added": 40960, "covered": 2259593220, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 18780.47it/s]
+{"domain": {"X1": [-11200, -11137], "X2": [-22015, -20736]}, "added": 49152, "covered": 2259642372, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 30916.25it/s]
+{"domain": {"X1": [-11200, -11137], "X2": [-20735, -20096]}, "added": 40960, "covered": 2259683332, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 31916.07it/s]
+{"domain": {"X1": [-11200, -11137], "X2": [-20095, -19456]}, "added": 40960, "covered": 2259724292, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 21807.47it/s]
+{"domain": {"X1": [-11136, -11073], "X2": [-22015, -20736]}, "added": 49152, "covered": 2259773444, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 54061.92it/s]
+{"domain": {"X1": [-11136, -11073], "X2": [-20735, -20096]}, "added": 40960, "covered": 2259814404, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 42402.40it/s]
+{"domain": {"X1": [-11136, -11073], "X2": [-20095, -19456]}, "added": 40960, "covered": 2259855364, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 32181.36it/s]
+{"domain": {"X1": [-11072, -11009], "X2": [-22015, -20736]}, "added": 49152, "covered": 2259904516, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 22590.51it/s]
+{"domain": {"X1": [-11072, -11009], "X2": [-20735, -20096]}, "added": 40960, "covered": 2259945476, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 62836.01it/s]
+{"domain": {"X1": [-11072, -11009], "X2": [-20095, -19456]}, "added": 40960, "covered": 2259986436, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 45756.04it/s]
+{"domain": {"X1": [-11008, -10945], "X2": [-22015, -20736]}, "added": 49152, "covered": 2260035588, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 39850.87it/s]
+{"domain": {"X1": [-11008, -10945], "X2": [-20735, -20096]}, "added": 40960, "covered": 2260076548, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 38450.46it/s]
+{"domain": {"X1": [-11008, -10945], "X2": [-20095, -19456]}, "added": 40960, "covered": 2260117508, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 14335.42it/s]
+{"domain": {"X1": [-10944, -10881], "X2": [-22015, -20736]}, "added": 49152, "covered": 2260166660, "stop": null, "nativeCases": 8196, "mismatches": 0}
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 53830.64it/s]
+{"domain": {"X1": [-8192, 8192], "X2": [-20479, -19456]}, "added": 14680064, "covered": 2274846724, "stop": null, "nativeCases": 8200, "mismatches": 0}
+{"domain": {"X1": [-31743, -20480], "X2": [-31743, -19456]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -20480], "X2": [-19455, -17408]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -21504], "X2": [-17407, -16384]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -21504], "X2": [-16383, -15361]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -21504], "X2": [-15360, -14592]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-17407, -16384]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-16383, -15361]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-15360, -14592]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -21504], "X2": [-14591, -14440]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-14591, -14440]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -21504], "X2": [-14439, -14364]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-14439, -14364]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -26112], "X2": [-14363, -14326]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-26111, -21504], "X2": [-14363, -14326]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-14363, -14326]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -26112], "X2": [-14325, -14288]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-26111, -21504], "X2": [-14325, -14288]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-14325, -14288]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -26112], "X2": [-14287, -14250]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-26111, -21504], "X2": [-14287, -14250]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-14287, -14250]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -26112], "X2": [-14249, -14212]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-26111, -21504], "X2": [-14249, -14212]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-14249, -14212]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -26112], "X2": [-14211, -14174]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-26111, -21504], "X2": [-14211, -14174]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-14211, -14174]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -26112], "X2": [-14173, -14136]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-26111, -21504], "X2": [-14173, -14136]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-14173, -14136]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -26112], "X2": [-14135, -14098]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-26111, -21504], "X2": [-14135, -14098]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-14135, -14098]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -26112], "X2": [-14097, -14060]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-26111, -21504], "X2": [-14097, -14060]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-14097, -14060]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -26112], "X2": [-14059, -14022]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-26111, -21504], "X2": [-14059, -14022]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-14059, -14022]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -26112], "X2": [-14021, -13984]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-26111, -21504], "X2": [-14021, -13984]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-14021, -13984]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -26112], "X2": [-13983, -13946]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-26111, -21504], "X2": [-13983, -13946]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-13983, -13946]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -26112], "X2": [-13945, -13908]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-26111, -21504], "X2": [-13945, -13908]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-13945, -13908]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -26112], "X2": [-13907, -13870]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-26111, -21504], "X2": [-13907, -13870]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-13907, -13870]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -26112], "X2": [-13869, -13832]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-26111, -21504], "X2": [-13869, -13832]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-13869, -13832]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -21504], "X2": [-13831, -13756]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-13831, -13756]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -21504], "X2": [-13755, -13680]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-13755, -13680]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -21504], "X2": [-13679, -13376]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-13679, -13376]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -21504], "X2": [-13375, -12160]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-13375, -12160]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -21504], "X2": [-12159, -11264]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -21504], "X2": [-11263, -9728]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [-12159, -9728]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -20480], "X2": [-9727, -8193]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -20480], "X2": [-8192, 0]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -20480], "X2": [1, 8192]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -21504], "X2": [8193, 11263]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -21504], "X2": [11264, 15360]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -21504], "X2": [15361, 16383]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -21504], "X2": [16384, 17407]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [8193, 15360]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [15361, 16383]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-21503, -20480], "X2": [16384, 17407]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -20480], "X2": [17408, 19455]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-31743, -20480], "X2": [19456, 31743]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-20479, -18432], "X2": [-31743, -19456]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-18431, -17408], "X2": [-31743, -19456]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-17407, -16385], "X2": [-31743, -19456]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-16384, -16384], "X2": [-31743, -19456]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-16383, -15361], "X2": [-31743, -19456]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-15360, -12289], "X2": [-31743, -21504]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-15360, -12289], "X2": [-21503, -19456]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-12288, -10240], "X2": [-31743, -24576]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-10239, -8193], "X2": [-31743, -24576]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-12288, -11777], "X2": [-24575, -21504]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-12288, -11777], "X2": [-21503, -19456]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11776, -11521], "X2": [-24575, -21504]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11776, -11521], "X2": [-21503, -19456]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11520, -11393], "X2": [-24575, -21504]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11520, -11393], "X2": [-21503, -19456]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11392, -11329], "X2": [-24575, -21504]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11392, -11329], "X2": [-21503, -19456]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11328, -11265], "X2": [-24575, -22016]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11328, -11265], "X2": [-22015, -21696]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11328, -11265], "X2": [-21695, -21504]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11328, -11265], "X2": [-21503, -21376]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11328, -11265], "X2": [-21375, -21056]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11328, -11265], "X2": [-21055, -20736]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11328, -11265], "X2": [-20735, -20416]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11328, -11265], "X2": [-20415, -20096]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11328, -11265], "X2": [-20095, -19776]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11328, -11265], "X2": [-19775, -19456]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11264, -11201], "X2": [-24575, -22016]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11264, -11201], "X2": [-22015, -21504]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11264, -11201], "X2": [-21503, -20736]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11264, -11201], "X2": [-20735, -20096]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11264, -11201], "X2": [-20095, -19456]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11200, -11137], "X2": [-24575, -22016]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11200, -11137], "X2": [-22015, -21504]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11200, -11137], "X2": [-21503, -20736]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11200, -11137], "X2": [-20735, -20096]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11200, -11137], "X2": [-20095, -19456]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11136, -11073], "X2": [-24575, -22016]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11136, -11073], "X2": [-22015, -21504]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11136, -11073], "X2": [-21503, -20736]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11136, -11073], "X2": [-20735, -20096]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11136, -11073], "X2": [-20095, -19456]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11072, -11009], "X2": [-24575, -22016]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11072, -11009], "X2": [-22015, -21504]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11072, -11009], "X2": [-21503, -20736]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11072, -11009], "X2": [-20735, -20096]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11072, -11009], "X2": [-20095, -19456]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11008, -10945], "X2": [-24575, -22016]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11008, -10945], "X2": [-22015, -21504]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11008, -10945], "X2": [-21503, -20736]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11008, -10945], "X2": [-20735, -20096]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-11008, -10945], "X2": [-20095, -19456]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-10944, -10881], "X2": [-24575, -22016]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-10944, -10881], "X2": [-22015, -21504]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-10944, -10881], "X2": [-21503, -20736]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-10880, -10817], "X2": [-24575, -22529]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-10880, -10817], "X2": [-22528, -21504]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-10816, -10753], "X2": [-24575, -22529]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-10816, -10753], "X2": [-22528, -21504]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-10752, -10625], "X2": [-24575, -22529]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-10752, -10625], "X2": [-22528, -21504]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-10624, -10497], "X2": [-24575, -22529]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-10624, -10497], "X2": [-22528, -21504]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-10496, -10241], "X2": [-24575, -22529]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-10496, -10241], "X2": [-22528, -21504]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-10240, -10240], "X2": [-24575, -22529]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-10240, -10240], "X2": [-22528, -21504]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-8192, 8192], "X2": [-31743, -24576]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-8192, 8192], "X2": [-24575, -20480]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-8192, 8192], "X2": [-20479, -19456]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [8193, 10239], "X2": [-31743, -24576]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [10240, 12288], "X2": [-31743, -24576]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [10240, 12288], "X2": [-24575, -21504]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [12289, 15360], "X2": [-31743, -21504]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [16385, 17407], "X2": [-31743, -19456]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [17408, 18431], "X2": [-31743, -19456]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [18432, 20479], "X2": [-31743, -19456]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-20479, -18432], "X2": [-19455, -17408]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-20479, -18432], "X2": [-17407, -16384]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-20479, -18432], "X2": [-16383, -15361]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-20479, -18432], "X2": [15361, 16383]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-20479, -18432], "X2": [16384, 17407]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-20479, -18432], "X2": [17408, 19455]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-18431, -17408], "X2": [-19455, -16384]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-18431, -17408], "X2": [-16383, -15361]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-18431, -17408], "X2": [15361, 16383]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-18431, -17408], "X2": [16384, 19455]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-17407, -16385], "X2": [-19455, -15361]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-17407, -16385], "X2": [15361, 19455]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [16385, 17407], "X2": [-19455, -15361]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [16385, 17407], "X2": [15361, 19455]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [17408, 18431], "X2": [-19455, -16384]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [17408, 18431], "X2": [-16383, -15361]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [17408, 18431], "X2": [15361, 16383]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [17408, 18431], "X2": [16384, 19455]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [18432, 20479], "X2": [-19455, -17408]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [18432, 20479], "X2": [-17407, -16384]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [18432, 20479], "X2": [-16383, -15361]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [18432, 20479], "X2": [15361, 16383]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [18432, 20479], "X2": [16384, 17407]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [18432, 20479], "X2": [17408, 19455]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-20479, -18432], "X2": [19456, 31743]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-18431, -17408], "X2": [19456, 31743]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-17407, -16385], "X2": [19456, 31743]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-15360, -10240], "X2": [21504, 31743]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [-8192, 8192], "X2": [20480, 31743]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [10240, 11264], "X2": [21504, 22528]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [10240, 11264], "X2": [22529, 31743]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [11265, 12288], "X2": [21504, 22528]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [11265, 12288], "X2": [22529, 31743]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [12289, 15360], "X2": [21504, 31743]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [16385, 17407], "X2": [19456, 31743]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [17408, 18431], "X2": [19456, 31743]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [18432, 20479], "X2": [19456, 31743]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [20480, 31743], "X2": [-31743, -19456]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [20480, 31743], "X2": [-19455, -17408]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [20480, 21503], "X2": [-17407, -16384]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [20480, 21503], "X2": [-16383, -15361]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [21504, 31743], "X2": [-17407, -16384]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [21504, 31743], "X2": [-16383, -15361]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [21504, 31743], "X2": [-15360, -11264]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [20480, 31743], "X2": [-8192, 8192]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [20480, 21503], "X2": [15361, 16383]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [20480, 21503], "X2": [16384, 17407]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [21504, 31743], "X2": [11264, 15360]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [21504, 31743], "X2": [15361, 16383]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [21504, 31743], "X2": [16384, 17407]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [20480, 31743], "X2": [17408, 19455]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}
+{"domain": {"X1": [20480, 31743], "X2": [19456, 31743]}, "added": 0, "covered": 2274846724, "stop": "Region already covered; no manifest mutation", "nativeCases": null, "mismatches": null}

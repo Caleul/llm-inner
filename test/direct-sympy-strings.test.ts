@@ -13,6 +13,13 @@ test('Signed normal-binade conversions contain one source occurrence and preserv
     assert.match(stdout,/Fixed-grid Half midpoint parity: cases=184314 mismatches=0/);
     assert.match(stdout,/Fixed-grid scaled F32 parity: cases=\d+ mismatches=0/);
   });
+test('Certified constant projections avoid dead producers and preserve signed Half outcomes',
+  {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_early_projection_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 4 tests/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/Early constant V projection: pairs=8421376 mismatches=0/);
+  });
 test('Tight Half update bounds preserve ordered F32 reductions and eliminate dependencies with proof',
   {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_layer_bounds_test.py'],{timeout:120_000,maxBuffer:1024*1024});

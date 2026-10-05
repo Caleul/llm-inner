@@ -58,6 +58,38 @@ def dot(model,name,inputs):
     return None if any(x is None for x in result) else result
 
 
+def dot_interval(model,name,row,inputs):
+    """Signed enclosure of one original four-lane F32/Half projection.
+
+    Inputs are certified stored-Half intervals. Weights and endpoint
+    products are exact F32; only the original reduction incurs gamma.
+    Use this proof before requesting producers, never as a runtime dot.
+    """
+    shape=model.shape(name)
+    if (len(shape)!=2 or type(row)is not int or not 0<=row<shape[0]
+        or not 0<len(inputs)==shape[1]<=2**20):return None
+    low=high=magnitude=Fraction(0)
+    for col,pair in enumerate(inputs):
+        if pair is None or len(pair)!=2:return None
+        a,b=pair
+        if any(not math.isfinite(x) or half(abs(x))!=abs(x) for x in pair) or a>b:return None
+        weight=float(model.weight(name,row,col))
+        if not math.isfinite(weight) or half(abs(weight))!=abs(weight):return None
+        a,b=sorted((Fraction(a)*Fraction(weight),Fraction(b)*Fraction(weight)))
+        low+=a;high+=b;magnitude+=max(abs(a),abs(b))
+    error=magnitude*Fraction(len(inputs)+3,2**24-len(inputs)-3)
+    result=[]
+    for value,up in ((low-error,False),(high+error,True)):
+        rounded=float(value)
+        if (Fraction(rounded)<value if up else Fraction(rounded)>value):
+            rounded=math.nextafter(rounded,math.inf if up else -math.inf)
+        try:result.append(struct.unpack('e',struct.pack('e',rounded))[0])
+        except OverflowError:return None
+    # Ordered zero-initialized F32 lanes produce +0 for an exact zero
+    # reduction. Negative nonzero endpoints retain possible Half -0.
+    return tuple(result)
+
+
 def sqrt_outward(value,up):
     """Directed square root of an exact nonnegative proof rational."""
     result=math.sqrt(float(value))

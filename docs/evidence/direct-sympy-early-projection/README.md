@@ -1,0 +1,21 @@
+# Provar projeções constantes antes de expandir seus operandos
+
+Uma projeção era construída pedindo cada componente da RMSNorm, expandindo sua média e inversa, para só depois descobrir que o resultado Half era constante na região. O novo certificado obtém os intervalos Half ponderados da RMSNorm a partir dos limites de seus operandos originais. Ele não constrói a expressão da normalização para obter esses limites.
+
+`dot_interval` incorpora os pesos da projeção em aritmética racional exata. Como os operandos e pesos são Half finitos, os produtos são exatos em F32. O certificado preserva a ordem original da redução em quatro acumuladores, acrescentando um limite de erro `gamma(n+3) * sum(max(abs(endpoint * weight)))`. Os endpoints são dirigidos para fora antes do armazenamento Half. Somente quando ambos os endpoints têm exatamente o mesmo payload Half a projeção é substituída por essa constante, antes de pedir seus produtores.
+
+`CheckpointStrings.linear` aceita essa prova opcional; quando ela falha ou é indisponível, continua a substituição anterior. V usa os intervalos da normalização de entrada; gate/up usam os da normalização dos resíduos efetivamente compilados. Os pesos gamma também são incorporados com sua fronteira original Half. O cache guarda somente certificados durante a compilação, com chave por contexto de entrada e expressões produtoras; não existe no arquivo emitido. A expressão final continua exclusivamente sobre as entradas originais.
+
+O teste verifica que um produtor provadamente irrelevante nunca é solicitado. Também distingue -0 de +0, preserva underflow com sinal, rejeita intervalos/pesos incompatíveis e confirma que o cache não cruza contextos de entrada. O teste nativo das duas projeções V cobre todos os 8421376 pares Half no domínio X1=[-2^-16,2^-16], X2=[1,65504], incluindo os dois sinais de zero, sem divergências.
+
+`diagnosis.json` compara o commit 1c2bb36 e a nova estratégia nesse mesmo domínio: 25 → 17 produtores; quatro projeções são provadas constantes antecipadamente. Os dois arquivos efetivos, `previous.expr` e `early.expr`, têm 38963 e 35411 caracteres, respectivamente, sem aliases do compilador. `witness-parity.json` compara ambos contra o checkpoint CPU em 8200 entradas por arquivo, sem divergências.
+
+A nova regra não elimina as projeções na região central ampla X1=[-2,2], X2=[-1,1]. `central-before.json` e `central-after.json` mantêm o diagnóstico desse crescimento. O tamanho intermediário nessa região ainda é aproximadamente 2.296 trilhões de caracteres; nenhum arquivo final central foi emitido. Esse diagnóstico não substitui o artefato final.
+
+`recompile.py` reutiliza somente a geometria auditada do estado anterior. Todos os artefatos e provas numéricas são gerados e admitidos novamente. `record.py` verifica fontes, cobertura sem sobreposição, recuperação das regiões anteriores e hashes. O mapa dos testes em `docs/direct-string-validation.json` preserva o histórico e registra a nova integração. JSON é estado/evidência; as expressões continuam em strings matemáticas.
+
+A recuperação completa chegou a 2274846724 combinações (56.437640334%), com 7108608 novas combinações e 639334 comparações contra o checkpoint sem divergências. Os 206 domínios anteriormente concluídos foram recuperados sob a nova identidade. O conjunto de arquivos passou de 20 para 26 corpos distintos e de 2469152 para 4445260 caracteres: 19 corpos anteriores permanecem byte a byte; as novas faixas emitidas acrescentam expressão e não devem ser apresentadas como redução do tamanho global.
+
+O teste adicional da faixa central X1=[.0625,2], X2=[.0625,1] elimina as duas atualizações MLP, mas ainda não emite dentro de 8 MiB. `central-positive.json` e `central-positive-8m.json` registram as duas tentativas; nenhuma foi admitida como região concluída. A comparação sequencial/paralela usa quatro regiões disjuntas da projeção constante, com 16842752 combinações: 11.3718 s → 6.3302 s, RSS somado observado 536.14 → 809.77 MiB, hashes iguais e paridade do corpus sem divergências. Esses tempos não são previsão da conclusão do domínio inteiro.
+
+Esta etapa permanece limitada à coordenada 2, posição zero, um token. A coordenada completa, o último token de sequências maiores e o vetor final ainda não foram concluídos.

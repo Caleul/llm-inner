@@ -1,0 +1,20 @@
+{
+  "complete": false,
+  "inputDomains": {
+    "X1": [
+      11264,
+      16384
+    ],
+    "X2": [
+      11264,
+      15360
+    ]
+  },
+  "producers": 17,
+  "elidedUpdates": 2,
+  "logicalCharacters": 7126885,
+  "storedCharacters": 9917,
+  "stop": "Flat artifact budget exceeded; no complete result",
+  "seconds": 2.394160042051226,
+  "workerSeconds": 3.147986459021922
+}

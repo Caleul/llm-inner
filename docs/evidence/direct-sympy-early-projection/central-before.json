@@ -1,0 +1,156 @@
+{
+  "seconds": 5.333969249972142,
+  "logicalCharacters": 2296124090440,
+  "producers": [
+    {
+      "producer": "model.layers.0.pre:mean",
+      "storedCharacters": 329,
+      "expandedCharacters": 331,
+      "definitions": 1
+    },
+    {
+      "producer": "model.layers.0.pre:inverse",
+      "storedCharacters": 2967,
+      "expandedCharacters": 2969,
+      "definitions": 2
+    },
+    {
+      "producer": "model.layers.0.pre:0",
+      "storedCharacters": 363,
+      "expandedCharacters": 6589,
+      "definitions": 4
+    },
+    {
+      "producer": "model.layers.0.pre:1",
+      "storedCharacters": 363,
+      "expandedCharacters": 6589,
+      "definitions": 6
+    },
+    {
+      "producer": "model.layers.0.v:0",
+      "storedCharacters": 714,
+      "expandedCharacters": 53308,
+      "definitions": 8
+    },
+    {
+      "producer": "model.layers.0.context:0",
+      "storedCharacters": 21,
+      "expandedCharacters": 53314,
+      "definitions": 8
+    },
+    {
+      "producer": "model.layers.0.v:1",
+      "storedCharacters": 702,
+      "expandedCharacters": 53296,
+      "definitions": 10
+    },
+    {
+      "producer": "model.layers.0.context:1",
+      "storedCharacters": 21,
+      "expandedCharacters": 53302,
+      "definitions": 10
+    },
+    {
+      "producer": "model.layers.0.residual:0",
+      "storedCharacters": 824,
+      "expandedCharacters": 427122,
+      "definitions": 12
+    },
+    {
+      "producer": "model.layers.0.residual:1",
+      "storedCharacters": 832,
+      "expandedCharacters": 427130,
+      "definitions": 14
+    },
+    {
+      "producer": "model.layers.0.post:mean",
+      "storedCharacters": 385,
+      "expandedCharacters": 1708827,
+      "definitions": 15
+    },
+    {
+      "producer": "model.layers.0.post:inverse",
+      "storedCharacters": 3359,
+      "expandedCharacters": 11962441,
+      "definitions": 16
+    },
+    {
+      "producer": "model.layers.0.post:0",
+      "storedCharacters": 422,
+      "expandedCharacters": 27342509,
+      "definitions": 18
+    },
+    {
+      "producer": "model.layers.0.post:1",
+      "storedCharacters": 422,
+      "expandedCharacters": 27342541,
+      "definitions": 20
+    },
+    {
+      "producer": "model.layers.0.gate:0",
+      "storedCharacters": 730,
+      "expandedCharacters": 218740804,
+      "definitions": 22
+    },
+    {
+      "producer": "model.layers.0.activation:0",
+      "storedCharacters": 2170,
+      "expandedCharacters": 492167334,
+      "definitions": 23
+    },
+    {
+      "producer": "model.layers.0.up:0",
+      "storedCharacters": 714,
+      "expandedCharacters": 218740788,
+      "definitions": 25
+    },
+    {
+      "producer": "model.layers.0.gated:0",
+      "storedCharacters": 636,
+      "expandedCharacters": 2242094944,
+      "definitions": 27
+    },
+    {
+      "producer": "model.layers.0.hidden:0",
+      "storedCharacters": 295,
+      "expandedCharacters": 4484617259,
+      "definitions": 29
+    },
+    {
+      "producer": "model.layers.0.hidden:1",
+      "storedCharacters": 293,
+      "expandedCharacters": 4484617265,
+      "definitions": 31
+    },
+    {
+      "producer": "final:mean",
+      "storedCharacters": 385,
+      "expandedCharacters": 17938469371,
+      "definitions": 32
+    },
+    {
+      "producer": "final:inverse",
+      "storedCharacters": 3359,
+      "expandedCharacters": 125569286249,
+      "definitions": 33
+    },
+    {
+      "producer": "final:0",
+      "storedCharacters": 422,
+      "expandedCharacters": 287015511217,
+      "definitions": 35
+    },
+    {
+      "producer": "final:1",
+      "storedCharacters": 422,
+      "expandedCharacters": 287015511241,
+      "definitions": 37
+    },
+    {
+      "producer": "output:0:2",
+      "storedCharacters": 734,
+      "expandedCharacters": 2296124090440,
+      "definitions": 39
+    }
+  ]
+}

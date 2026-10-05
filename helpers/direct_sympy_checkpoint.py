@@ -143,6 +143,8 @@ class CheckpointStrings:
         self.events=[]
         self.on_completed=None
         self.layer_bound_cache={}
+        self.norm_bound_cache={}
+        self.constant_projections=0
         self.elided_updates=[]
         self.early_half_products=0
         self.parallel_budget=parallel_budget
@@ -235,9 +237,17 @@ class CheckpointStrings:
             lanes.append(value)
         return "R16("+self.op("+",self.op("+",lanes[0],lanes[1]),self.op("+",lanes[2],lanes[3]))+")"
 
-    def linear(self,name,row,input_value):
+    def linear(self,name,row,input_value,*,input_bounds=None):
         shape=self.shape(name)
         if len(shape)!=2 or not 0<=row<shape[0]:raise ValueError("Invalid projection coordinate")
+        if input_bounds is not None:
+            intervals=input_bounds()
+            if intervals is not None:
+                from direct_sympy_layer_bounds import dot_interval
+                enclosed=dot_interval(self,name,row,intervals)
+                if enclosed is not None and struct.pack('e',enclosed[0])==struct.pack('e',enclosed[1]):
+                    self.constant_projections+=1
+                    return repr(enclosed[0])
         terms=[]
         for column in range(shape[1]):
             coefficient=self.weight(name,row,column)
@@ -290,6 +300,31 @@ class CheckpointStrings:
         for lane in range(4):
             x=component(lane);value=x if value is None else self.op("+",value,x)
         return value
+
+    def norm_intervals(self,name,input_value):
+        """Certify weighted RMS Half intervals without building mean/inverse."""
+        if self.conversions is None:return None
+        inputs=tuple(input_value(i) for i in range(self.width))
+        key=(self.compiler.context(self.domains),name,inputs)
+        if key in self.norm_bound_cache:return self.norm_bound_cache[key]
+        sources=[]
+        for value in inputs:
+            node,_=self.conversions.analyze_expression(value)
+            bound=self.conversions.bounds(node)
+            if self.conversions.value_kind(node)!='half' or bound is None:
+                self.norm_bound_cache[key]=None;return None
+            sources.append(bound)
+        epsilon=f32(self.config['rms_norm_eps']);result=[]
+        for i in range(self.width):
+            enclosure=rms_component_enclosures(sources,i,epsilon)
+            if enclosure is None:self.norm_bound_cache[key]=None;return None
+            weight=float(self.weight(name,i))
+            if not math.isfinite(weight):self.norm_bound_cache[key]=None;return None
+            values=sorted(value*weight for value in enclosure[1][0])
+            try:result.append(tuple(struct.unpack('e',struct.pack('e',value))[0] for value in values))
+            except OverflowError:self.norm_bound_cache[key]=None;return None
+        self.norm_bound_cache[key]=result
+        return result
 
     def norm(self,key,name,coordinate,input_value):
         def build():
@@ -366,15 +401,15 @@ class CheckpointStrings:
             return "R16("+self.op("*",normalized,self.weight(name,coordinate))+")"
         return self.producer(key+":"+str(coordinate),build)
 
-    def gated(self,prefix,neuron,input_value):
+    def gated(self,prefix,neuron,input_value,*,input_bounds=None):
         # Each scalar projection owns its rounding frontier. Close it before
         # substituting it into the activation/product; composing both raw
         # reductions first postpones numerical simplification incorrectly.
         gate=self.producer(prefix+"gate:"+str(neuron),lambda:
-            self.linear(prefix+"mlp.gate_proj.weight",neuron,input_value))
+            self.linear(prefix+"mlp.gate_proj.weight",neuron,input_value,**({"input_bounds":input_bounds} if input_bounds is not None else {})))
         activation=self.producer(prefix+"activation:"+str(neuron),lambda:"Silu16("+gate+")")
         up=self.producer(prefix+"up:"+str(neuron),lambda:
-            self.linear(prefix+"mlp.up_proj.weight",neuron,input_value))
+            self.linear(prefix+"mlp.up_proj.weight",neuron,input_value,**({"input_bounds":input_bounds} if input_bounds is not None else {})))
         if self.conversions is not None and all(value in self.conversions.closed_literals and value in self.conversions.closed_literal_keys for value in (activation,up)):
             return self.conversions.compose_closed(
                 "R16(R32(X999999998 * X999999999))",
@@ -412,7 +447,8 @@ class CheckpointStrings:
         def residual(column):
             original=self.hidden(layer-1,column)
             if self.invisible_layer_update(layer,prefix,"attention",column,original):return original
-            def value(i):return self.producer(prefix+"v:"+str(i),lambda:self.linear(prefix+"self_attn.v_proj.weight",i,pre))
+            def value(i):return self.producer(prefix+"v:"+str(i),lambda:self.linear(prefix+"self_attn.v_proj.weight",i,pre,input_bounds=lambda:self.norm_intervals(
+                prefix+"input_layernorm.weight",lambda j:self.hidden(layer-1,j))))
             heads=self.config["num_attention_heads"];kv_heads=self.config["num_key_value_heads"]
             head_dim=self.config.get("head_dim",self.width//heads)
             if heads%kv_heads:raise ValueError("Invalid grouped-query geometry")
@@ -428,7 +464,8 @@ class CheckpointStrings:
             value=self.producer(prefix+"residual:"+str(coordinate),lambda:residual(coordinate))
             if self.invisible_layer_update(layer,prefix,"mlp",coordinate,value):return value
             return "R16("+self.op("+",value,self.linear(prefix+"mlp.down_proj.weight",coordinate,
-                lambda i:self.producer(prefix+"gated:"+str(i),lambda:self.gated(prefix,i,post))))+")"
+                lambda i:self.producer(prefix+"gated:"+str(i),lambda:self.gated(prefix,i,post,input_bounds=lambda:self.norm_intervals(
+                    prefix+"post_attention_layernorm.weight",lambda j:self.producer(prefix+"residual:"+str(j),lambda:residual(j)))))))+")"
         return self.producer(prefix+"hidden:"+str(coordinate),build_hidden)
 
     def coordinate(self,dimension):
