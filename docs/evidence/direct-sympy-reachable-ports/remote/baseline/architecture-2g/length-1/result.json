@@ -1,0 +1,287 @@
+{
+  "length": 1,
+  "workingExpressionsEmitted": 4,
+  "verifiedLogits": 48,
+  "mismatches": [],
+  "finalArtifactEmitted": false,
+  "finalArtifactParity": false,
+  "composition": {
+    "completedJobs": 23,
+    "completedBlocks": 0,
+    "completedPairMerges": 0,
+    "seededLanes": 0,
+    "maxWorkersAdmitted": 2,
+    "peakObservedRSSBytes": 659927040,
+    "compositionLevels": 4,
+    "peakAccumulatedBytes": 866256,
+    "operatorPreparations": 12,
+    "operatorPairMerges": 11,
+    "growth": [
+      {
+        "characters": 291,
+        "inputBytes": 291,
+        "kind": "operator-prepare",
+        "seconds": 0.014458710999861069,
+        "pid": 9107,
+        "rssBytes": 191954944
+      },
+      {
+        "characters": 296,
+        "inputBytes": 296,
+        "kind": "operator-prepare",
+        "seconds": 0.015976043000136997,
+        "pid": 9106,
+        "rssBytes": 192344064
+      },
+      {
+        "characters": 186,
+        "inputBytes": 186,
+        "kind": "operator-prepare",
+        "seconds": 0.008681837000040105,
+        "pid": 9107,
+        "rssBytes": 191971328
+      },
+      {
+        "characters": 298,
+        "inputBytes": 298,
+        "kind": "operator-prepare",
+        "seconds": 0.010404087000097206,
+        "pid": 9106,
+        "rssBytes": 192364544
+      },
+      {
+        "characters": 92,
+        "inputBytes": 92,
+        "kind": "operator-prepare",
+        "seconds": 0.004704665000190289,
+        "pid": 9107,
+        "rssBytes": 191991808
+      },
+      {
+        "characters": 310,
+        "inputBytes": 310,
+        "kind": "operator-prepare",
+        "seconds": 0.009689314999832277,
+        "pid": 9106,
+        "rssBytes": 192364544
+      },
+      {
+        "characters": 304,
+        "inputBytes": 304,
+        "kind": "operator-prepare",
+        "seconds": 0.010274393999679887,
+        "pid": 9107,
+        "rssBytes": 191991808
+      },
+      {
+        "characters": 90,
+        "inputBytes": 90,
+        "kind": "operator-prepare",
+        "seconds": 0.004670812000313163,
+        "pid": 9106,
+        "rssBytes": 192364544
+      },
+      {
+        "characters": 215,
+        "inputBytes": 215,
+        "kind": "operator-prepare",
+        "seconds": 0.007418526000037673,
+        "pid": 9107,
+        "rssBytes": 191991808
+      },
+      {
+        "characters": 92,
+        "inputBytes": 92,
+        "kind": "operator-prepare",
+        "seconds": 0.0034834500002034474,
+        "pid": 9106,
+        "rssBytes": 192389120
+      },
+      {
+        "characters": 298,
+        "inputBytes": 298,
+        "kind": "operator-prepare",
+        "seconds": 0.008273545000065496,
+        "pid": 9107,
+        "rssBytes": 192405504
+      },
+      {
+        "characters": 515,
+        "inputBytes": 515,
+        "kind": "operator-prepare",
+        "seconds": 0.01235554000004413,
+        "pid": 9106,
+        "rssBytes": 192413696
+      },
+      {
+        "characters": 765,
+        "inputBytes": 587,
+        "kind": "operator-merge",
+        "seconds": 0.043790591999822936,
+        "pid": 9110,
+        "rssBytes": 192102400
+      },
+      {
+        "characters": 531,
+        "inputBytes": 484,
+        "kind": "operator-merge",
+        "seconds": 0.05492867099974319,
+        "pid": 9111,
+        "rssBytes": 192180224
+      },
+      {
+        "characters": 322,
+        "inputBytes": 394,
+        "kind": "operator-merge",
+        "seconds": 0.02790867099975003,
+        "pid": 9111,
+        "rssBytes": 192217088
+      },
+      {
+        "characters": 514,
+        "inputBytes": 402,
+        "kind": "operator-merge",
+        "seconds": 0.04466543599983197,
+        "pid": 9110,
+        "rssBytes": 192630784
+      },
+      {
+        "characters": 235,
+        "inputBytes": 307,
+        "kind": "operator-merge",
+        "seconds": 0.0220048510000197,
+        "pid": 9111,
+        "rssBytes": 192221184
+      },
+      {
+        "characters": 1515,
+        "inputBytes": 813,
+        "kind": "operator-merge",
+        "seconds": 0.062143498999830626,
+        "pid": 9110,
+        "rssBytes": 192790528
+      },
+      {
+        "characters": 1940,
+        "inputBytes": 1296,
+        "kind": "operator-merge",
+        "seconds": 0.06770974899973226,
+        "pid": 9118,
+        "rssBytes": 192233472
+      },
+      {
+        "characters": 1174,
+        "inputBytes": 836,
+        "kind": "operator-merge",
+        "seconds": 0.08877511900027457,
+        "pid": 9119,
+        "rssBytes": 193110016
+      },
+      {
+        "characters": 5141,
+        "inputBytes": 1750,
+        "kind": "operator-merge",
+        "seconds": 0.184253338000417,
+        "pid": 9118,
+        "rssBytes": 193400832
+      },
+      {
+        "characters": 21862,
+        "inputBytes": 3114,
+        "kind": "operator-merge",
+        "seconds": 0.08685379100006685,
+        "pid": 9122,
+        "rssBytes": 193298432
+      },
+      {
+        "characters": 839253,
+        "inputBytes": 27003,
+        "kind": "operator-merge",
+        "seconds": 0.3314392829997814,
+        "pid": 9125,
+        "rssBytes": 199733248
+      }
+    ],
+    "seconds": 2.7302184089999173,
+    "stageNames": [
+      "model.layers.0.pre-normalization",
+      "model.layers.0.qkv-projections",
+      "model.layers.0.attention-context",
+      "model.layers.0.attention-output",
+      "model.layers.0.attention-residual",
+      "model.layers.0.post-normalization",
+      "model.layers.0.gate-up",
+      "model.layers.0.activation-product",
+      "model.layers.0.down-projection",
+      "model.layers.0.mlp-residual",
+      "final-normalization",
+      "output-logits"
+    ],
+    "length": 1,
+    "width": 2,
+    "vocab": 4,
+    "weightReads": 56,
+    "originalInterfaceOutputSlots": 41,
+    "reachableInterfaceOutputSlots": 41,
+    "originalComputedOutputs": 25,
+    "reachableComputedOutputs": 25
+  },
+  "expressions": [
+    {
+      "position": 0,
+      "coordinate": 0,
+      "path": "position-0-logit-0.work.expr",
+      "characters": 209803,
+      "sha256": "ccf53559381dbec267309af5a18dc58b5540c6fed3038f8b55d4abc49b640ae8"
+    },
+    {
+      "position": 0,
+      "coordinate": 1,
+      "path": "position-0-logit-1.work.expr",
+      "characters": 209800,
+      "sha256": "4831a8ac0b8b7d7e109c4147b65146f451f5a8615a82c218af0e0e99bed56b62"
+    },
+    {
+      "position": 0,
+      "coordinate": 2,
+      "path": "position-0-logit-2.work.expr",
+      "characters": 209807,
+      "sha256": "ecbb33dff1e0a7249575533b276cf5c092a7dd7ef53569c1dcb55dd125141c98"
+    },
+    {
+      "position": 0,
+      "coordinate": 3,
+      "path": "position-0-logit-3.work.expr",
+      "characters": 209797,
+      "sha256": "49c72f481f698fc10411ce7b72e4367d3e068a157c785576d28b8720d6a86ee6"
+    }
+  ],
+  "workingExpressionParity": true,
+  "lowering": [
+    {
+      "position": 0,
+      "coordinate": 0,
+      "complete": false,
+      "stop": "Whole-architecture worker deadline exceeded"
+    },
+    {
+      "position": 0,
+      "coordinate": 1,
+      "complete": false,
+      "stop": "Whole-architecture worker deadline exceeded"
+    },
+    {
+      "position": 0,
+      "coordinate": 2,
+      "complete": false,
+      "stop": "Whole-architecture worker deadline exceeded"
+    },
+    {
+      "position": 0,
+      "coordinate": 3,
+      "complete": false,
+      "stop": "Whole-architecture worker deadline exceeded"
+    }
+  ],
+  "seconds": 246.1772592950001
+}

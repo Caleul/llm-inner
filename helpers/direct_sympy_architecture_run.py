@@ -21,6 +21,24 @@ def write_json(path,value):
 
 
 def unit(args):
+    from direct_sympy_scan_backend import install
+    # The architecture route must use the same equivalent bounded scans as
+    # incremental producer compilation. Forked composition workers inherit
+    # the installed backend; all literal/branch checks keep stdlib semantics.
+    tracing=os.environ.get('LLM_INNER_CAS_TRACE_STALLS')=='1'
+    if tracing:
+        import faulthandler
+        # A watchdog thread before fork can deadlock a child when it
+        # starts its own watchdog. Diagnose the coordinator on demand.
+        faulthandler.register(signal.SIGUSR1,all_threads=True)
+    try:
+        with install():
+            return unit_with_scans(args)
+    finally:
+        if tracing:faulthandler.unregister(signal.SIGUSR1)
+
+
+def unit_with_scans(args):
     import torch
     torch.set_num_threads(1)
     from direct_sympy_architecture import architecture_plan,compose_architecture,prune_plan,last_position_indices

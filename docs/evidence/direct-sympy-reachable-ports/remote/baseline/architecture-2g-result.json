@@ -1,0 +1,23 @@
+{
+  "exitCode": 1,
+  "seconds": 1123.9402565629998,
+  "command": [
+    "python",
+    "helpers/direct_sympy_architecture_run.py",
+    "/content/llm-inner-sympy-rust-2g/docs/evidence/direct-sympy-test-checkpoint",
+    "/content/llm-inner-sympy-rust-2g/architecture-2g",
+    "--reference",
+    "/content/llm-inner-sympy-rust-2g/docs/evidence/direct-sympy-envelope-sync-reference.json",
+    "--workers",
+    "2",
+    "--memory-mib",
+    "8192",
+    "--max-characters",
+    "2147483648",
+    "--seconds-per-length",
+    "120",
+    "--lower",
+    "--lower-seconds",
+    "60"
+  ]
+}

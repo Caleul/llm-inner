@@ -1,0 +1,23 @@
+{
+  "exitCode": 1,
+  "seconds": 100.24475254499976,
+  "stop": null,
+  "command": [
+    "/usr/bin/python3",
+    "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_architecture_run.py",
+    "/content/llm-inner-sympy-trace-2g/docs/evidence/direct-sympy-test-checkpoint",
+    "/content/llm-inner-sympy-trace-2g/trace-run",
+    "--lengths",
+    "2",
+    "--workers",
+    "1",
+    "--memory-mib",
+    "4096",
+    "--max-characters",
+    "2147483648",
+    "--seconds-per-length",
+    "90",
+    "--reference",
+    "/content/llm-inner-sympy-trace-2g/docs/evidence/direct-sympy-envelope-sync-reference.json"
+  ]
+}

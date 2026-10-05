@@ -347,7 +347,16 @@ class StringCompiler:
         if len(expression)>self.max_characters or re.search(r"\bCASStableRegion[0-9]+\b",expression):return
         key=(self.context(domains),expression)
         if key in self._regions:return
-        node=syntax(expression) if node is None else node
+        if node is None:
+            # Non-word registration needs only the outer AST shape. Producers
+            # already admitted in this same context have valid call grammar;
+            # parse their compact envelope instead of allocating another AST
+            # for every occurrence in a completed architecture output. This
+            # is grammar metadata only, not a CAS rewrite or a branch proof.
+            # Word payload/width analysis still requires the original AST.
+            grammar=expression if word_closed else self.compact_regions(
+                expression,self.context(domains),validate_context=False)[0]
+            node=syntax(grammar)
         if not isinstance(node,ast.Call):return
         while self._regions and self._region_characters+len(expression)>4*self.max_characters:
             old,_=self._regions.popitem(last=False);self._region_characters-=len(old[1]);self._region_roots.pop(old,None);self._region_word_payloads.pop(old,None)

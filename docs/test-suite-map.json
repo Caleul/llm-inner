@@ -3652,5 +3652,148 @@
       "finalRustExists": false,
       "evidence": "docs/evidence/direct-sympy-rust-2g/remote/cli-vector-smoke-result.json"
     }
+  },
+  "directSympyReachablePortsValidation": {
+    "evidence": "docs/evidence/direct-sympy-reachable-ports/README.md",
+    "execution": "Colab CPU via Access Broker colab_cli",
+    "accumulatedExpressionConditionBudgetBytes": 2147483648,
+    "ramBudgetBytes": 8589934592,
+    "changes": [
+      "skip absent interface ports before substitution",
+      "equivalent scan backend in architecture workers",
+      "exact finite Half products retain original sums and storage",
+      "compact grammar for completed-region metadata"
+    ],
+    "regressionBeforeCompactMetadata": {
+      "pass": 23,
+      "fail": 0,
+      "sources": [
+        "helpers/direct_sympy_parallel_test.py",
+        "helpers/direct_sympy_architecture_run_test.py",
+        "helpers/direct_sympy_scan_backend_test.py"
+      ]
+    },
+    "originalReferenceBlockParity": {
+      "torch": "2.12.1",
+      "backend": "cpu-arm64-eager",
+      "lengths": [
+        1,
+        2,
+        3,
+        4,
+        8
+      ],
+      "bitComparisons": 240,
+      "mismatches": 0,
+      "finalArtifactParity": false
+    },
+    "workingCompilation": {
+      "length1": {
+        "workingLogits": 4,
+        "bitComparisons": 48,
+        "mismatches": 0,
+        "charactersBeforeExactHalfProducts": 839207,
+        "charactersAfterExactHalfProducts": 804567,
+        "skippedInterfacePorts": 56
+      },
+      "length2BeforeCompactMetadata": {
+        "completedJobs": 29,
+        "skippedInterfacePorts": 272,
+        "stop": "aggregate RAM budget exceeded",
+        "workingLogitsValidated": 0
+      }
+    },
+    "fullOriginal2GiBAttempt": {
+      "lengths": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "workingLogitsByLength": {
+        "1": 4,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0
+      },
+      "finalRustArtifacts": 0,
+      "finalArtifactParity": false
+    },
+    "referenceCoverageGap": "Original CPU ARM64 reference lacks lengths 5, 6 and 7; remote native all-length tests are separate diagnostic evidence",
+    "compactMetadataRegression": {
+      "pass": 59,
+      "fail": 0,
+      "seconds": 151.392,
+      "sources": [
+        "helpers/direct_sympy_strings_test.py",
+        "helpers/direct_sympy_scan_backend_test.py",
+        "helpers/direct_sympy_parallel_test.py",
+        "helpers/direct_sympy_architecture_run_test.py",
+        "helpers/direct_sympy_architecture_test.py"
+      ],
+      "remoteNativeArchitectureParity": {
+        "torch": "2.11.0+cpu",
+        "machine": "Colab CPU x86_64",
+        "cases": 96,
+        "lengths": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "allPositionLogitComparisons": 1728,
+        "lastPositionLogitComparisons": 384,
+        "mismatches": 0,
+        "finalArtifactParity": false
+      },
+      "pairFirstPositionLogitComparisons": 20
+    },
+    "referenceCaptureBackendSmoke": {
+      "nativeCapture": "docs/evidence/direct-sympy-reachable-ports/remote/native-header/native-reference.json",
+      "torch": "2.11.0+cpu",
+      "backend": "cpu-x86_64-eager",
+      "cases": 96,
+      "lengths": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "originalTargetReference": false
+    },
+    "compactMetadataTraceRerun": {
+      "length1": {
+        "compositionSeconds": 1.0821481659995698,
+        "workingLogits": 4,
+        "comparisons": 48,
+        "mismatches": 0
+      },
+      "length2": {
+        "completedJobs": 29,
+        "peakAccumulatedBytes": 156684102,
+        "peakCompositionRSSBytes": 1020321792,
+        "peakWorkerTreeRSSBytes": 8598380544,
+        "wallSeconds": 77.01123286699931,
+        "stop": "Aggregate RAM budget exceeded",
+        "finalArtifactParity": false
+      },
+      "supersededTraceAttempt": "parent watchdog before fork interfered with child watchdog; replaced with on-demand SIGUSR1 stack capture"
+    }
   }
 }

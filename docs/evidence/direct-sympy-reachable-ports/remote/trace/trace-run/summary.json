@@ -1,0 +1,302 @@
+{
+  "lengths": [
+    2
+  ],
+  "vocab": 4,
+  "outputScope": "last-position-only",
+  "results": [
+    {
+      "length": 2,
+      "workingExpressionsEmitted": 0,
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "composition": {
+        "completedJobs": 29,
+        "completedBlocks": 0,
+        "completedPairMerges": 0,
+        "seededLanes": 0,
+        "maxWorkersAdmitted": 1,
+        "peakObservedRSSBytes": 931897344,
+        "compositionLevels": 3,
+        "peakAccumulatedBytes": 437355,
+        "operatorPreparations": 15,
+        "operatorPairMerges": 14,
+        "growth": [
+          {
+            "characters": 558,
+            "inputBytes": 558,
+            "kind": "operator-prepare",
+            "seconds": 0.04992487399977108,
+            "pid": 14914,
+            "rssBytes": 197595136
+          },
+          {
+            "characters": 1256,
+            "inputBytes": 1256,
+            "kind": "operator-prepare",
+            "seconds": 0.06834812199986118,
+            "pid": 14914,
+            "rssBytes": 197644288
+          },
+          {
+            "characters": 539,
+            "inputBytes": 539,
+            "kind": "operator-prepare",
+            "seconds": 0.0447188569996797,
+            "pid": 14914,
+            "rssBytes": 197648384
+          },
+          {
+            "characters": 370,
+            "inputBytes": 370,
+            "kind": "operator-prepare",
+            "seconds": 0.024666013000114617,
+            "pid": 14914,
+            "rssBytes": 197664768
+          },
+          {
+            "characters": 532,
+            "inputBytes": 532,
+            "kind": "operator-prepare",
+            "seconds": 1.0868527839998023,
+            "pid": 14914,
+            "rssBytes": 198512640
+          },
+          {
+            "characters": 260,
+            "inputBytes": 260,
+            "kind": "operator-prepare",
+            "seconds": 0.020210525000038615,
+            "pid": 14914,
+            "rssBytes": 198520832
+          },
+          {
+            "characters": 298,
+            "inputBytes": 298,
+            "kind": "operator-prepare",
+            "seconds": 0.019386257999940426,
+            "pid": 14914,
+            "rssBytes": 198520832
+          },
+          {
+            "characters": 92,
+            "inputBytes": 92,
+            "kind": "operator-prepare",
+            "seconds": 0.008238034999976662,
+            "pid": 14914,
+            "rssBytes": 198529024
+          },
+          {
+            "characters": 310,
+            "inputBytes": 310,
+            "kind": "operator-prepare",
+            "seconds": 0.024025636999795097,
+            "pid": 14914,
+            "rssBytes": 198574080
+          },
+          {
+            "characters": 304,
+            "inputBytes": 304,
+            "kind": "operator-prepare",
+            "seconds": 0.021568225999999413,
+            "pid": 14914,
+            "rssBytes": 198582272
+          },
+          {
+            "characters": 94,
+            "inputBytes": 94,
+            "kind": "operator-prepare",
+            "seconds": 0.008920845999909943,
+            "pid": 14914,
+            "rssBytes": 198594560
+          },
+          {
+            "characters": 222,
+            "inputBytes": 222,
+            "kind": "operator-prepare",
+            "seconds": 0.018885725000018283,
+            "pid": 14914,
+            "rssBytes": 198606848
+          },
+          {
+            "characters": 100,
+            "inputBytes": 100,
+            "kind": "operator-prepare",
+            "seconds": 0.0073045670001192775,
+            "pid": 14914,
+            "rssBytes": 198606848
+          },
+          {
+            "characters": 310,
+            "inputBytes": 310,
+            "kind": "operator-prepare",
+            "seconds": 0.01740254400010599,
+            "pid": 14914,
+            "rssBytes": 198610944
+          },
+          {
+            "characters": 525,
+            "inputBytes": 525,
+            "kind": "operator-prepare",
+            "seconds": 0.033013743000083196,
+            "pid": 14914,
+            "rssBytes": 198627328
+          },
+          {
+            "characters": 3647,
+            "inputBytes": 1814,
+            "kind": "operator-merge",
+            "seconds": 0.3909593470002619,
+            "pid": 14940,
+            "rssBytes": 197902336
+          },
+          {
+            "characters": 878,
+            "inputBytes": 909,
+            "kind": "operator-merge",
+            "seconds": 0.29750090300012744,
+            "pid": 14940,
+            "rssBytes": 198082560
+          },
+          {
+            "characters": 1084,
+            "inputBytes": 792,
+            "kind": "operator-merge",
+            "seconds": 3.9444967529998394,
+            "pid": 14940,
+            "rssBytes": 199331840
+          },
+          {
+            "characters": 318,
+            "inputBytes": 390,
+            "kind": "operator-merge",
+            "seconds": 0.030865349000123388,
+            "pid": 14940,
+            "rssBytes": 199340032
+          },
+          {
+            "characters": 792,
+            "inputBytes": 614,
+            "kind": "operator-merge",
+            "seconds": 0.07028437899998607,
+            "pid": 14940,
+            "rssBytes": 199446528
+          },
+          {
+            "characters": 275,
+            "inputBytes": 316,
+            "kind": "operator-merge",
+            "seconds": 0.033582755999759684,
+            "pid": 14940,
+            "rssBytes": 199450624
+          },
+          {
+            "characters": 494,
+            "inputBytes": 410,
+            "kind": "operator-merge",
+            "seconds": 0.037081725999996706,
+            "pid": 14940,
+            "rssBytes": 199450624
+          },
+          {
+            "characters": 7886,
+            "inputBytes": 4525,
+            "kind": "operator-merge",
+            "seconds": 0.21487933199978215,
+            "pid": 14970,
+            "rssBytes": 198131712
+          },
+          {
+            "characters": 2318,
+            "inputBytes": 1402,
+            "kind": "operator-merge",
+            "seconds": 5.975518686000214,
+            "pid": 14970,
+            "rssBytes": 200269824
+          },
+          {
+            "characters": 1721,
+            "inputBytes": 1067,
+            "kind": "operator-merge",
+            "seconds": 0.121347379999861,
+            "pid": 14970,
+            "rssBytes": 200286208
+          },
+          {
+            "characters": 2251,
+            "inputBytes": 1019,
+            "kind": "operator-merge",
+            "seconds": 0.13512247600010596,
+            "pid": 14970,
+            "rssBytes": 200286208
+          },
+          {
+            "characters": 387804,
+            "inputBytes": 10204,
+            "kind": "operator-merge",
+            "seconds": 25.509757197,
+            "pid": 15001,
+            "rssBytes": 204472320
+          },
+          {
+            "characters": 35375,
+            "inputBytes": 3972,
+            "kind": "operator-merge",
+            "seconds": 1.9544756430000234,
+            "pid": 15001,
+            "rssBytes": 209027072
+          },
+          {
+            "characters": 162889543,
+            "inputBytes": 423179,
+            "kind": "operator-merge",
+            "seconds": 38.65955154999983,
+            "pid": 15122,
+            "rssBytes": 613654528
+          }
+        ]
+      },
+      "plan": {
+        "length": 2,
+        "width": 2,
+        "vocab": 4,
+        "stageNames": [
+          "model.layers.0.pre-normalization",
+          "model.layers.0.qkv-projections",
+          "model.layers.0.rotary",
+          "model.layers.0.attention-scores",
+          "model.layers.0.softmax",
+          "model.layers.0.attention-context",
+          "model.layers.0.attention-output",
+          "model.layers.0.attention-residual",
+          "model.layers.0.post-normalization",
+          "model.layers.0.gate-up",
+          "model.layers.0.activation-product",
+          "model.layers.0.down-projection",
+          "model.layers.0.mlp-residual",
+          "final-normalization",
+          "output-logits"
+        ],
+        "weightsRead": 108,
+        "operatorCount": 15,
+        "selectedOutputIndices": [
+          4,
+          5,
+          6,
+          7
+        ],
+        "originalComputedOutputs": 72,
+        "reachableComputedOutputs": 45,
+        "originalInterfaceOutputSlots": 128,
+        "reachableInterfaceOutputSlots": 79
+      },
+      "exitCode": -9,
+      "wallSeconds": 100.0873279110001,
+      "peakObservedAggregateRSSBytes": 4298371072,
+      "coordinatorStop": "Aggregate RAM budget exceeded"
+    }
+  ],
+  "complete": false,
+  "finalArtifactParity": false,
+  "workingExpressionsComplete": false
+}

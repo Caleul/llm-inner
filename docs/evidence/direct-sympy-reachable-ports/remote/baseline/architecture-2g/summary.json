@@ -1,0 +1,2332 @@
+{
+  "lengths": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "vocab": 4,
+  "outputScope": "last-position-only",
+  "results": [
+    {
+      "length": 1,
+      "workingExpressionsEmitted": 4,
+      "verifiedLogits": 48,
+      "mismatches": [],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "composition": {
+        "completedJobs": 23,
+        "completedBlocks": 0,
+        "completedPairMerges": 0,
+        "seededLanes": 0,
+        "maxWorkersAdmitted": 2,
+        "peakObservedRSSBytes": 659927040,
+        "compositionLevels": 4,
+        "peakAccumulatedBytes": 866256,
+        "operatorPreparations": 12,
+        "operatorPairMerges": 11,
+        "growth": [
+          {
+            "characters": 291,
+            "inputBytes": 291,
+            "kind": "operator-prepare",
+            "seconds": 0.014458710999861069,
+            "pid": 9107,
+            "rssBytes": 191954944
+          },
+          {
+            "characters": 296,
+            "inputBytes": 296,
+            "kind": "operator-prepare",
+            "seconds": 0.015976043000136997,
+            "pid": 9106,
+            "rssBytes": 192344064
+          },
+          {
+            "characters": 186,
+            "inputBytes": 186,
+            "kind": "operator-prepare",
+            "seconds": 0.008681837000040105,
+            "pid": 9107,
+            "rssBytes": 191971328
+          },
+          {
+            "characters": 298,
+            "inputBytes": 298,
+            "kind": "operator-prepare",
+            "seconds": 0.010404087000097206,
+            "pid": 9106,
+            "rssBytes": 192364544
+          },
+          {
+            "characters": 92,
+            "inputBytes": 92,
+            "kind": "operator-prepare",
+            "seconds": 0.004704665000190289,
+            "pid": 9107,
+            "rssBytes": 191991808
+          },
+          {
+            "characters": 310,
+            "inputBytes": 310,
+            "kind": "operator-prepare",
+            "seconds": 0.009689314999832277,
+            "pid": 9106,
+            "rssBytes": 192364544
+          },
+          {
+            "characters": 304,
+            "inputBytes": 304,
+            "kind": "operator-prepare",
+            "seconds": 0.010274393999679887,
+            "pid": 9107,
+            "rssBytes": 191991808
+          },
+          {
+            "characters": 90,
+            "inputBytes": 90,
+            "kind": "operator-prepare",
+            "seconds": 0.004670812000313163,
+            "pid": 9106,
+            "rssBytes": 192364544
+          },
+          {
+            "characters": 215,
+            "inputBytes": 215,
+            "kind": "operator-prepare",
+            "seconds": 0.007418526000037673,
+            "pid": 9107,
+            "rssBytes": 191991808
+          },
+          {
+            "characters": 92,
+            "inputBytes": 92,
+            "kind": "operator-prepare",
+            "seconds": 0.0034834500002034474,
+            "pid": 9106,
+            "rssBytes": 192389120
+          },
+          {
+            "characters": 298,
+            "inputBytes": 298,
+            "kind": "operator-prepare",
+            "seconds": 0.008273545000065496,
+            "pid": 9107,
+            "rssBytes": 192405504
+          },
+          {
+            "characters": 515,
+            "inputBytes": 515,
+            "kind": "operator-prepare",
+            "seconds": 0.01235554000004413,
+            "pid": 9106,
+            "rssBytes": 192413696
+          },
+          {
+            "characters": 765,
+            "inputBytes": 587,
+            "kind": "operator-merge",
+            "seconds": 0.043790591999822936,
+            "pid": 9110,
+            "rssBytes": 192102400
+          },
+          {
+            "characters": 531,
+            "inputBytes": 484,
+            "kind": "operator-merge",
+            "seconds": 0.05492867099974319,
+            "pid": 9111,
+            "rssBytes": 192180224
+          },
+          {
+            "characters": 322,
+            "inputBytes": 394,
+            "kind": "operator-merge",
+            "seconds": 0.02790867099975003,
+            "pid": 9111,
+            "rssBytes": 192217088
+          },
+          {
+            "characters": 514,
+            "inputBytes": 402,
+            "kind": "operator-merge",
+            "seconds": 0.04466543599983197,
+            "pid": 9110,
+            "rssBytes": 192630784
+          },
+          {
+            "characters": 235,
+            "inputBytes": 307,
+            "kind": "operator-merge",
+            "seconds": 0.0220048510000197,
+            "pid": 9111,
+            "rssBytes": 192221184
+          },
+          {
+            "characters": 1515,
+            "inputBytes": 813,
+            "kind": "operator-merge",
+            "seconds": 0.062143498999830626,
+            "pid": 9110,
+            "rssBytes": 192790528
+          },
+          {
+            "characters": 1940,
+            "inputBytes": 1296,
+            "kind": "operator-merge",
+            "seconds": 0.06770974899973226,
+            "pid": 9118,
+            "rssBytes": 192233472
+          },
+          {
+            "characters": 1174,
+            "inputBytes": 836,
+            "kind": "operator-merge",
+            "seconds": 0.08877511900027457,
+            "pid": 9119,
+            "rssBytes": 193110016
+          },
+          {
+            "characters": 5141,
+            "inputBytes": 1750,
+            "kind": "operator-merge",
+            "seconds": 0.184253338000417,
+            "pid": 9118,
+            "rssBytes": 193400832
+          },
+          {
+            "characters": 21862,
+            "inputBytes": 3114,
+            "kind": "operator-merge",
+            "seconds": 0.08685379100006685,
+            "pid": 9122,
+            "rssBytes": 193298432
+          },
+          {
+            "characters": 839253,
+            "inputBytes": 27003,
+            "kind": "operator-merge",
+            "seconds": 0.3314392829997814,
+            "pid": 9125,
+            "rssBytes": 199733248
+          }
+        ],
+        "seconds": 2.7302184089999173,
+        "stageNames": [
+          "model.layers.0.pre-normalization",
+          "model.layers.0.qkv-projections",
+          "model.layers.0.attention-context",
+          "model.layers.0.attention-output",
+          "model.layers.0.attention-residual",
+          "model.layers.0.post-normalization",
+          "model.layers.0.gate-up",
+          "model.layers.0.activation-product",
+          "model.layers.0.down-projection",
+          "model.layers.0.mlp-residual",
+          "final-normalization",
+          "output-logits"
+        ],
+        "length": 1,
+        "width": 2,
+        "vocab": 4,
+        "weightReads": 56,
+        "originalInterfaceOutputSlots": 41,
+        "reachableInterfaceOutputSlots": 41,
+        "originalComputedOutputs": 25,
+        "reachableComputedOutputs": 25
+      },
+      "expressions": [
+        {
+          "position": 0,
+          "coordinate": 0,
+          "path": "position-0-logit-0.work.expr",
+          "characters": 209803,
+          "sha256": "ccf53559381dbec267309af5a18dc58b5540c6fed3038f8b55d4abc49b640ae8"
+        },
+        {
+          "position": 0,
+          "coordinate": 1,
+          "path": "position-0-logit-1.work.expr",
+          "characters": 209800,
+          "sha256": "4831a8ac0b8b7d7e109c4147b65146f451f5a8615a82c218af0e0e99bed56b62"
+        },
+        {
+          "position": 0,
+          "coordinate": 2,
+          "path": "position-0-logit-2.work.expr",
+          "characters": 209807,
+          "sha256": "ecbb33dff1e0a7249575533b276cf5c092a7dd7ef53569c1dcb55dd125141c98"
+        },
+        {
+          "position": 0,
+          "coordinate": 3,
+          "path": "position-0-logit-3.work.expr",
+          "characters": 209797,
+          "sha256": "49c72f481f698fc10411ce7b72e4367d3e068a157c785576d28b8720d6a86ee6"
+        }
+      ],
+      "workingExpressionParity": true,
+      "lowering": [
+        {
+          "position": 0,
+          "coordinate": 0,
+          "complete": false,
+          "stop": "Whole-architecture worker deadline exceeded"
+        },
+        {
+          "position": 0,
+          "coordinate": 1,
+          "complete": false,
+          "stop": "Whole-architecture worker deadline exceeded"
+        },
+        {
+          "position": 0,
+          "coordinate": 2,
+          "complete": false,
+          "stop": "Whole-architecture worker deadline exceeded"
+        },
+        {
+          "position": 0,
+          "coordinate": 3,
+          "complete": false,
+          "stop": "Whole-architecture worker deadline exceeded"
+        }
+      ],
+      "seconds": 246.1772592950001,
+      "plan": {
+        "length": 1,
+        "width": 2,
+        "vocab": 4,
+        "stageNames": [
+          "model.layers.0.pre-normalization",
+          "model.layers.0.qkv-projections",
+          "model.layers.0.attention-context",
+          "model.layers.0.attention-output",
+          "model.layers.0.attention-residual",
+          "model.layers.0.post-normalization",
+          "model.layers.0.gate-up",
+          "model.layers.0.activation-product",
+          "model.layers.0.down-projection",
+          "model.layers.0.mlp-residual",
+          "final-normalization",
+          "output-logits"
+        ],
+        "weightsRead": 56,
+        "operatorCount": 12,
+        "selectedOutputIndices": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "originalComputedOutputs": 25,
+        "reachableComputedOutputs": 25,
+        "originalInterfaceOutputSlots": 41,
+        "reachableInterfaceOutputSlots": 41
+      },
+      "exitCode": 1,
+      "wallSeconds": 250.21968560100004,
+      "peakObservedAggregateRSSBytes": 659947520
+    },
+    {
+      "length": 2,
+      "workingExpressionsEmitted": 0,
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "composition": {
+        "completedJobs": 29,
+        "completedBlocks": 0,
+        "completedPairMerges": 0,
+        "seededLanes": 0,
+        "maxWorkersAdmitted": 2,
+        "peakObservedRSSBytes": 1047080960,
+        "compositionLevels": 3,
+        "peakAccumulatedBytes": 437355,
+        "operatorPreparations": 15,
+        "operatorPairMerges": 14,
+        "growth": [
+          {
+            "characters": 1256,
+            "inputBytes": 1256,
+            "kind": "operator-prepare",
+            "seconds": 0.04320912399998633,
+            "pid": 11439,
+            "rssBytes": 196988928
+          },
+          {
+            "characters": 558,
+            "inputBytes": 558,
+            "kind": "operator-prepare",
+            "seconds": 0.04965352699991854,
+            "pid": 11438,
+            "rssBytes": 197275648
+          },
+          {
+            "characters": 539,
+            "inputBytes": 539,
+            "kind": "operator-prepare",
+            "seconds": 0.023570505999941815,
+            "pid": 11439,
+            "rssBytes": 197021696
+          },
+          {
+            "characters": 370,
+            "inputBytes": 370,
+            "kind": "operator-prepare",
+            "seconds": 0.029367678000198794,
+            "pid": 11438,
+            "rssBytes": 197304320
+          },
+          {
+            "characters": 260,
+            "inputBytes": 260,
+            "kind": "operator-prepare",
+            "seconds": 0.0221939680000105,
+            "pid": 11438,
+            "rssBytes": 197312512
+          },
+          {
+            "characters": 298,
+            "inputBytes": 298,
+            "kind": "operator-prepare",
+            "seconds": 0.020592553000369662,
+            "pid": 11438,
+            "rssBytes": 197316608
+          },
+          {
+            "characters": 92,
+            "inputBytes": 92,
+            "kind": "operator-prepare",
+            "seconds": 0.005838995999965846,
+            "pid": 11438,
+            "rssBytes": 197320704
+          },
+          {
+            "characters": 310,
+            "inputBytes": 310,
+            "kind": "operator-prepare",
+            "seconds": 0.02363182500039329,
+            "pid": 11438,
+            "rssBytes": 197341184
+          },
+          {
+            "characters": 304,
+            "inputBytes": 304,
+            "kind": "operator-prepare",
+            "seconds": 0.02029536600002757,
+            "pid": 11438,
+            "rssBytes": 197353472
+          },
+          {
+            "characters": 94,
+            "inputBytes": 94,
+            "kind": "operator-prepare",
+            "seconds": 0.0121343609998803,
+            "pid": 11438,
+            "rssBytes": 197357568
+          },
+          {
+            "characters": 222,
+            "inputBytes": 222,
+            "kind": "operator-prepare",
+            "seconds": 0.017387099000188755,
+            "pid": 11438,
+            "rssBytes": 197357568
+          },
+          {
+            "characters": 100,
+            "inputBytes": 100,
+            "kind": "operator-prepare",
+            "seconds": 0.008190503999685461,
+            "pid": 11438,
+            "rssBytes": 197357568
+          },
+          {
+            "characters": 310,
+            "inputBytes": 310,
+            "kind": "operator-prepare",
+            "seconds": 0.01565777199994045,
+            "pid": 11438,
+            "rssBytes": 197373952
+          },
+          {
+            "characters": 525,
+            "inputBytes": 525,
+            "kind": "operator-prepare",
+            "seconds": 0.029153045999919414,
+            "pid": 11438,
+            "rssBytes": 197390336
+          },
+          {
+            "characters": 532,
+            "inputBytes": 532,
+            "kind": "operator-prepare",
+            "seconds": 0.6488434100001541,
+            "pid": 11439,
+            "rssBytes": 198004736
+          },
+          {
+            "characters": 3647,
+            "inputBytes": 1814,
+            "kind": "operator-merge",
+            "seconds": 0.21792524700003923,
+            "pid": 11442,
+            "rssBytes": 197271552
+          },
+          {
+            "characters": 878,
+            "inputBytes": 909,
+            "kind": "operator-merge",
+            "seconds": 0.23196003700013534,
+            "pid": 11443,
+            "rssBytes": 197324800
+          },
+          {
+            "characters": 318,
+            "inputBytes": 390,
+            "kind": "operator-merge",
+            "seconds": 0.024478663000081724,
+            "pid": 11443,
+            "rssBytes": 197353472
+          },
+          {
+            "characters": 792,
+            "inputBytes": 614,
+            "kind": "operator-merge",
+            "seconds": 0.0658607230002417,
+            "pid": 11443,
+            "rssBytes": 197758976
+          },
+          {
+            "characters": 275,
+            "inputBytes": 316,
+            "kind": "operator-merge",
+            "seconds": 0.028788537999844266,
+            "pid": 11443,
+            "rssBytes": 197763072
+          },
+          {
+            "characters": 494,
+            "inputBytes": 410,
+            "kind": "operator-merge",
+            "seconds": 0.03507450200004314,
+            "pid": 11443,
+            "rssBytes": 197763072
+          },
+          {
+            "characters": 1084,
+            "inputBytes": 792,
+            "kind": "operator-merge",
+            "seconds": 2.9578188710001996,
+            "pid": 11442,
+            "rssBytes": 198754304
+          },
+          {
+            "characters": 7886,
+            "inputBytes": 4525,
+            "kind": "operator-merge",
+            "seconds": 0.18838716699974611,
+            "pid": 11462,
+            "rssBytes": 197480448
+          },
+          {
+            "characters": 1721,
+            "inputBytes": 1067,
+            "kind": "operator-merge",
+            "seconds": 0.2606405349997658,
+            "pid": 11462,
+            "rssBytes": 198107136
+          },
+          {
+            "characters": 2251,
+            "inputBytes": 1019,
+            "kind": "operator-merge",
+            "seconds": 0.3656797190001271,
+            "pid": 11462,
+            "rssBytes": 198111232
+          },
+          {
+            "characters": 2318,
+            "inputBytes": 1402,
+            "kind": "operator-merge",
+            "seconds": 7.590526935000071,
+            "pid": 11463,
+            "rssBytes": 199684096
+          },
+          {
+            "characters": 35375,
+            "inputBytes": 3972,
+            "kind": "operator-merge",
+            "seconds": 2.6649180479998904,
+            "pid": 11495,
+            "rssBytes": 203792384
+          },
+          {
+            "characters": 387804,
+            "inputBytes": 10204,
+            "kind": "operator-merge",
+            "seconds": 24.426716498000133,
+            "pid": 11494,
+            "rssBytes": 204132352
+          },
+          {
+            "characters": 162889543,
+            "inputBytes": 423179,
+            "kind": "operator-merge",
+            "seconds": 22.404835563000233,
+            "pid": 11609,
+            "rssBytes": 613343232
+          }
+        ]
+      },
+      "plan": {
+        "length": 2,
+        "width": 2,
+        "vocab": 4,
+        "stageNames": [
+          "model.layers.0.pre-normalization",
+          "model.layers.0.qkv-projections",
+          "model.layers.0.rotary",
+          "model.layers.0.attention-scores",
+          "model.layers.0.softmax",
+          "model.layers.0.attention-context",
+          "model.layers.0.attention-output",
+          "model.layers.0.attention-residual",
+          "model.layers.0.post-normalization",
+          "model.layers.0.gate-up",
+          "model.layers.0.activation-product",
+          "model.layers.0.down-projection",
+          "model.layers.0.mlp-residual",
+          "final-normalization",
+          "output-logits"
+        ],
+        "weightsRead": 108,
+        "operatorCount": 15,
+        "selectedOutputIndices": [
+          4,
+          5,
+          6,
+          7
+        ],
+        "originalComputedOutputs": 72,
+        "reachableComputedOutputs": 45,
+        "originalInterfaceOutputSlots": 128,
+        "reachableInterfaceOutputSlots": 79
+      },
+      "exitCode": -9,
+      "wallSeconds": 100.08342297499985,
+      "peakObservedAggregateRSSBytes": 8596533248,
+      "coordinatorStop": "Aggregate RAM budget exceeded"
+    },
+    {
+      "length": 3,
+      "workingExpressionsEmitted": 0,
+      "verifiedLogits": 0,
+      "mismatches": [],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "stop": "Whole-architecture worker deadline exceeded",
+      "seconds": 120.11719588599999,
+      "composition": {
+        "completedJobs": 28,
+        "completedBlocks": 0,
+        "completedPairMerges": 0,
+        "seededLanes": 0,
+        "maxWorkersAdmitted": 2,
+        "peakObservedRSSBytes": 701218816,
+        "compositionLevels": 2,
+        "peakAccumulatedBytes": 1910921,
+        "operatorPreparations": 15,
+        "operatorPairMerges": 13,
+        "growth": [
+          {
+            "characters": 820,
+            "inputBytes": 820,
+            "kind": "operator-prepare",
+            "seconds": 0.03296281499979159,
+            "pid": 11854,
+            "rssBytes": 197857280
+          },
+          {
+            "characters": 1754,
+            "inputBytes": 1754,
+            "kind": "operator-prepare",
+            "seconds": 0.0552712009998686,
+            "pid": 11855,
+            "rssBytes": 197480448
+          },
+          {
+            "characters": 728,
+            "inputBytes": 728,
+            "kind": "operator-prepare",
+            "seconds": 0.0283595470000364,
+            "pid": 11854,
+            "rssBytes": 197881856
+          },
+          {
+            "characters": 525,
+            "inputBytes": 525,
+            "kind": "operator-prepare",
+            "seconds": 0.020981046999622777,
+            "pid": 11855,
+            "rssBytes": 197513216
+          },
+          {
+            "characters": 331,
+            "inputBytes": 331,
+            "kind": "operator-prepare",
+            "seconds": 0.009655464999923424,
+            "pid": 11855,
+            "rssBytes": 197513216
+          },
+          {
+            "characters": 308,
+            "inputBytes": 308,
+            "kind": "operator-prepare",
+            "seconds": 0.009724425000058545,
+            "pid": 11855,
+            "rssBytes": 197533696
+          },
+          {
+            "characters": 100,
+            "inputBytes": 100,
+            "kind": "operator-prepare",
+            "seconds": 0.004072618999998667,
+            "pid": 11855,
+            "rssBytes": 197533696
+          },
+          {
+            "characters": 324,
+            "inputBytes": 324,
+            "kind": "operator-prepare",
+            "seconds": 0.009732125000027736,
+            "pid": 11855,
+            "rssBytes": 197910528
+          },
+          {
+            "characters": 1599,
+            "inputBytes": 1599,
+            "kind": "operator-prepare",
+            "seconds": 0.06620849199998702,
+            "pid": 11854,
+            "rssBytes": 198180864
+          },
+          {
+            "characters": 314,
+            "inputBytes": 314,
+            "kind": "operator-prepare",
+            "seconds": 0.010428213000068354,
+            "pid": 11855,
+            "rssBytes": 198094848
+          },
+          {
+            "characters": 98,
+            "inputBytes": 98,
+            "kind": "operator-prepare",
+            "seconds": 0.004900244999589631,
+            "pid": 11854,
+            "rssBytes": 198184960
+          },
+          {
+            "characters": 100,
+            "inputBytes": 100,
+            "kind": "operator-prepare",
+            "seconds": 0.0032920329999797104,
+            "pid": 11854,
+            "rssBytes": 198184960
+          },
+          {
+            "characters": 222,
+            "inputBytes": 222,
+            "kind": "operator-prepare",
+            "seconds": 0.007863135000206967,
+            "pid": 11855,
+            "rssBytes": 198094848
+          },
+          {
+            "characters": 310,
+            "inputBytes": 310,
+            "kind": "operator-prepare",
+            "seconds": 0.006106501999965985,
+            "pid": 11854,
+            "rssBytes": 198189056
+          },
+          {
+            "characters": 525,
+            "inputBytes": 525,
+            "kind": "operator-prepare",
+            "seconds": 0.01022708699974828,
+            "pid": 11855,
+            "rssBytes": 198127616
+          },
+          {
+            "characters": 5094,
+            "inputBytes": 2574,
+            "kind": "operator-merge",
+            "seconds": 0.31961172199999055,
+            "pid": 11858,
+            "rssBytes": 197906432
+          },
+          {
+            "characters": 1315,
+            "inputBytes": 1253,
+            "kind": "operator-merge",
+            "seconds": 0.3772266219998528,
+            "pid": 11859,
+            "rssBytes": 197992448
+          },
+          {
+            "characters": 328,
+            "inputBytes": 408,
+            "kind": "operator-merge",
+            "seconds": 0.028231987000253866,
+            "pid": 11859,
+            "rssBytes": 198008832
+          },
+          {
+            "characters": 816,
+            "inputBytes": 638,
+            "kind": "operator-merge",
+            "seconds": 0.06323765499973888,
+            "pid": 11859,
+            "rssBytes": 198475776
+          },
+          {
+            "characters": 279,
+            "inputBytes": 320,
+            "kind": "operator-merge",
+            "seconds": 0.03066337200016278,
+            "pid": 11859,
+            "rssBytes": 198479872
+          },
+          {
+            "characters": 494,
+            "inputBytes": 410,
+            "kind": "operator-merge",
+            "seconds": 0.2655751429997508,
+            "pid": 11859,
+            "rssBytes": 198840320
+          },
+          {
+            "characters": 3208,
+            "inputBytes": 1930,
+            "kind": "operator-merge",
+            "seconds": 0.5393326829998841,
+            "pid": 11858,
+            "rssBytes": 198934528
+          },
+          {
+            "characters": 11840,
+            "inputBytes": 6409,
+            "kind": "operator-merge",
+            "seconds": 0.2804663269998855,
+            "pid": 11866,
+            "rssBytes": 198119424
+          },
+          {
+            "characters": 1765,
+            "inputBytes": 1095,
+            "kind": "operator-merge",
+            "seconds": 0.31909789900009855,
+            "pid": 11866,
+            "rssBytes": 199217152
+          },
+          {
+            "characters": 6548,
+            "inputBytes": 3536,
+            "kind": "operator-merge",
+            "seconds": 0.7406541889999971,
+            "pid": 11867,
+            "rssBytes": 200138752
+          },
+          {
+            "characters": 2251,
+            "inputBytes": 1019,
+            "kind": "operator-merge",
+            "seconds": 0.15018024100027105,
+            "pid": 11866,
+            "rssBytes": 199217152
+          },
+          {
+            "characters": 36217,
+            "inputBytes": 4016,
+            "kind": "operator-merge",
+            "seconds": 2.103691379999873,
+            "pid": 11875,
+            "rssBytes": 204414976
+          },
+          {
+            "characters": 1852300,
+            "inputBytes": 18388,
+            "kind": "operator-merge",
+            "seconds": 3.0142928300001586,
+            "pid": 11874,
+            "rssBytes": 216219648
+          }
+        ]
+      },
+      "plan": {
+        "length": 3,
+        "width": 2,
+        "vocab": 4,
+        "stageNames": [
+          "model.layers.0.pre-normalization",
+          "model.layers.0.qkv-projections",
+          "model.layers.0.rotary",
+          "model.layers.0.attention-scores",
+          "model.layers.0.softmax",
+          "model.layers.0.attention-context",
+          "model.layers.0.attention-output",
+          "model.layers.0.attention-residual",
+          "model.layers.0.post-normalization",
+          "model.layers.0.gate-up",
+          "model.layers.0.activation-product",
+          "model.layers.0.down-projection",
+          "model.layers.0.mlp-residual",
+          "final-normalization",
+          "output-logits"
+        ],
+        "weightsRead": 144,
+        "operatorCount": 15,
+        "selectedOutputIndices": [
+          8,
+          9,
+          10,
+          11
+        ],
+        "originalComputedOutputs": 111,
+        "reachableComputedOutputs": 55,
+        "originalInterfaceOutputSlots": 195,
+        "reachableInterfaceOutputSlots": 95
+      },
+      "exitCode": 1,
+      "wallSeconds": 123.82112441700019,
+      "peakObservedAggregateRSSBytes": 1621106688
+    },
+    {
+      "length": 4,
+      "workingExpressionsEmitted": 0,
+      "verifiedLogits": 0,
+      "mismatches": [],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "stop": "Whole-architecture worker deadline exceeded",
+      "seconds": 120.11923574499997,
+      "composition": {
+        "completedJobs": 28,
+        "completedBlocks": 0,
+        "completedPairMerges": 0,
+        "seededLanes": 0,
+        "maxWorkersAdmitted": 2,
+        "peakObservedRSSBytes": 718880768,
+        "compositionLevels": 2,
+        "peakAccumulatedBytes": 5976852,
+        "operatorPreparations": 15,
+        "operatorPairMerges": 13,
+        "growth": [
+          {
+            "characters": 1082,
+            "inputBytes": 1082,
+            "kind": "operator-prepare",
+            "seconds": 0.03896140799997738,
+            "pid": 12508,
+            "rssBytes": 198344704
+          },
+          {
+            "characters": 2243,
+            "inputBytes": 2243,
+            "kind": "operator-prepare",
+            "seconds": 0.06779503000007026,
+            "pid": 12509,
+            "rssBytes": 198004736
+          },
+          {
+            "characters": 907,
+            "inputBytes": 907,
+            "kind": "operator-prepare",
+            "seconds": 0.036579837999852316,
+            "pid": 12508,
+            "rssBytes": 198389760
+          },
+          {
+            "characters": 680,
+            "inputBytes": 680,
+            "kind": "operator-prepare",
+            "seconds": 0.02693191200023648,
+            "pid": 12509,
+            "rssBytes": 198029312
+          },
+          {
+            "characters": 416,
+            "inputBytes": 416,
+            "kind": "operator-prepare",
+            "seconds": 0.011801053999988653,
+            "pid": 12509,
+            "rssBytes": 198041600
+          },
+          {
+            "characters": 308,
+            "inputBytes": 308,
+            "kind": "operator-prepare",
+            "seconds": 0.009216192000167212,
+            "pid": 12509,
+            "rssBytes": 198045696
+          },
+          {
+            "characters": 100,
+            "inputBytes": 100,
+            "kind": "operator-prepare",
+            "seconds": 0.0036723640000673186,
+            "pid": 12509,
+            "rssBytes": 198049792
+          },
+          {
+            "characters": 324,
+            "inputBytes": 324,
+            "kind": "operator-prepare",
+            "seconds": 0.010670336000202951,
+            "pid": 12509,
+            "rssBytes": 198430720
+          },
+          {
+            "characters": 314,
+            "inputBytes": 314,
+            "kind": "operator-prepare",
+            "seconds": 0.010029371999735304,
+            "pid": 12509,
+            "rssBytes": 198434816
+          },
+          {
+            "characters": 98,
+            "inputBytes": 98,
+            "kind": "operator-prepare",
+            "seconds": 0.004532909000317886,
+            "pid": 12509,
+            "rssBytes": 198443008
+          },
+          {
+            "characters": 222,
+            "inputBytes": 222,
+            "kind": "operator-prepare",
+            "seconds": 0.009480622999944899,
+            "pid": 12509,
+            "rssBytes": 198443008
+          },
+          {
+            "characters": 100,
+            "inputBytes": 100,
+            "kind": "operator-prepare",
+            "seconds": 0.0037055739999232173,
+            "pid": 12509,
+            "rssBytes": 198451200
+          },
+          {
+            "characters": 310,
+            "inputBytes": 310,
+            "kind": "operator-prepare",
+            "seconds": 0.007857698999941931,
+            "pid": 12509,
+            "rssBytes": 198451200
+          },
+          {
+            "characters": 525,
+            "inputBytes": 525,
+            "kind": "operator-prepare",
+            "seconds": 0.014173401000334707,
+            "pid": 12509,
+            "rssBytes": 198451200
+          },
+          {
+            "characters": 4466,
+            "inputBytes": 4466,
+            "kind": "operator-prepare",
+            "seconds": 0.12969394999981887,
+            "pid": 12508,
+            "rssBytes": 198905856
+          },
+          {
+            "characters": 6541,
+            "inputBytes": 3325,
+            "kind": "operator-merge",
+            "seconds": 0.30677240500017433,
+            "pid": 12512,
+            "rssBytes": 198279168
+          },
+          {
+            "characters": 1728,
+            "inputBytes": 1587,
+            "kind": "operator-merge",
+            "seconds": 0.3526300880002964,
+            "pid": 12513,
+            "rssBytes": 198414336
+          },
+          {
+            "characters": 328,
+            "inputBytes": 408,
+            "kind": "operator-merge",
+            "seconds": 0.03428832700001294,
+            "pid": 12513,
+            "rssBytes": 198418432
+          },
+          {
+            "characters": 816,
+            "inputBytes": 638,
+            "kind": "operator-merge",
+            "seconds": 0.06531155699985902,
+            "pid": 12513,
+            "rssBytes": 198864896
+          },
+          {
+            "characters": 279,
+            "inputBytes": 320,
+            "kind": "operator-merge",
+            "seconds": 0.02917425799978446,
+            "pid": 12513,
+            "rssBytes": 198868992
+          },
+          {
+            "characters": 494,
+            "inputBytes": 410,
+            "kind": "operator-merge",
+            "seconds": 0.03430375700008881,
+            "pid": 12513,
+            "rssBytes": 198877184
+          },
+          {
+            "characters": 8918,
+            "inputBytes": 4882,
+            "kind": "operator-merge",
+            "seconds": 0.6009482180002124,
+            "pid": 12512,
+            "rssBytes": 200871936
+          },
+          {
+            "characters": 15770,
+            "inputBytes": 8269,
+            "kind": "operator-merge",
+            "seconds": 0.3993868890001977,
+            "pid": 12520,
+            "rssBytes": 198729728
+          },
+          {
+            "characters": 1765,
+            "inputBytes": 1095,
+            "kind": "operator-merge",
+            "seconds": 0.1252070850000564,
+            "pid": 12520,
+            "rssBytes": 199430144
+          },
+          {
+            "characters": 2251,
+            "inputBytes": 1019,
+            "kind": "operator-merge",
+            "seconds": 0.13398410999980115,
+            "pid": 12520,
+            "rssBytes": 199430144
+          },
+          {
+            "characters": 17941,
+            "inputBytes": 9246,
+            "kind": "operator-merge",
+            "seconds": 0.9317085489997226,
+            "pid": 12521,
+            "rssBytes": 203452416
+          },
+          {
+            "characters": 36217,
+            "inputBytes": 4016,
+            "kind": "operator-merge",
+            "seconds": 2.069051782000315,
+            "pid": 12529,
+            "rssBytes": 205127680
+          },
+          {
+            "characters": 5902908,
+            "inputBytes": 33711,
+            "kind": "operator-merge",
+            "seconds": 8.89686292999977,
+            "pid": 12528,
+            "rssBytes": 235560960
+          }
+        ]
+      },
+      "plan": {
+        "length": 4,
+        "width": 2,
+        "vocab": 4,
+        "stageNames": [
+          "model.layers.0.pre-normalization",
+          "model.layers.0.qkv-projections",
+          "model.layers.0.rotary",
+          "model.layers.0.attention-scores",
+          "model.layers.0.softmax",
+          "model.layers.0.attention-context",
+          "model.layers.0.attention-output",
+          "model.layers.0.attention-residual",
+          "model.layers.0.post-normalization",
+          "model.layers.0.gate-up",
+          "model.layers.0.activation-product",
+          "model.layers.0.down-projection",
+          "model.layers.0.mlp-residual",
+          "final-normalization",
+          "output-logits"
+        ],
+        "weightsRead": 180,
+        "operatorCount": 15,
+        "selectedOutputIndices": [
+          12,
+          13,
+          14,
+          15
+        ],
+        "originalComputedOutputs": 152,
+        "reachableComputedOutputs": 65,
+        "originalInterfaceOutputSlots": 264,
+        "reachableInterfaceOutputSlots": 111
+      },
+      "exitCode": 1,
+      "wallSeconds": 124.02177569700007,
+      "peakObservedAggregateRSSBytes": 2368045056
+    },
+    {
+      "length": 5,
+      "workingExpressionsEmitted": 0,
+      "verifiedLogits": 0,
+      "mismatches": [],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "stop": "Whole-architecture worker deadline exceeded",
+      "seconds": 120.11785662900002,
+      "composition": {
+        "completedJobs": 28,
+        "completedBlocks": 0,
+        "completedPairMerges": 0,
+        "seededLanes": 0,
+        "maxWorkersAdmitted": 2,
+        "peakObservedRSSBytes": 748306432,
+        "compositionLevels": 2,
+        "peakAccumulatedBytes": 14838962,
+        "operatorPreparations": 15,
+        "operatorPairMerges": 13,
+        "growth": [
+          {
+            "characters": 1351,
+            "inputBytes": 1351,
+            "kind": "operator-prepare",
+            "seconds": 0.04590589600002204,
+            "pid": 13021,
+            "rssBytes": 198893568
+          },
+          {
+            "characters": 2732,
+            "inputBytes": 2732,
+            "kind": "operator-prepare",
+            "seconds": 0.07900925399962944,
+            "pid": 13022,
+            "rssBytes": 198615040
+          },
+          {
+            "characters": 1094,
+            "inputBytes": 1094,
+            "kind": "operator-prepare",
+            "seconds": 0.04432842499954859,
+            "pid": 13021,
+            "rssBytes": 198959104
+          },
+          {
+            "characters": 857,
+            "inputBytes": 857,
+            "kind": "operator-prepare",
+            "seconds": 0.032319356000243715,
+            "pid": 13022,
+            "rssBytes": 198660096
+          },
+          {
+            "characters": 485,
+            "inputBytes": 485,
+            "kind": "operator-prepare",
+            "seconds": 0.013722047000101156,
+            "pid": 13022,
+            "rssBytes": 198676480
+          },
+          {
+            "characters": 308,
+            "inputBytes": 308,
+            "kind": "operator-prepare",
+            "seconds": 0.009770780000053492,
+            "pid": 13022,
+            "rssBytes": 198680576
+          },
+          {
+            "characters": 100,
+            "inputBytes": 100,
+            "kind": "operator-prepare",
+            "seconds": 0.0036709749997498875,
+            "pid": 13022,
+            "rssBytes": 198680576
+          },
+          {
+            "characters": 324,
+            "inputBytes": 324,
+            "kind": "operator-prepare",
+            "seconds": 0.014522258000397414,
+            "pid": 13022,
+            "rssBytes": 199020544
+          },
+          {
+            "characters": 314,
+            "inputBytes": 314,
+            "kind": "operator-prepare",
+            "seconds": 0.010109968000051595,
+            "pid": 13022,
+            "rssBytes": 199024640
+          },
+          {
+            "characters": 98,
+            "inputBytes": 98,
+            "kind": "operator-prepare",
+            "seconds": 0.0055749289999766916,
+            "pid": 13022,
+            "rssBytes": 199028736
+          },
+          {
+            "characters": 222,
+            "inputBytes": 222,
+            "kind": "operator-prepare",
+            "seconds": 0.008159501000136515,
+            "pid": 13022,
+            "rssBytes": 199032832
+          },
+          {
+            "characters": 100,
+            "inputBytes": 100,
+            "kind": "operator-prepare",
+            "seconds": 0.004172712000126921,
+            "pid": 13022,
+            "rssBytes": 199032832
+          },
+          {
+            "characters": 310,
+            "inputBytes": 310,
+            "kind": "operator-prepare",
+            "seconds": 0.008237810999617068,
+            "pid": 13022,
+            "rssBytes": 199049216
+          },
+          {
+            "characters": 525,
+            "inputBytes": 525,
+            "kind": "operator-prepare",
+            "seconds": 0.01300369699993098,
+            "pid": 13022,
+            "rssBytes": 199053312
+          },
+          {
+            "characters": 9882,
+            "inputBytes": 9882,
+            "kind": "operator-prepare",
+            "seconds": 0.1954181679998328,
+            "pid": 13021,
+            "rssBytes": 199954432
+          },
+          {
+            "characters": 8020,
+            "inputBytes": 4083,
+            "kind": "operator-merge",
+            "seconds": 0.4302113170001576,
+            "pid": 13029,
+            "rssBytes": 198946816
+          },
+          {
+            "characters": 2165,
+            "inputBytes": 1951,
+            "kind": "operator-merge",
+            "seconds": 0.48399251099999674,
+            "pid": 13030,
+            "rssBytes": 199065600
+          },
+          {
+            "characters": 328,
+            "inputBytes": 408,
+            "kind": "operator-merge",
+            "seconds": 0.02663675800022247,
+            "pid": 13030,
+            "rssBytes": 199127040
+          },
+          {
+            "characters": 816,
+            "inputBytes": 638,
+            "kind": "operator-merge",
+            "seconds": 0.07238839800038477,
+            "pid": 13030,
+            "rssBytes": 199548928
+          },
+          {
+            "characters": 279,
+            "inputBytes": 320,
+            "kind": "operator-merge",
+            "seconds": 0.02998270300031436,
+            "pid": 13030,
+            "rssBytes": 199557120
+          },
+          {
+            "characters": 494,
+            "inputBytes": 410,
+            "kind": "operator-merge",
+            "seconds": 0.03571013300006598,
+            "pid": 13030,
+            "rssBytes": 199577600
+          },
+          {
+            "characters": 19725,
+            "inputBytes": 10367,
+            "kind": "operator-merge",
+            "seconds": 1.3664028979997056,
+            "pid": 13029,
+            "rssBytes": 204951552
+          },
+          {
+            "characters": 19856,
+            "inputBytes": 10185,
+            "kind": "operator-merge",
+            "seconds": 0.554490911999892,
+            "pid": 13037,
+            "rssBytes": 199593984
+          },
+          {
+            "characters": 1765,
+            "inputBytes": 1095,
+            "kind": "operator-merge",
+            "seconds": 0.12284419100024024,
+            "pid": 13037,
+            "rssBytes": 200265728
+          },
+          {
+            "characters": 2251,
+            "inputBytes": 1019,
+            "kind": "operator-merge",
+            "seconds": 0.14411577400005626,
+            "pid": 13037,
+            "rssBytes": 200282112
+          },
+          {
+            "characters": 39527,
+            "inputBytes": 20053,
+            "kind": "operator-merge",
+            "seconds": 1.7955281539998396,
+            "pid": 13038,
+            "rssBytes": 210468864
+          },
+          {
+            "characters": 36217,
+            "inputBytes": 4016,
+            "kind": "operator-merge",
+            "seconds": 3.172456665000027,
+            "pid": 13050,
+            "rssBytes": 205860864
+          },
+          {
+            "characters": 14739346,
+            "inputBytes": 59383,
+            "kind": "operator-merge",
+            "seconds": 21.301557490999585,
+            "pid": 13049,
+            "rssBytes": 270757888
+          }
+        ]
+      },
+      "plan": {
+        "length": 5,
+        "width": 2,
+        "vocab": 4,
+        "stageNames": [
+          "model.layers.0.pre-normalization",
+          "model.layers.0.qkv-projections",
+          "model.layers.0.rotary",
+          "model.layers.0.attention-scores",
+          "model.layers.0.softmax",
+          "model.layers.0.attention-context",
+          "model.layers.0.attention-output",
+          "model.layers.0.attention-residual",
+          "model.layers.0.post-normalization",
+          "model.layers.0.gate-up",
+          "model.layers.0.activation-product",
+          "model.layers.0.down-projection",
+          "model.layers.0.mlp-residual",
+          "final-normalization",
+          "output-logits"
+        ],
+        "weightsRead": 216,
+        "operatorCount": 15,
+        "selectedOutputIndices": [
+          16,
+          17,
+          18,
+          19
+        ],
+        "originalComputedOutputs": 195,
+        "reachableComputedOutputs": 75,
+        "originalInterfaceOutputSlots": 335,
+        "reachableInterfaceOutputSlots": 127
+      },
+      "exitCode": 1,
+      "wallSeconds": 123.89416480200043,
+      "peakObservedAggregateRSSBytes": 2506059776
+    },
+    {
+      "length": 6,
+      "workingExpressionsEmitted": 0,
+      "verifiedLogits": 0,
+      "mismatches": [],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "stop": "Whole-architecture worker deadline exceeded",
+      "seconds": 121.13360198600003,
+      "composition": {
+        "completedJobs": 28,
+        "completedBlocks": 0,
+        "completedPairMerges": 0,
+        "seededLanes": 0,
+        "maxWorkersAdmitted": 2,
+        "peakObservedRSSBytes": 826114048,
+        "compositionLevels": 2,
+        "peakAccumulatedBytes": 159043,
+        "operatorPreparations": 15,
+        "operatorPairMerges": 13,
+        "growth": [
+          {
+            "characters": 1626,
+            "inputBytes": 1626,
+            "kind": "operator-prepare",
+            "seconds": 0.06146435500022562,
+            "pid": 13582,
+            "rssBytes": 200486912
+          },
+          {
+            "characters": 3221,
+            "inputBytes": 3221,
+            "kind": "operator-prepare",
+            "seconds": 0.10205596600007993,
+            "pid": 13583,
+            "rssBytes": 200159232
+          },
+          {
+            "characters": 1271,
+            "inputBytes": 1271,
+            "kind": "operator-prepare",
+            "seconds": 0.050931104000028427,
+            "pid": 13582,
+            "rssBytes": 200491008
+          },
+          {
+            "characters": 1052,
+            "inputBytes": 1052,
+            "kind": "operator-prepare",
+            "seconds": 0.03788628400025118,
+            "pid": 13583,
+            "rssBytes": 200163328
+          },
+          {
+            "characters": 554,
+            "inputBytes": 554,
+            "kind": "operator-prepare",
+            "seconds": 0.013172811999993428,
+            "pid": 13583,
+            "rssBytes": 200163328
+          },
+          {
+            "characters": 308,
+            "inputBytes": 308,
+            "kind": "operator-prepare",
+            "seconds": 0.009816501999921456,
+            "pid": 13583,
+            "rssBytes": 200163328
+          },
+          {
+            "characters": 100,
+            "inputBytes": 100,
+            "kind": "operator-prepare",
+            "seconds": 0.0036448129999371304,
+            "pid": 13583,
+            "rssBytes": 200163328
+          },
+          {
+            "characters": 324,
+            "inputBytes": 324,
+            "kind": "operator-prepare",
+            "seconds": 0.01039027199976772,
+            "pid": 13583,
+            "rssBytes": 200491008
+          },
+          {
+            "characters": 314,
+            "inputBytes": 314,
+            "kind": "operator-prepare",
+            "seconds": 0.01152422299992395,
+            "pid": 13583,
+            "rssBytes": 200491008
+          },
+          {
+            "characters": 98,
+            "inputBytes": 98,
+            "kind": "operator-prepare",
+            "seconds": 0.004786936000073183,
+            "pid": 13583,
+            "rssBytes": 200491008
+          },
+          {
+            "characters": 222,
+            "inputBytes": 222,
+            "kind": "operator-prepare",
+            "seconds": 0.008852673000092182,
+            "pid": 13583,
+            "rssBytes": 200491008
+          },
+          {
+            "characters": 100,
+            "inputBytes": 100,
+            "kind": "operator-prepare",
+            "seconds": 0.004366196000319178,
+            "pid": 13583,
+            "rssBytes": 200491008
+          },
+          {
+            "characters": 310,
+            "inputBytes": 310,
+            "kind": "operator-prepare",
+            "seconds": 0.009032769999976153,
+            "pid": 13583,
+            "rssBytes": 200491008
+          },
+          {
+            "characters": 525,
+            "inputBytes": 525,
+            "kind": "operator-prepare",
+            "seconds": 0.014957072000015614,
+            "pid": 13583,
+            "rssBytes": 200491008
+          },
+          {
+            "characters": 19438,
+            "inputBytes": 19438,
+            "kind": "operator-prepare",
+            "seconds": 0.315235937000125,
+            "pid": 13582,
+            "rssBytes": 202297344
+          },
+          {
+            "characters": 9520,
+            "inputBytes": 4847,
+            "kind": "operator-merge",
+            "seconds": 0.48202909100018587,
+            "pid": 13586,
+            "rssBytes": 200245248
+          },
+          {
+            "characters": 2566,
+            "inputBytes": 2323,
+            "kind": "operator-merge",
+            "seconds": 0.679585316000157,
+            "pid": 13587,
+            "rssBytes": 200278016
+          },
+          {
+            "characters": 328,
+            "inputBytes": 408,
+            "kind": "operator-merge",
+            "seconds": 0.026323164999666915,
+            "pid": 13587,
+            "rssBytes": 200282112
+          },
+          {
+            "characters": 816,
+            "inputBytes": 638,
+            "kind": "operator-merge",
+            "seconds": 0.06813545700015311,
+            "pid": 13587,
+            "rssBytes": 200613888
+          },
+          {
+            "characters": 279,
+            "inputBytes": 320,
+            "kind": "operator-merge",
+            "seconds": 0.030791856000178086,
+            "pid": 13587,
+            "rssBytes": 200617984
+          },
+          {
+            "characters": 494,
+            "inputBytes": 410,
+            "kind": "operator-merge",
+            "seconds": 0.03721916099993905,
+            "pid": 13587,
+            "rssBytes": 200626176
+          },
+          {
+            "characters": 38822,
+            "inputBytes": 19992,
+            "kind": "operator-merge",
+            "seconds": 2.6097166889999244,
+            "pid": 13586,
+            "rssBytes": 210935808
+          },
+          {
+            "characters": 23977,
+            "inputBytes": 12086,
+            "kind": "operator-merge",
+            "seconds": 0.7055535039999086,
+            "pid": 13602,
+            "rssBytes": 200720384
+          },
+          {
+            "characters": 1765,
+            "inputBytes": 1095,
+            "kind": "operator-merge",
+            "seconds": 0.14140995800016753,
+            "pid": 13602,
+            "rssBytes": 201330688
+          },
+          {
+            "characters": 2251,
+            "inputBytes": 1019,
+            "kind": "operator-merge",
+            "seconds": 0.14582418100008,
+            "pid": 13602,
+            "rssBytes": 201351168
+          },
+          {
+            "characters": 77700,
+            "inputBytes": 39150,
+            "kind": "operator-merge",
+            "seconds": 3.6963341329997093,
+            "pid": 13603,
+            "rssBytes": 214487040
+          },
+          {
+            "characters": 36217,
+            "inputBytes": 4016,
+            "kind": "operator-merge",
+            "seconds": 2.9177958259997467,
+            "pid": 13623,
+            "rssBytes": 207089664
+          },
+          {
+            "characters": 31153845,
+            "inputBytes": 101677,
+            "kind": "operator-merge",
+            "seconds": 46.614070401999925,
+            "pid": 13622,
+            "rssBytes": 351510528
+          }
+        ]
+      },
+      "plan": {
+        "length": 6,
+        "width": 2,
+        "vocab": 4,
+        "stageNames": [
+          "model.layers.0.pre-normalization",
+          "model.layers.0.qkv-projections",
+          "model.layers.0.rotary",
+          "model.layers.0.attention-scores",
+          "model.layers.0.softmax",
+          "model.layers.0.attention-context",
+          "model.layers.0.attention-output",
+          "model.layers.0.attention-residual",
+          "model.layers.0.post-normalization",
+          "model.layers.0.gate-up",
+          "model.layers.0.activation-product",
+          "model.layers.0.down-projection",
+          "model.layers.0.mlp-residual",
+          "final-normalization",
+          "output-logits"
+        ],
+        "weightsRead": 252,
+        "operatorCount": 15,
+        "selectedOutputIndices": [
+          20,
+          21,
+          22,
+          23
+        ],
+        "originalComputedOutputs": 240,
+        "reachableComputedOutputs": 85,
+        "originalInterfaceOutputSlots": 408,
+        "reachableInterfaceOutputSlots": 143
+      },
+      "exitCode": 1,
+      "wallSeconds": 128.0058406160001,
+      "peakObservedAggregateRSSBytes": 4476067840
+    },
+    {
+      "length": 7,
+      "workingExpressionsEmitted": 0,
+      "verifiedLogits": 0,
+      "mismatches": [],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "stop": "Whole-architecture worker deadline exceeded",
+      "seconds": 145.4873139450001,
+      "composition": {
+        "completedJobs": 28,
+        "completedBlocks": 0,
+        "completedPairMerges": 0,
+        "seededLanes": 0,
+        "maxWorkersAdmitted": 2,
+        "peakObservedRSSBytes": 993284096,
+        "compositionLevels": 2,
+        "peakAccumulatedBytes": 257823,
+        "operatorPreparations": 15,
+        "operatorPairMerges": 13,
+        "growth": [
+          {
+            "characters": 1900,
+            "inputBytes": 1900,
+            "kind": "operator-prepare",
+            "seconds": 0.06711790999997902,
+            "pid": 14100,
+            "rssBytes": 201474048
+          },
+          {
+            "characters": 3710,
+            "inputBytes": 3710,
+            "kind": "operator-prepare",
+            "seconds": 0.10580594499970175,
+            "pid": 14101,
+            "rssBytes": 201097216
+          },
+          {
+            "characters": 1448,
+            "inputBytes": 1448,
+            "kind": "operator-prepare",
+            "seconds": 0.060526043999743706,
+            "pid": 14100,
+            "rssBytes": 201478144
+          },
+          {
+            "characters": 1221,
+            "inputBytes": 1221,
+            "kind": "operator-prepare",
+            "seconds": 0.04500001699989298,
+            "pid": 14101,
+            "rssBytes": 201101312
+          },
+          {
+            "characters": 623,
+            "inputBytes": 623,
+            "kind": "operator-prepare",
+            "seconds": 0.015873009999722854,
+            "pid": 14101,
+            "rssBytes": 201101312
+          },
+          {
+            "characters": 308,
+            "inputBytes": 308,
+            "kind": "operator-prepare",
+            "seconds": 0.009730664000016986,
+            "pid": 14101,
+            "rssBytes": 201101312
+          },
+          {
+            "characters": 100,
+            "inputBytes": 100,
+            "kind": "operator-prepare",
+            "seconds": 0.0043156040001122165,
+            "pid": 14101,
+            "rssBytes": 201101312
+          },
+          {
+            "characters": 324,
+            "inputBytes": 324,
+            "kind": "operator-prepare",
+            "seconds": 0.010946063999654143,
+            "pid": 14101,
+            "rssBytes": 201478144
+          },
+          {
+            "characters": 314,
+            "inputBytes": 314,
+            "kind": "operator-prepare",
+            "seconds": 0.00957722199973432,
+            "pid": 14101,
+            "rssBytes": 201478144
+          },
+          {
+            "characters": 98,
+            "inputBytes": 98,
+            "kind": "operator-prepare",
+            "seconds": 0.004693267000220658,
+            "pid": 14101,
+            "rssBytes": 201478144
+          },
+          {
+            "characters": 222,
+            "inputBytes": 222,
+            "kind": "operator-prepare",
+            "seconds": 0.009794434000014007,
+            "pid": 14101,
+            "rssBytes": 201478144
+          },
+          {
+            "characters": 100,
+            "inputBytes": 100,
+            "kind": "operator-prepare",
+            "seconds": 0.004254297999978007,
+            "pid": 14101,
+            "rssBytes": 201478144
+          },
+          {
+            "characters": 310,
+            "inputBytes": 310,
+            "kind": "operator-prepare",
+            "seconds": 0.007818435999979556,
+            "pid": 14101,
+            "rssBytes": 201478144
+          },
+          {
+            "characters": 525,
+            "inputBytes": 525,
+            "kind": "operator-prepare",
+            "seconds": 0.015151719000186858,
+            "pid": 14101,
+            "rssBytes": 201478144
+          },
+          {
+            "characters": 34926,
+            "inputBytes": 34926,
+            "kind": "operator-prepare",
+            "seconds": 0.47772663800014925,
+            "pid": 14100,
+            "rssBytes": 203337728
+          },
+          {
+            "characters": 11009,
+            "inputBytes": 5610,
+            "kind": "operator-merge",
+            "seconds": 0.5959068309998656,
+            "pid": 14108,
+            "rssBytes": 201216000
+          },
+          {
+            "characters": 2971,
+            "inputBytes": 2669,
+            "kind": "operator-merge",
+            "seconds": 0.8794127340001978,
+            "pid": 14109,
+            "rssBytes": 201220096
+          },
+          {
+            "characters": 328,
+            "inputBytes": 408,
+            "kind": "operator-merge",
+            "seconds": 0.029203525999946578,
+            "pid": 14109,
+            "rssBytes": 201240576
+          },
+          {
+            "characters": 816,
+            "inputBytes": 638,
+            "kind": "operator-merge",
+            "seconds": 0.07193367600029887,
+            "pid": 14109,
+            "rssBytes": 201617408
+          },
+          {
+            "characters": 279,
+            "inputBytes": 320,
+            "kind": "operator-merge",
+            "seconds": 0.03222612300032779,
+            "pid": 14109,
+            "rssBytes": 201617408
+          },
+          {
+            "characters": 494,
+            "inputBytes": 410,
+            "kind": "operator-merge",
+            "seconds": 0.03740512199965451,
+            "pid": 14109,
+            "rssBytes": 201617408
+          },
+          {
+            "characters": 69783,
+            "inputBytes": 35549,
+            "kind": "operator-merge",
+            "seconds": 6.227339301000029,
+            "pid": 14108,
+            "rssBytes": 217403392
+          },
+          {
+            "characters": 28001,
+            "inputBytes": 13980,
+            "kind": "operator-merge",
+            "seconds": 0.9153601489997527,
+            "pid": 14140,
+            "rssBytes": 201654272
+          },
+          {
+            "characters": 1765,
+            "inputBytes": 1095,
+            "kind": "operator-merge",
+            "seconds": 0.1419165659999635,
+            "pid": 14140,
+            "rssBytes": 202493952
+          },
+          {
+            "characters": 2251,
+            "inputBytes": 1019,
+            "kind": "operator-merge",
+            "seconds": 0.1453919670002506,
+            "pid": 14140,
+            "rssBytes": 202493952
+          },
+          {
+            "characters": 139601,
+            "inputBytes": 70111,
+            "kind": "operator-merge",
+            "seconds": 4.937910409000324,
+            "pid": 14141,
+            "rssBytes": 224038912
+          },
+          {
+            "characters": 36217,
+            "inputBytes": 4016,
+            "kind": "operator-merge",
+            "seconds": 2.152429853000285,
+            "pid": 14164,
+            "rssBytes": 207900672
+          },
+          {
+            "characters": 58344071,
+            "inputBytes": 167602,
+            "kind": "operator-merge",
+            "seconds": 94.20895287999974,
+            "pid": 14160,
+            "rssBytes": 466964480
+          }
+        ]
+      },
+      "plan": {
+        "length": 7,
+        "width": 2,
+        "vocab": 4,
+        "stageNames": [
+          "model.layers.0.pre-normalization",
+          "model.layers.0.qkv-projections",
+          "model.layers.0.rotary",
+          "model.layers.0.attention-scores",
+          "model.layers.0.softmax",
+          "model.layers.0.attention-context",
+          "model.layers.0.attention-output",
+          "model.layers.0.attention-residual",
+          "model.layers.0.post-normalization",
+          "model.layers.0.gate-up",
+          "model.layers.0.activation-product",
+          "model.layers.0.down-projection",
+          "model.layers.0.mlp-residual",
+          "final-normalization",
+          "output-logits"
+        ],
+        "weightsRead": 288,
+        "operatorCount": 15,
+        "selectedOutputIndices": [
+          24,
+          25,
+          26,
+          27
+        ],
+        "originalComputedOutputs": 287,
+        "reachableComputedOutputs": 95,
+        "originalInterfaceOutputSlots": 483,
+        "reachableInterfaceOutputSlots": 159
+      },
+      "exitCode": 1,
+      "wallSeconds": 149.5752219259998,
+      "peakObservedAggregateRSSBytes": 7776514048
+    },
+    {
+      "length": 8,
+      "workingExpressionsEmitted": 0,
+      "verifiedLogits": 0,
+      "mismatches": [],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "stop": "Whole-architecture worker deadline exceeded",
+      "seconds": 120.03696814600016,
+      "composition": {
+        "completedJobs": 27,
+        "completedBlocks": 0,
+        "completedPairMerges": 0,
+        "seededLanes": 0,
+        "maxWorkersAdmitted": 2,
+        "peakObservedRSSBytes": 746725376,
+        "compositionLevels": 2,
+        "peakAccumulatedBytes": 404845,
+        "operatorPreparations": 15,
+        "operatorPairMerges": 12,
+        "growth": [
+          {
+            "characters": 2174,
+            "inputBytes": 2174,
+            "kind": "operator-prepare",
+            "seconds": 0.07158304800032056,
+            "pid": 14722,
+            "rssBytes": 203341824
+          },
+          {
+            "characters": 4199,
+            "inputBytes": 4199,
+            "kind": "operator-prepare",
+            "seconds": 0.1235849730001064,
+            "pid": 14723,
+            "rssBytes": 202964992
+          },
+          {
+            "characters": 1649,
+            "inputBytes": 1649,
+            "kind": "operator-prepare",
+            "seconds": 0.06979465300037191,
+            "pid": 14722,
+            "rssBytes": 203345920
+          },
+          {
+            "characters": 1386,
+            "inputBytes": 1386,
+            "kind": "operator-prepare",
+            "seconds": 0.04991250700004457,
+            "pid": 14723,
+            "rssBytes": 202969088
+          },
+          {
+            "characters": 692,
+            "inputBytes": 692,
+            "kind": "operator-prepare",
+            "seconds": 0.016102862000025198,
+            "pid": 14723,
+            "rssBytes": 202969088
+          },
+          {
+            "characters": 308,
+            "inputBytes": 308,
+            "kind": "operator-prepare",
+            "seconds": 0.01056885100024374,
+            "pid": 14723,
+            "rssBytes": 202969088
+          },
+          {
+            "characters": 100,
+            "inputBytes": 100,
+            "kind": "operator-prepare",
+            "seconds": 0.003783400999964215,
+            "pid": 14723,
+            "rssBytes": 202969088
+          },
+          {
+            "characters": 324,
+            "inputBytes": 324,
+            "kind": "operator-prepare",
+            "seconds": 0.010334743999919738,
+            "pid": 14723,
+            "rssBytes": 203345920
+          },
+          {
+            "characters": 314,
+            "inputBytes": 314,
+            "kind": "operator-prepare",
+            "seconds": 0.010651726000105555,
+            "pid": 14723,
+            "rssBytes": 203345920
+          },
+          {
+            "characters": 98,
+            "inputBytes": 98,
+            "kind": "operator-prepare",
+            "seconds": 0.004717171999800485,
+            "pid": 14723,
+            "rssBytes": 203345920
+          },
+          {
+            "characters": 222,
+            "inputBytes": 222,
+            "kind": "operator-prepare",
+            "seconds": 0.009156983000139007,
+            "pid": 14723,
+            "rssBytes": 203345920
+          },
+          {
+            "characters": 100,
+            "inputBytes": 100,
+            "kind": "operator-prepare",
+            "seconds": 0.004274345000339963,
+            "pid": 14723,
+            "rssBytes": 203345920
+          },
+          {
+            "characters": 310,
+            "inputBytes": 310,
+            "kind": "operator-prepare",
+            "seconds": 0.00853287400013869,
+            "pid": 14723,
+            "rssBytes": 203345920
+          },
+          {
+            "characters": 525,
+            "inputBytes": 525,
+            "kind": "operator-prepare",
+            "seconds": 0.014152494000427396,
+            "pid": 14723,
+            "rssBytes": 203345920
+          },
+          {
+            "characters": 58452,
+            "inputBytes": 58452,
+            "kind": "operator-prepare",
+            "seconds": 0.7067714350000642,
+            "pid": 14722,
+            "rssBytes": 205496320
+          },
+          {
+            "characters": 12498,
+            "inputBytes": 6373,
+            "kind": "operator-merge",
+            "seconds": 0.7326437880001322,
+            "pid": 14730,
+            "rssBytes": 203091968
+          },
+          {
+            "characters": 3396,
+            "inputBytes": 3035,
+            "kind": "operator-merge",
+            "seconds": 1.178490482000143,
+            "pid": 14731,
+            "rssBytes": 203087872
+          },
+          {
+            "characters": 328,
+            "inputBytes": 408,
+            "kind": "operator-merge",
+            "seconds": 0.04597202200011452,
+            "pid": 14731,
+            "rssBytes": 203091968
+          },
+          {
+            "characters": 816,
+            "inputBytes": 638,
+            "kind": "operator-merge",
+            "seconds": 0.1452664180001193,
+            "pid": 14731,
+            "rssBytes": 203468800
+          },
+          {
+            "characters": 279,
+            "inputBytes": 320,
+            "kind": "operator-merge",
+            "seconds": 0.07121895000000222,
+            "pid": 14731,
+            "rssBytes": 203468800
+          },
+          {
+            "characters": 494,
+            "inputBytes": 410,
+            "kind": "operator-merge",
+            "seconds": 0.08196471500014013,
+            "pid": 14731,
+            "rssBytes": 203468800
+          },
+          {
+            "characters": 116820,
+            "inputBytes": 59144,
+            "kind": "operator-merge",
+            "seconds": 9.876156711000021,
+            "pid": 14730,
+            "rssBytes": 222978048
+          },
+          {
+            "characters": 32019,
+            "inputBytes": 15894,
+            "kind": "operator-merge",
+            "seconds": 1.1078594840000733,
+            "pid": 14774,
+            "rssBytes": 203206656
+          },
+          {
+            "characters": 1765,
+            "inputBytes": 1095,
+            "kind": "operator-merge",
+            "seconds": 0.14457329399965602,
+            "pid": 14774,
+            "rssBytes": 203599872
+          },
+          {
+            "characters": 2251,
+            "inputBytes": 1019,
+            "kind": "operator-merge",
+            "seconds": 0.15151363900031356,
+            "pid": 14774,
+            "rssBytes": 203599872
+          },
+          {
+            "characters": 233654,
+            "inputBytes": 117148,
+            "kind": "operator-merge",
+            "seconds": 9.108146341000065,
+            "pid": 14775,
+            "rssBytes": 237953024
+          },
+          {
+            "characters": 36217,
+            "inputBytes": 4016,
+            "kind": "operator-merge",
+            "seconds": 2.1379861019995587,
+            "pid": 14815,
+            "rssBytes": 208822272
+          }
+        ]
+      },
+      "plan": {
+        "length": 8,
+        "width": 2,
+        "vocab": 4,
+        "stageNames": [
+          "model.layers.0.pre-normalization",
+          "model.layers.0.qkv-projections",
+          "model.layers.0.rotary",
+          "model.layers.0.attention-scores",
+          "model.layers.0.softmax",
+          "model.layers.0.attention-context",
+          "model.layers.0.attention-output",
+          "model.layers.0.attention-residual",
+          "model.layers.0.post-normalization",
+          "model.layers.0.gate-up",
+          "model.layers.0.activation-product",
+          "model.layers.0.down-projection",
+          "model.layers.0.mlp-residual",
+          "final-normalization",
+          "output-logits"
+        ],
+        "weightsRead": 324,
+        "operatorCount": 15,
+        "selectedOutputIndices": [
+          28,
+          29,
+          30,
+          31
+        ],
+        "originalComputedOutputs": 336,
+        "reachableComputedOutputs": 105,
+        "originalInterfaceOutputSlots": 560,
+        "reachableInterfaceOutputSlots": 175
+      },
+      "exitCode": 1,
+      "wallSeconds": 124.09388522800009,
+      "peakObservedAggregateRSSBytes": 805396480
+    }
+  ],
+  "complete": false,
+  "finalArtifactParity": false,
+  "workingExpressionsComplete": false
+}

@@ -34,6 +34,19 @@ def sequential(terms,compiler,domains):
 
 
 class ParallelTests(unittest.TestCase):
+    def test_pair_merge_skips_unreachable_ports_without_confusing_identifier_prefixes(self):
+        domains={'X1':Domain(F(-1),F(1),-24,False)}
+        blocks=[OperatorBlock(('X1',),('R32(X1 + 16777216.0)','X1')),
+                OperatorBlock(('X2','X20'),('R32(X20 + 1.0)',))]
+        compiler=StringCompiler()
+        outputs,stats=compose_operators(blocks,compiler,domains,ParallelBudget(2,4*1024**3))
+        self.assertFalse(any(event[0]=='X2' for event in compiler.substitution_events))
+        self.assertTrue(any(event[0]=='X20' for event in compiler.substitution_events))
+        self.assertEqual(sum(row['unusedInterfacePorts'] for row in stats['growth']),1)
+        for x in [-1.,-0.,0.,2**-24,1.]:
+            self.assertEqual(struct.pack('d',evaluate(outputs[0],{'X1':x})),struct.pack('d',f32(x+1.)))
+        self.assertTrue(all(event[2:4]==('factor','simplify') for event in compiler.events))
+
     def test_accumulated_producers_charge_distinct_expressions_before_publication(self):
         with tempfile.TemporaryDirectory() as directory:
             Path(directory,'config.json').write_text(json.dumps({'model_type':'llama','hidden_size':1,'num_hidden_layers':1}))

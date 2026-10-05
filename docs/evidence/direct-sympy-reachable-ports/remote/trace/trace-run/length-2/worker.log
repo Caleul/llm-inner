@@ -1,0 +1,1057 @@
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X7", "expressionCharacters": 2, "replacementCharacters": 2, "rssBytes": 196935680}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X7", "expressionCharacters": 2, "factorSimplifyEvents": 1, "rssBytes": 197390336, "substitution": ["X7", 2, 2, 1, 6, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X8", "expressionCharacters": 2, "replacementCharacters": 2, "rssBytes": 197390336}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X8", "expressionCharacters": 2, "factorSimplifyEvents": 2, "rssBytes": 197390336, "substitution": ["X8", 2, 2, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X9", "expressionCharacters": 2, "replacementCharacters": 123, "rssBytes": 197394432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X9", "expressionCharacters": 2, "factorSimplifyEvents": 3, "rssBytes": 197394432, "substitution": ["X9", 2, 123, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X10", "expressionCharacters": 2, "replacementCharacters": 123, "rssBytes": 197394432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X10", "expressionCharacters": 2, "factorSimplifyEvents": 4, "rssBytes": 197394432, "substitution": ["X10", 2, 123, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X11", "expressionCharacters": 2, "replacementCharacters": 123, "rssBytes": 197394432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X11", "expressionCharacters": 2, "factorSimplifyEvents": 5, "rssBytes": 197394432, "substitution": ["X11", 2, 123, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X12", "expressionCharacters": 2, "replacementCharacters": 123, "rssBytes": 197394432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X12", "expressionCharacters": 2, "factorSimplifyEvents": 6, "rssBytes": 197394432, "substitution": ["X12", 2, 123, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X7", "expressionCharacters": 2, "replacementCharacters": 2, "rssBytes": 197394432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X7", "expressionCharacters": 2, "factorSimplifyEvents": 8, "rssBytes": 197394432, "substitution": ["X7", 2, 2, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X8", "expressionCharacters": 2, "replacementCharacters": 2, "rssBytes": 197394432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X8", "expressionCharacters": 2, "factorSimplifyEvents": 9, "rssBytes": 197394432, "substitution": ["X8", 2, 2, 1, 6, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X9", "expressionCharacters": 2, "replacementCharacters": 123, "rssBytes": 197394432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X9", "expressionCharacters": 2, "factorSimplifyEvents": 10, "rssBytes": 197394432, "substitution": ["X9", 2, 123, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X10", "expressionCharacters": 2, "replacementCharacters": 123, "rssBytes": 197394432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X10", "expressionCharacters": 2, "factorSimplifyEvents": 11, "rssBytes": 197394432, "substitution": ["X10", 2, 123, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X11", "expressionCharacters": 2, "replacementCharacters": 123, "rssBytes": 197394432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X11", "expressionCharacters": 2, "factorSimplifyEvents": 12, "rssBytes": 197394432, "substitution": ["X11", 2, 123, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X12", "expressionCharacters": 2, "replacementCharacters": 123, "rssBytes": 197394432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X12", "expressionCharacters": 2, "factorSimplifyEvents": 13, "rssBytes": 197394432, "substitution": ["X12", 2, 123, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X7", "expressionCharacters": 117, "replacementCharacters": 2, "rssBytes": 197394432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X7", "expressionCharacters": 117, "factorSimplifyEvents": 15, "rssBytes": 197525504, "substitution": ["X7", 117, 2, 0, 119, 117, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X8", "expressionCharacters": 117, "replacementCharacters": 2, "rssBytes": 197525504}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X8", "expressionCharacters": 117, "factorSimplifyEvents": 16, "rssBytes": 197525504, "substitution": ["X8", 117, 2, 0, 119, 117, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X9", "expressionCharacters": 117, "replacementCharacters": 123, "rssBytes": 197525504}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X9", "expressionCharacters": 117, "factorSimplifyEvents": 17, "rssBytes": 197525504, "substitution": ["X9", 117, 123, 0, 119, 117, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X10", "expressionCharacters": 117, "replacementCharacters": 123, "rssBytes": 197525504}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X10", "expressionCharacters": 117, "factorSimplifyEvents": 18, "rssBytes": 197525504, "substitution": ["X10", 117, 123, 0, 119, 117, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X11", "expressionCharacters": 117, "replacementCharacters": 123, "rssBytes": 197525504}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X11", "expressionCharacters": 237, "factorSimplifyEvents": 19, "rssBytes": 197533696, "substitution": ["X11", 117, 123, 1, 241, 237, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X12", "expressionCharacters": 237, "replacementCharacters": 123, "rssBytes": 197533696}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X12", "expressionCharacters": 357, "factorSimplifyEvents": 20, "rssBytes": 197533696, "substitution": ["X12", 237, 123, 1, 361, 357, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X7", "expressionCharacters": 116, "replacementCharacters": 2, "rssBytes": 197533696}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X7", "expressionCharacters": 116, "factorSimplifyEvents": 22, "rssBytes": 197533696, "substitution": ["X7", 116, 2, 0, 118, 116, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X8", "expressionCharacters": 116, "replacementCharacters": 2, "rssBytes": 197533696}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X8", "expressionCharacters": 116, "factorSimplifyEvents": 23, "rssBytes": 197533696, "substitution": ["X8", 116, 2, 0, 118, 116, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X9", "expressionCharacters": 116, "replacementCharacters": 123, "rssBytes": 197533696}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X9", "expressionCharacters": 116, "factorSimplifyEvents": 24, "rssBytes": 197533696, "substitution": ["X9", 116, 123, 0, 118, 116, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X10", "expressionCharacters": 116, "replacementCharacters": 123, "rssBytes": 197533696}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X10", "expressionCharacters": 116, "factorSimplifyEvents": 25, "rssBytes": 197533696, "substitution": ["X10", 116, 123, 0, 118, 116, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X11", "expressionCharacters": 116, "replacementCharacters": 123, "rssBytes": 197533696}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X11", "expressionCharacters": 236, "factorSimplifyEvents": 26, "rssBytes": 197533696, "substitution": ["X11", 116, 123, 1, 240, 236, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X12", "expressionCharacters": 236, "replacementCharacters": 123, "rssBytes": 197533696}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X12", "expressionCharacters": 356, "factorSimplifyEvents": 27, "rssBytes": 197550080, "substitution": ["X12", 236, 123, 1, 360, 356, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 4, "port": "X7", "expressionCharacters": 114, "replacementCharacters": 2, "rssBytes": 197570560}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 4, "port": "X7", "expressionCharacters": 114, "factorSimplifyEvents": 29, "rssBytes": 197570560, "substitution": ["X7", 114, 2, 0, 116, 114, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 4, "port": "X8", "expressionCharacters": 114, "replacementCharacters": 2, "rssBytes": 197570560}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 4, "port": "X8", "expressionCharacters": 114, "factorSimplifyEvents": 30, "rssBytes": 197570560, "substitution": ["X8", 114, 2, 0, 116, 114, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 4, "port": "X9", "expressionCharacters": 114, "replacementCharacters": 123, "rssBytes": 197570560}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 4, "port": "X9", "expressionCharacters": 235, "factorSimplifyEvents": 31, "rssBytes": 197570560, "substitution": ["X9", 114, 123, 1, 239, 235, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 4, "port": "X10", "expressionCharacters": 235, "replacementCharacters": 123, "rssBytes": 197570560}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 4, "port": "X10", "expressionCharacters": 355, "factorSimplifyEvents": 32, "rssBytes": 197570560, "substitution": ["X10", 235, 123, 1, 359, 355, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 4, "port": "X11", "expressionCharacters": 355, "replacementCharacters": 123, "rssBytes": 197570560}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 4, "port": "X11", "expressionCharacters": 355, "factorSimplifyEvents": 33, "rssBytes": 197570560, "substitution": ["X11", 355, 123, 0, 357, 355, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 4, "port": "X12", "expressionCharacters": 355, "replacementCharacters": 123, "rssBytes": 197570560}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 4, "port": "X12", "expressionCharacters": 355, "factorSimplifyEvents": 34, "rssBytes": 197570560, "substitution": ["X12", 355, 123, 0, 357, 355, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 5, "port": "X7", "expressionCharacters": 114, "replacementCharacters": 2, "rssBytes": 197570560}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 5, "port": "X7", "expressionCharacters": 114, "factorSimplifyEvents": 36, "rssBytes": 197578752, "substitution": ["X7", 114, 2, 0, 116, 114, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 5, "port": "X8", "expressionCharacters": 114, "replacementCharacters": 2, "rssBytes": 197578752}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 5, "port": "X8", "expressionCharacters": 114, "factorSimplifyEvents": 37, "rssBytes": 197578752, "substitution": ["X8", 114, 2, 0, 116, 114, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 5, "port": "X9", "expressionCharacters": 114, "replacementCharacters": 123, "rssBytes": 197578752}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 5, "port": "X9", "expressionCharacters": 235, "factorSimplifyEvents": 38, "rssBytes": 197591040, "substitution": ["X9", 114, 123, 1, 239, 235, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 5, "port": "X10", "expressionCharacters": 235, "replacementCharacters": 123, "rssBytes": 197591040}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 5, "port": "X10", "expressionCharacters": 355, "factorSimplifyEvents": 39, "rssBytes": 197591040, "substitution": ["X10", 235, 123, 1, 359, 355, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 5, "port": "X11", "expressionCharacters": 355, "replacementCharacters": 123, "rssBytes": 197591040}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 5, "port": "X11", "expressionCharacters": 355, "factorSimplifyEvents": 40, "rssBytes": 197595136, "substitution": ["X11", 355, 123, 0, 357, 355, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 5, "port": "X12", "expressionCharacters": 355, "replacementCharacters": 123, "rssBytes": 197595136}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 5, "port": "X12", "expressionCharacters": 355, "factorSimplifyEvents": 41, "rssBytes": 197603328, "substitution": ["X12", 355, 123, 0, 357, 355, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 6, "port": "X7", "expressionCharacters": 115, "replacementCharacters": 2, "rssBytes": 197603328}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 6, "port": "X7", "expressionCharacters": 115, "factorSimplifyEvents": 43, "rssBytes": 197603328, "substitution": ["X7", 115, 2, 0, 117, 115, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 6, "port": "X8", "expressionCharacters": 115, "replacementCharacters": 2, "rssBytes": 197603328}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 6, "port": "X8", "expressionCharacters": 115, "factorSimplifyEvents": 44, "rssBytes": 197603328, "substitution": ["X8", 115, 2, 0, 117, 115, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 6, "port": "X9", "expressionCharacters": 115, "replacementCharacters": 123, "rssBytes": 197603328}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 6, "port": "X9", "expressionCharacters": 115, "factorSimplifyEvents": 45, "rssBytes": 197603328, "substitution": ["X9", 115, 123, 0, 117, 115, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 6, "port": "X10", "expressionCharacters": 115, "replacementCharacters": 123, "rssBytes": 197603328}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 6, "port": "X10", "expressionCharacters": 115, "factorSimplifyEvents": 46, "rssBytes": 197603328, "substitution": ["X10", 115, 123, 0, 117, 115, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 6, "port": "X11", "expressionCharacters": 115, "replacementCharacters": 123, "rssBytes": 197603328}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 6, "port": "X11", "expressionCharacters": 235, "factorSimplifyEvents": 47, "rssBytes": 197603328, "substitution": ["X11", 115, 123, 1, 239, 235, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 6, "port": "X12", "expressionCharacters": 235, "replacementCharacters": 123, "rssBytes": 197603328}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 6, "port": "X12", "expressionCharacters": 355, "factorSimplifyEvents": 48, "rssBytes": 197607424, "substitution": ["X12", 235, 123, 1, 359, 355, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 7, "port": "X7", "expressionCharacters": 115, "replacementCharacters": 2, "rssBytes": 197623808}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 7, "port": "X7", "expressionCharacters": 115, "factorSimplifyEvents": 50, "rssBytes": 197623808, "substitution": ["X7", 115, 2, 0, 117, 115, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 7, "port": "X8", "expressionCharacters": 115, "replacementCharacters": 2, "rssBytes": 197623808}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 7, "port": "X8", "expressionCharacters": 115, "factorSimplifyEvents": 51, "rssBytes": 197623808, "substitution": ["X8", 115, 2, 0, 117, 115, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 7, "port": "X9", "expressionCharacters": 115, "replacementCharacters": 123, "rssBytes": 197623808}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 7, "port": "X9", "expressionCharacters": 115, "factorSimplifyEvents": 52, "rssBytes": 197623808, "substitution": ["X9", 115, 123, 0, 117, 115, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 7, "port": "X10", "expressionCharacters": 115, "replacementCharacters": 123, "rssBytes": 197623808}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 7, "port": "X10", "expressionCharacters": 115, "factorSimplifyEvents": 53, "rssBytes": 197623808, "substitution": ["X10", 115, 123, 0, 117, 115, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 7, "port": "X11", "expressionCharacters": 115, "replacementCharacters": 123, "rssBytes": 197623808}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 7, "port": "X11", "expressionCharacters": 235, "factorSimplifyEvents": 54, "rssBytes": 197623808, "substitution": ["X11", 115, 123, 1, 239, 235, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 7, "port": "X12", "expressionCharacters": 235, "replacementCharacters": 123, "rssBytes": 197627904}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 7, "port": "X12", "expressionCharacters": 355, "factorSimplifyEvents": 55, "rssBytes": 197627904, "substitution": ["X12", 235, 123, 1, 359, 355, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 8, "port": "X7", "expressionCharacters": 118, "replacementCharacters": 2, "rssBytes": 197627904}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 8, "port": "X7", "expressionCharacters": 118, "factorSimplifyEvents": 57, "rssBytes": 197632000, "substitution": ["X7", 118, 2, 0, 120, 118, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 8, "port": "X8", "expressionCharacters": 118, "replacementCharacters": 2, "rssBytes": 197632000}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 8, "port": "X8", "expressionCharacters": 118, "factorSimplifyEvents": 58, "rssBytes": 197632000, "substitution": ["X8", 118, 2, 0, 120, 118, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 8, "port": "X9", "expressionCharacters": 118, "replacementCharacters": 123, "rssBytes": 197632000}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 8, "port": "X9", "expressionCharacters": 239, "factorSimplifyEvents": 59, "rssBytes": 197640192, "substitution": ["X9", 118, 123, 1, 243, 239, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 8, "port": "X10", "expressionCharacters": 239, "replacementCharacters": 123, "rssBytes": 197640192}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 8, "port": "X10", "expressionCharacters": 359, "factorSimplifyEvents": 60, "rssBytes": 197640192, "substitution": ["X10", 239, 123, 1, 363, 359, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 8, "port": "X11", "expressionCharacters": 359, "replacementCharacters": 123, "rssBytes": 197640192}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 8, "port": "X11", "expressionCharacters": 359, "factorSimplifyEvents": 61, "rssBytes": 197644288, "substitution": ["X11", 359, 123, 0, 361, 359, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 8, "port": "X12", "expressionCharacters": 359, "replacementCharacters": 123, "rssBytes": 197644288}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 8, "port": "X12", "expressionCharacters": 359, "factorSimplifyEvents": 62, "rssBytes": 197644288, "substitution": ["X12", 359, 123, 0, 361, 359, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 9, "port": "X7", "expressionCharacters": 115, "replacementCharacters": 2, "rssBytes": 197644288}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 9, "port": "X7", "expressionCharacters": 115, "factorSimplifyEvents": 64, "rssBytes": 197644288, "substitution": ["X7", 115, 2, 0, 117, 115, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 9, "port": "X8", "expressionCharacters": 115, "replacementCharacters": 2, "rssBytes": 197644288}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 9, "port": "X8", "expressionCharacters": 115, "factorSimplifyEvents": 65, "rssBytes": 197644288, "substitution": ["X8", 115, 2, 0, 117, 115, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 9, "port": "X9", "expressionCharacters": 115, "replacementCharacters": 123, "rssBytes": 197644288}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 9, "port": "X9", "expressionCharacters": 236, "factorSimplifyEvents": 66, "rssBytes": 197648384, "substitution": ["X9", 115, 123, 1, 240, 236, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 9, "port": "X10", "expressionCharacters": 236, "replacementCharacters": 123, "rssBytes": 197652480}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 9, "port": "X10", "expressionCharacters": 356, "factorSimplifyEvents": 67, "rssBytes": 197656576, "substitution": ["X10", 236, 123, 1, 360, 356, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 9, "port": "X11", "expressionCharacters": 356, "replacementCharacters": 123, "rssBytes": 197656576}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 9, "port": "X11", "expressionCharacters": 356, "factorSimplifyEvents": 68, "rssBytes": 197677056, "substitution": ["X11", 356, 123, 0, 358, 356, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 9, "port": "X12", "expressionCharacters": 356, "replacementCharacters": 123, "rssBytes": 197677056}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 9, "port": "X12", "expressionCharacters": 356, "factorSimplifyEvents": 69, "rssBytes": 197677056, "substitution": ["X12", 356, 123, 0, 358, 356, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 10, "port": "X7", "expressionCharacters": 119, "replacementCharacters": 2, "rssBytes": 197677056}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 10, "port": "X7", "expressionCharacters": 119, "factorSimplifyEvents": 71, "rssBytes": 197677056, "substitution": ["X7", 119, 2, 0, 121, 119, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 10, "port": "X8", "expressionCharacters": 119, "replacementCharacters": 2, "rssBytes": 197677056}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 10, "port": "X8", "expressionCharacters": 119, "factorSimplifyEvents": 72, "rssBytes": 197677056, "substitution": ["X8", 119, 2, 0, 121, 119, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 10, "port": "X9", "expressionCharacters": 119, "replacementCharacters": 123, "rssBytes": 197677056}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 10, "port": "X9", "expressionCharacters": 119, "factorSimplifyEvents": 73, "rssBytes": 197677056, "substitution": ["X9", 119, 123, 0, 121, 119, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 10, "port": "X10", "expressionCharacters": 119, "replacementCharacters": 123, "rssBytes": 197677056}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 10, "port": "X10", "expressionCharacters": 119, "factorSimplifyEvents": 74, "rssBytes": 197677056, "substitution": ["X10", 119, 123, 0, 121, 119, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 10, "port": "X11", "expressionCharacters": 119, "replacementCharacters": 123, "rssBytes": 197677056}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 10, "port": "X11", "expressionCharacters": 239, "factorSimplifyEvents": 75, "rssBytes": 197677056, "substitution": ["X11", 119, 123, 1, 243, 239, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 10, "port": "X12", "expressionCharacters": 239, "replacementCharacters": 123, "rssBytes": 197677056}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 10, "port": "X12", "expressionCharacters": 359, "factorSimplifyEvents": 76, "rssBytes": 197677056, "substitution": ["X12", 239, 123, 1, 363, 359, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 11, "port": "X7", "expressionCharacters": 116, "replacementCharacters": 2, "rssBytes": 197681152}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 11, "port": "X7", "expressionCharacters": 116, "factorSimplifyEvents": 78, "rssBytes": 197685248, "substitution": ["X7", 116, 2, 0, 118, 116, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 11, "port": "X8", "expressionCharacters": 116, "replacementCharacters": 2, "rssBytes": 197689344}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 11, "port": "X8", "expressionCharacters": 116, "factorSimplifyEvents": 79, "rssBytes": 197689344, "substitution": ["X8", 116, 2, 0, 118, 116, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 11, "port": "X9", "expressionCharacters": 116, "replacementCharacters": 123, "rssBytes": 197689344}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 11, "port": "X9", "expressionCharacters": 116, "factorSimplifyEvents": 80, "rssBytes": 197689344, "substitution": ["X9", 116, 123, 0, 118, 116, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 11, "port": "X10", "expressionCharacters": 116, "replacementCharacters": 123, "rssBytes": 197689344}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 11, "port": "X10", "expressionCharacters": 116, "factorSimplifyEvents": 81, "rssBytes": 197689344, "substitution": ["X10", 116, 123, 0, 118, 116, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 11, "port": "X11", "expressionCharacters": 116, "replacementCharacters": 123, "rssBytes": 197689344}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 11, "port": "X11", "expressionCharacters": 236, "factorSimplifyEvents": 82, "rssBytes": 197705728, "substitution": ["X11", 116, 123, 1, 240, 236, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 11, "port": "X12", "expressionCharacters": 236, "replacementCharacters": 123, "rssBytes": 197705728}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 11, "port": "X12", "expressionCharacters": 356, "factorSimplifyEvents": 83, "rssBytes": 197705728, "substitution": ["X12", 236, 123, 1, 360, 356, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X31", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197906432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X31", "expressionCharacters": 3, "factorSimplifyEvents": 1, "rssBytes": 197906432, "substitution": ["X31", 3, 3, 1, 7, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X32", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197906432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X32", "expressionCharacters": 3, "factorSimplifyEvents": 2, "rssBytes": 197906432, "substitution": ["X32", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X35", "expressionCharacters": 3, "replacementCharacters": 72, "rssBytes": 197906432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X35", "expressionCharacters": 3, "factorSimplifyEvents": 3, "rssBytes": 197906432, "substitution": ["X35", 3, 72, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X36", "expressionCharacters": 3, "replacementCharacters": 71, "rssBytes": 197906432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X36", "expressionCharacters": 3, "factorSimplifyEvents": 4, "rssBytes": 197906432, "substitution": ["X36", 3, 71, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X37", "expressionCharacters": 3, "replacementCharacters": 52, "rssBytes": 197906432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X37", "expressionCharacters": 3, "factorSimplifyEvents": 5, "rssBytes": 197906432, "substitution": ["X37", 3, 52, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X38", "expressionCharacters": 3, "replacementCharacters": 51, "rssBytes": 197906432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X38", "expressionCharacters": 3, "factorSimplifyEvents": 6, "rssBytes": 197906432, "substitution": ["X38", 3, 51, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X39", "expressionCharacters": 3, "replacementCharacters": 72, "rssBytes": 197906432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X39", "expressionCharacters": 3, "factorSimplifyEvents": 7, "rssBytes": 197906432, "substitution": ["X39", 3, 72, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X40", "expressionCharacters": 3, "replacementCharacters": 71, "rssBytes": 197906432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X40", "expressionCharacters": 3, "factorSimplifyEvents": 8, "rssBytes": 197906432, "substitution": ["X40", 3, 71, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X41", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197906432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X41", "expressionCharacters": 3, "factorSimplifyEvents": 9, "rssBytes": 197906432, "substitution": ["X41", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X42", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197906432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X42", "expressionCharacters": 3, "factorSimplifyEvents": 10, "rssBytes": 197906432, "substitution": ["X42", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X43", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197906432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X43", "expressionCharacters": 3, "factorSimplifyEvents": 11, "rssBytes": 197906432, "substitution": ["X43", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X44", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197906432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X44", "expressionCharacters": 3, "factorSimplifyEvents": 12, "rssBytes": 197906432, "substitution": ["X44", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X31", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197906432}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X31", "expressionCharacters": 3, "factorSimplifyEvents": 14, "rssBytes": 197910528, "substitution": ["X31", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X32", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197910528}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X32", "expressionCharacters": 3, "factorSimplifyEvents": 15, "rssBytes": 197910528, "substitution": ["X32", 3, 3, 1, 7, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X35", "expressionCharacters": 3, "replacementCharacters": 72, "rssBytes": 197910528}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X35", "expressionCharacters": 3, "factorSimplifyEvents": 16, "rssBytes": 197910528, "substitution": ["X35", 3, 72, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X36", "expressionCharacters": 3, "replacementCharacters": 71, "rssBytes": 197910528}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X36", "expressionCharacters": 3, "factorSimplifyEvents": 17, "rssBytes": 197926912, "substitution": ["X36", 3, 71, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X37", "expressionCharacters": 3, "replacementCharacters": 52, "rssBytes": 197926912}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X37", "expressionCharacters": 3, "factorSimplifyEvents": 18, "rssBytes": 197926912, "substitution": ["X37", 3, 52, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X38", "expressionCharacters": 3, "replacementCharacters": 51, "rssBytes": 197926912}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X38", "expressionCharacters": 3, "factorSimplifyEvents": 19, "rssBytes": 197926912, "substitution": ["X38", 3, 51, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X39", "expressionCharacters": 3, "replacementCharacters": 72, "rssBytes": 197926912}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X39", "expressionCharacters": 3, "factorSimplifyEvents": 20, "rssBytes": 197926912, "substitution": ["X39", 3, 72, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X40", "expressionCharacters": 3, "replacementCharacters": 71, "rssBytes": 197926912}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X40", "expressionCharacters": 3, "factorSimplifyEvents": 21, "rssBytes": 197926912, "substitution": ["X40", 3, 71, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X41", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197926912}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X41", "expressionCharacters": 3, "factorSimplifyEvents": 22, "rssBytes": 197931008, "substitution": ["X41", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X42", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197931008}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X42", "expressionCharacters": 3, "factorSimplifyEvents": 23, "rssBytes": 197931008, "substitution": ["X42", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X43", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197931008}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X43", "expressionCharacters": 3, "factorSimplifyEvents": 24, "rssBytes": 197931008, "substitution": ["X43", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X44", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197931008}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X44", "expressionCharacters": 3, "factorSimplifyEvents": 25, "rssBytes": 197931008, "substitution": ["X44", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X31", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197931008}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X31", "expressionCharacters": 3, "factorSimplifyEvents": 27, "rssBytes": 197935104, "substitution": ["X31", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X32", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197935104}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X32", "expressionCharacters": 3, "factorSimplifyEvents": 28, "rssBytes": 197935104, "substitution": ["X32", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X35", "expressionCharacters": 3, "replacementCharacters": 72, "rssBytes": 197939200}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X35", "expressionCharacters": 3, "factorSimplifyEvents": 29, "rssBytes": 197939200, "substitution": ["X35", 3, 72, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X36", "expressionCharacters": 3, "replacementCharacters": 71, "rssBytes": 197939200}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X36", "expressionCharacters": 3, "factorSimplifyEvents": 30, "rssBytes": 197939200, "substitution": ["X36", 3, 71, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X37", "expressionCharacters": 3, "replacementCharacters": 52, "rssBytes": 197939200}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X37", "expressionCharacters": 3, "factorSimplifyEvents": 31, "rssBytes": 197939200, "substitution": ["X37", 3, 52, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X38", "expressionCharacters": 3, "replacementCharacters": 51, "rssBytes": 197939200}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X38", "expressionCharacters": 3, "factorSimplifyEvents": 32, "rssBytes": 197939200, "substitution": ["X38", 3, 51, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X39", "expressionCharacters": 3, "replacementCharacters": 72, "rssBytes": 197939200}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X39", "expressionCharacters": 3, "factorSimplifyEvents": 33, "rssBytes": 197939200, "substitution": ["X39", 3, 72, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X40", "expressionCharacters": 3, "replacementCharacters": 71, "rssBytes": 197939200}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X40", "expressionCharacters": 3, "factorSimplifyEvents": 34, "rssBytes": 197939200, "substitution": ["X40", 3, 71, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X41", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197939200}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X41", "expressionCharacters": 3, "factorSimplifyEvents": 35, "rssBytes": 197951488, "substitution": ["X41", 3, 3, 1, 7, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X42", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197951488}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X42", "expressionCharacters": 3, "factorSimplifyEvents": 36, "rssBytes": 197959680, "substitution": ["X42", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X43", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197959680}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X43", "expressionCharacters": 3, "factorSimplifyEvents": 37, "rssBytes": 197959680, "substitution": ["X43", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X44", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197959680}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X44", "expressionCharacters": 3, "factorSimplifyEvents": 38, "rssBytes": 197959680, "substitution": ["X44", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X31", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197959680}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X31", "expressionCharacters": 3, "factorSimplifyEvents": 40, "rssBytes": 197976064, "substitution": ["X31", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X32", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X32", "expressionCharacters": 3, "factorSimplifyEvents": 41, "rssBytes": 197980160, "substitution": ["X32", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X35", "expressionCharacters": 3, "replacementCharacters": 72, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X35", "expressionCharacters": 3, "factorSimplifyEvents": 42, "rssBytes": 197980160, "substitution": ["X35", 3, 72, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X36", "expressionCharacters": 3, "replacementCharacters": 71, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X36", "expressionCharacters": 3, "factorSimplifyEvents": 43, "rssBytes": 197980160, "substitution": ["X36", 3, 71, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X37", "expressionCharacters": 3, "replacementCharacters": 52, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X37", "expressionCharacters": 3, "factorSimplifyEvents": 44, "rssBytes": 197980160, "substitution": ["X37", 3, 52, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X38", "expressionCharacters": 3, "replacementCharacters": 51, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X38", "expressionCharacters": 3, "factorSimplifyEvents": 45, "rssBytes": 197980160, "substitution": ["X38", 3, 51, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X39", "expressionCharacters": 3, "replacementCharacters": 72, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X39", "expressionCharacters": 3, "factorSimplifyEvents": 46, "rssBytes": 197980160, "substitution": ["X39", 3, 72, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X40", "expressionCharacters": 3, "replacementCharacters": 71, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X40", "expressionCharacters": 3, "factorSimplifyEvents": 47, "rssBytes": 197980160, "substitution": ["X40", 3, 71, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X41", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X41", "expressionCharacters": 3, "factorSimplifyEvents": 48, "rssBytes": 197980160, "substitution": ["X41", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X42", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X42", "expressionCharacters": 3, "factorSimplifyEvents": 49, "rssBytes": 197980160, "substitution": ["X42", 3, 3, 1, 7, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X43", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X43", "expressionCharacters": 3, "factorSimplifyEvents": 50, "rssBytes": 197980160, "substitution": ["X43", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X44", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X44", "expressionCharacters": 3, "factorSimplifyEvents": 51, "rssBytes": 197980160, "substitution": ["X44", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 4, "port": "X31", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 4, "port": "X31", "expressionCharacters": 3, "factorSimplifyEvents": 53, "rssBytes": 197980160, "substitution": ["X31", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 4, "port": "X32", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 4, "port": "X32", "expressionCharacters": 3, "factorSimplifyEvents": 54, "rssBytes": 197980160, "substitution": ["X32", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 4, "port": "X35", "expressionCharacters": 3, "replacementCharacters": 72, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 4, "port": "X35", "expressionCharacters": 3, "factorSimplifyEvents": 55, "rssBytes": 197980160, "substitution": ["X35", 3, 72, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 4, "port": "X36", "expressionCharacters": 3, "replacementCharacters": 71, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 4, "port": "X36", "expressionCharacters": 3, "factorSimplifyEvents": 56, "rssBytes": 197980160, "substitution": ["X36", 3, 71, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 4, "port": "X37", "expressionCharacters": 3, "replacementCharacters": 52, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 4, "port": "X37", "expressionCharacters": 3, "factorSimplifyEvents": 57, "rssBytes": 197980160, "substitution": ["X37", 3, 52, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 4, "port": "X38", "expressionCharacters": 3, "replacementCharacters": 51, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 4, "port": "X38", "expressionCharacters": 3, "factorSimplifyEvents": 58, "rssBytes": 197980160, "substitution": ["X38", 3, 51, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 4, "port": "X39", "expressionCharacters": 3, "replacementCharacters": 72, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 4, "port": "X39", "expressionCharacters": 3, "factorSimplifyEvents": 59, "rssBytes": 197980160, "substitution": ["X39", 3, 72, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 4, "port": "X40", "expressionCharacters": 3, "replacementCharacters": 71, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 4, "port": "X40", "expressionCharacters": 3, "factorSimplifyEvents": 60, "rssBytes": 197980160, "substitution": ["X40", 3, 71, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 4, "port": "X41", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 4, "port": "X41", "expressionCharacters": 3, "factorSimplifyEvents": 61, "rssBytes": 197980160, "substitution": ["X41", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 4, "port": "X42", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 4, "port": "X42", "expressionCharacters": 3, "factorSimplifyEvents": 62, "rssBytes": 197980160, "substitution": ["X42", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 4, "port": "X43", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 4, "port": "X43", "expressionCharacters": 3, "factorSimplifyEvents": 63, "rssBytes": 197980160, "substitution": ["X43", 3, 3, 1, 7, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 4, "port": "X44", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 4, "port": "X44", "expressionCharacters": 3, "factorSimplifyEvents": 64, "rssBytes": 197980160, "substitution": ["X44", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 5, "port": "X31", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197980160}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 5, "port": "X31", "expressionCharacters": 3, "factorSimplifyEvents": 66, "rssBytes": 197984256, "substitution": ["X31", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 5, "port": "X32", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197984256}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 5, "port": "X32", "expressionCharacters": 3, "factorSimplifyEvents": 67, "rssBytes": 197984256, "substitution": ["X32", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 5, "port": "X35", "expressionCharacters": 3, "replacementCharacters": 72, "rssBytes": 197984256}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 5, "port": "X35", "expressionCharacters": 3, "factorSimplifyEvents": 68, "rssBytes": 197984256, "substitution": ["X35", 3, 72, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 5, "port": "X36", "expressionCharacters": 3, "replacementCharacters": 71, "rssBytes": 197984256}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 5, "port": "X36", "expressionCharacters": 3, "factorSimplifyEvents": 69, "rssBytes": 197984256, "substitution": ["X36", 3, 71, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 5, "port": "X37", "expressionCharacters": 3, "replacementCharacters": 52, "rssBytes": 197984256}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 5, "port": "X37", "expressionCharacters": 3, "factorSimplifyEvents": 70, "rssBytes": 197984256, "substitution": ["X37", 3, 52, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 5, "port": "X38", "expressionCharacters": 3, "replacementCharacters": 51, "rssBytes": 197984256}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 5, "port": "X38", "expressionCharacters": 3, "factorSimplifyEvents": 71, "rssBytes": 197984256, "substitution": ["X38", 3, 51, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 5, "port": "X39", "expressionCharacters": 3, "replacementCharacters": 72, "rssBytes": 197984256}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 5, "port": "X39", "expressionCharacters": 3, "factorSimplifyEvents": 72, "rssBytes": 197984256, "substitution": ["X39", 3, 72, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 5, "port": "X40", "expressionCharacters": 3, "replacementCharacters": 71, "rssBytes": 197984256}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 5, "port": "X40", "expressionCharacters": 3, "factorSimplifyEvents": 73, "rssBytes": 197984256, "substitution": ["X40", 3, 71, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 5, "port": "X41", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197984256}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 5, "port": "X41", "expressionCharacters": 3, "factorSimplifyEvents": 74, "rssBytes": 197984256, "substitution": ["X41", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 5, "port": "X42", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197984256}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 5, "port": "X42", "expressionCharacters": 3, "factorSimplifyEvents": 75, "rssBytes": 197984256, "substitution": ["X42", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 5, "port": "X43", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197984256}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 5, "port": "X43", "expressionCharacters": 3, "factorSimplifyEvents": 76, "rssBytes": 197984256, "substitution": ["X43", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 5, "port": "X44", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 197984256}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 5, "port": "X44", "expressionCharacters": 3, "factorSimplifyEvents": 77, "rssBytes": 197984256, "substitution": ["X44", 3, 3, 1, 7, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 6, "port": "X31", "expressionCharacters": 116, "replacementCharacters": 3, "rssBytes": 197984256}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 6, "port": "X31", "expressionCharacters": 116, "factorSimplifyEvents": 79, "rssBytes": 197988352, "substitution": ["X31", 116, 3, 0, 118, 116, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 6, "port": "X32", "expressionCharacters": 116, "replacementCharacters": 3, "rssBytes": 197988352}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 6, "port": "X32", "expressionCharacters": 116, "factorSimplifyEvents": 80, "rssBytes": 197988352, "substitution": ["X32", 116, 3, 0, 118, 116, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 6, "port": "X35", "expressionCharacters": 116, "replacementCharacters": 72, "rssBytes": 197988352}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 6, "port": "X35", "expressionCharacters": 185, "factorSimplifyEvents": 81, "rssBytes": 197992448, "substitution": ["X35", 116, 72, 1, 189, 185, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 6, "port": "X36", "expressionCharacters": 185, "replacementCharacters": 71, "rssBytes": 197992448}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 6, "port": "X36", "expressionCharacters": 253, "factorSimplifyEvents": 82, "rssBytes": 197992448, "substitution": ["X36", 185, 71, 1, 257, 253, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 6, "port": "X37", "expressionCharacters": 253, "replacementCharacters": 52, "rssBytes": 197992448}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 6, "port": "X37", "expressionCharacters": 302, "factorSimplifyEvents": 83, "rssBytes": 198062080, "substitution": ["X37", 253, 52, 1, 306, 302, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 6, "port": "X38", "expressionCharacters": 302, "replacementCharacters": 51, "rssBytes": 198062080}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 6, "port": "X38", "expressionCharacters": 350, "factorSimplifyEvents": 84, "rssBytes": 198070272, "substitution": ["X38", 302, 51, 1, 354, 350, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 6, "port": "X39", "expressionCharacters": 350, "replacementCharacters": 72, "rssBytes": 198070272}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 6, "port": "X39", "expressionCharacters": 350, "factorSimplifyEvents": 85, "rssBytes": 198078464, "substitution": ["X39", 350, 72, 0, 352, 350, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 6, "port": "X40", "expressionCharacters": 350, "replacementCharacters": 71, "rssBytes": 198078464}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 6, "port": "X40", "expressionCharacters": 350, "factorSimplifyEvents": 86, "rssBytes": 198078464, "substitution": ["X40", 350, 71, 0, 352, 350, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 6, "port": "X41", "expressionCharacters": 350, "replacementCharacters": 3, "rssBytes": 198078464}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 6, "port": "X41", "expressionCharacters": 350, "factorSimplifyEvents": 87, "rssBytes": 198078464, "substitution": ["X41", 350, 3, 0, 352, 350, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 6, "port": "X42", "expressionCharacters": 350, "replacementCharacters": 3, "rssBytes": 198078464}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 6, "port": "X42", "expressionCharacters": 350, "factorSimplifyEvents": 88, "rssBytes": 198078464, "substitution": ["X42", 350, 3, 0, 352, 350, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 6, "port": "X43", "expressionCharacters": 350, "replacementCharacters": 3, "rssBytes": 198078464}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 6, "port": "X43", "expressionCharacters": 350, "factorSimplifyEvents": 89, "rssBytes": 198078464, "substitution": ["X43", 350, 3, 0, 352, 350, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 6, "port": "X44", "expressionCharacters": 350, "replacementCharacters": 3, "rssBytes": 198078464}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 6, "port": "X44", "expressionCharacters": 350, "factorSimplifyEvents": 90, "rssBytes": 198078464, "substitution": ["X44", 350, 3, 0, 352, 350, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 7, "port": "X31", "expressionCharacters": 116, "replacementCharacters": 3, "rssBytes": 198078464}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 7, "port": "X31", "expressionCharacters": 116, "factorSimplifyEvents": 92, "rssBytes": 198078464, "substitution": ["X31", 116, 3, 0, 118, 116, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 7, "port": "X32", "expressionCharacters": 116, "replacementCharacters": 3, "rssBytes": 198078464}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 7, "port": "X32", "expressionCharacters": 116, "factorSimplifyEvents": 93, "rssBytes": 198078464, "substitution": ["X32", 116, 3, 0, 118, 116, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 7, "port": "X35", "expressionCharacters": 116, "replacementCharacters": 72, "rssBytes": 198078464}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 7, "port": "X35", "expressionCharacters": 185, "factorSimplifyEvents": 94, "rssBytes": 198078464, "substitution": ["X35", 116, 72, 1, 189, 185, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 7, "port": "X36", "expressionCharacters": 185, "replacementCharacters": 71, "rssBytes": 198078464}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 7, "port": "X36", "expressionCharacters": 253, "factorSimplifyEvents": 95, "rssBytes": 198078464, "substitution": ["X36", 185, 71, 1, 257, 253, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 7, "port": "X37", "expressionCharacters": 253, "replacementCharacters": 52, "rssBytes": 198078464}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 7, "port": "X37", "expressionCharacters": 253, "factorSimplifyEvents": 96, "rssBytes": 198078464, "substitution": ["X37", 253, 52, 0, 255, 253, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 7, "port": "X38", "expressionCharacters": 253, "replacementCharacters": 51, "rssBytes": 198078464}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 7, "port": "X38", "expressionCharacters": 253, "factorSimplifyEvents": 97, "rssBytes": 198078464, "substitution": ["X38", 253, 51, 0, 255, 253, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 7, "port": "X39", "expressionCharacters": 253, "replacementCharacters": 72, "rssBytes": 198078464}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 7, "port": "X39", "expressionCharacters": 322, "factorSimplifyEvents": 98, "rssBytes": 198082560, "substitution": ["X39", 253, 72, 1, 326, 322, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 7, "port": "X40", "expressionCharacters": 322, "replacementCharacters": 71, "rssBytes": 198082560}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 7, "port": "X40", "expressionCharacters": 390, "factorSimplifyEvents": 99, "rssBytes": 198082560, "substitution": ["X40", 322, 71, 1, 394, 390, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 7, "port": "X41", "expressionCharacters": 390, "replacementCharacters": 3, "rssBytes": 198082560}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 7, "port": "X41", "expressionCharacters": 390, "factorSimplifyEvents": 100, "rssBytes": 198082560, "substitution": ["X41", 390, 3, 0, 392, 390, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 7, "port": "X42", "expressionCharacters": 390, "replacementCharacters": 3, "rssBytes": 198082560}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 7, "port": "X42", "expressionCharacters": 390, "factorSimplifyEvents": 101, "rssBytes": 198082560, "substitution": ["X42", 390, 3, 0, 392, 390, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 7, "port": "X43", "expressionCharacters": 390, "replacementCharacters": 3, "rssBytes": 198082560}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 7, "port": "X43", "expressionCharacters": 390, "factorSimplifyEvents": 102, "rssBytes": 198082560, "substitution": ["X43", 390, 3, 0, 392, 390, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 7, "port": "X44", "expressionCharacters": 390, "replacementCharacters": 3, "rssBytes": 198082560}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 7, "port": "X44", "expressionCharacters": 390, "factorSimplifyEvents": 103, "rssBytes": 198082560, "substitution": ["X44", 390, 3, 0, 392, 390, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X58", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 198082560}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X58", "expressionCharacters": 3, "factorSimplifyEvents": 1, "rssBytes": 198082560, "substitution": ["X58", 3, 3, 1, 7, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X59", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 198082560}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X59", "expressionCharacters": 3, "factorSimplifyEvents": 2, "rssBytes": 198082560, "substitution": ["X59", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X60", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 198082560}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X60", "expressionCharacters": 3, "factorSimplifyEvents": 3, "rssBytes": 198082560, "substitution": ["X60", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X61", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 198082560}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X61", "expressionCharacters": 3, "factorSimplifyEvents": 4, "rssBytes": 198082560, "substitution": ["X61", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X62", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 198082560}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X62", "expressionCharacters": 3, "factorSimplifyEvents": 5, "rssBytes": 198082560, "substitution": ["X62", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X63", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 198082560}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X63", "expressionCharacters": 3, "factorSimplifyEvents": 6, "rssBytes": 198082560, "substitution": ["X63", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X65", "expressionCharacters": 3, "replacementCharacters": 209, "rssBytes": 198082560}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X65", "expressionCharacters": 3, "factorSimplifyEvents": 7, "rssBytes": 198082560, "substitution": ["X65", 3, 209, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X66", "expressionCharacters": 3, "replacementCharacters": 209, "rssBytes": 198082560}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X66", "expressionCharacters": 3, "factorSimplifyEvents": 8, "rssBytes": 198082560, "substitution": ["X66", 3, 209, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X58", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 198082560}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X58", "expressionCharacters": 3, "factorSimplifyEvents": 10, "rssBytes": 198082560, "substitution": ["X58", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X59", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 198086656}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X59", "expressionCharacters": 3, "factorSimplifyEvents": 11, "rssBytes": 198086656, "substitution": ["X59", 3, 3, 1, 7, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X60", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 198086656}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X60", "expressionCharacters": 3, "factorSimplifyEvents": 12, "rssBytes": 198086656, "substitution": ["X60", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X61", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 198086656}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X61", "expressionCharacters": 3, "factorSimplifyEvents": 13, "rssBytes": 198086656, "substitution": ["X61", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X62", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 198086656}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X62", "expressionCharacters": 3, "factorSimplifyEvents": 14, "rssBytes": 198086656, "substitution": ["X62", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X63", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 198086656}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X63", "expressionCharacters": 3, "factorSimplifyEvents": 15, "rssBytes": 198086656, "substitution": ["X63", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X65", "expressionCharacters": 3, "replacementCharacters": 209, "rssBytes": 198086656}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X65", "expressionCharacters": 3, "factorSimplifyEvents": 16, "rssBytes": 198086656, "substitution": ["X65", 3, 209, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X66", "expressionCharacters": 3, "replacementCharacters": 209, "rssBytes": 198086656}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X66", "expressionCharacters": 3, "factorSimplifyEvents": 17, "rssBytes": 198086656, "substitution": ["X66", 3, 209, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X58", "expressionCharacters": 85, "replacementCharacters": 3, "rssBytes": 198086656}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X58", "expressionCharacters": 85, "factorSimplifyEvents": 19, "rssBytes": 198086656, "substitution": ["X58", 85, 3, 0, 87, 85, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X59", "expressionCharacters": 85, "replacementCharacters": 3, "rssBytes": 198086656}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X59", "expressionCharacters": 85, "factorSimplifyEvents": 20, "rssBytes": 198086656, "substitution": ["X59", 85, 3, 0, 87, 85, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X60", "expressionCharacters": 85, "replacementCharacters": 3, "rssBytes": 198086656}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X60", "expressionCharacters": 85, "factorSimplifyEvents": 21, "rssBytes": 198090752, "substitution": ["X60", 85, 3, 1, 89, 85, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X61", "expressionCharacters": 85, "replacementCharacters": 3, "rssBytes": 198090752}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X61", "expressionCharacters": 85, "factorSimplifyEvents": 22, "rssBytes": 198090752, "substitution": ["X61", 85, 3, 0, 87, 85, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X62", "expressionCharacters": 85, "replacementCharacters": 3, "rssBytes": 198090752}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X62", "expressionCharacters": 85, "factorSimplifyEvents": 23, "rssBytes": 198090752, "substitution": ["X62", 85, 3, 1, 89, 85, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X63", "expressionCharacters": 85, "replacementCharacters": 3, "rssBytes": 198090752}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X63", "expressionCharacters": 85, "factorSimplifyEvents": 24, "rssBytes": 198090752, "substitution": ["X63", 85, 3, 0, 87, 85, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X65", "expressionCharacters": 85, "replacementCharacters": 209, "rssBytes": 198090752}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X65", "expressionCharacters": 291, "factorSimplifyEvents": 30, "rssBytes": 198766592, "substitution": ["X65", 85, 209, 1, 295, 291, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X66", "expressionCharacters": 291, "replacementCharacters": 209, "rssBytes": 198766592}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X66", "expressionCharacters": 497, "factorSimplifyEvents": 37, "rssBytes": 198914048, "substitution": ["X66", 291, 209, 1, 501, 497, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X58", "expressionCharacters": 85, "replacementCharacters": 3, "rssBytes": 199041024}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X58", "expressionCharacters": 85, "factorSimplifyEvents": 45, "rssBytes": 199041024, "substitution": ["X58", 85, 3, 0, 87, 85, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X59", "expressionCharacters": 85, "replacementCharacters": 3, "rssBytes": 199041024}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X59", "expressionCharacters": 85, "factorSimplifyEvents": 46, "rssBytes": 199041024, "substitution": ["X59", 85, 3, 0, 87, 85, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X60", "expressionCharacters": 85, "replacementCharacters": 3, "rssBytes": 199041024}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X60", "expressionCharacters": 85, "factorSimplifyEvents": 47, "rssBytes": 199041024, "substitution": ["X60", 85, 3, 0, 87, 85, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X61", "expressionCharacters": 85, "replacementCharacters": 3, "rssBytes": 199041024}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X61", "expressionCharacters": 85, "factorSimplifyEvents": 48, "rssBytes": 199041024, "substitution": ["X61", 85, 3, 1, 89, 85, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X62", "expressionCharacters": 85, "replacementCharacters": 3, "rssBytes": 199041024}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X62", "expressionCharacters": 85, "factorSimplifyEvents": 49, "rssBytes": 199041024, "substitution": ["X62", 85, 3, 0, 87, 85, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X63", "expressionCharacters": 85, "replacementCharacters": 3, "rssBytes": 199041024}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X63", "expressionCharacters": 85, "factorSimplifyEvents": 50, "rssBytes": 199053312, "substitution": ["X63", 85, 3, 1, 89, 85, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X65", "expressionCharacters": 85, "replacementCharacters": 209, "rssBytes": 199057408}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X65", "expressionCharacters": 291, "factorSimplifyEvents": 54, "rssBytes": 199090176, "substitution": ["X65", 85, 209, 1, 295, 291, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X66", "expressionCharacters": 291, "replacementCharacters": 209, "rssBytes": 199090176}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X66", "expressionCharacters": 497, "factorSimplifyEvents": 61, "rssBytes": 199225344, "substitution": ["X66", 291, 209, 1, 501, 497, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X77", "expressionCharacters": 19, "replacementCharacters": 3, "rssBytes": 199331840}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X77", "expressionCharacters": 19, "factorSimplifyEvents": 1, "rssBytes": 199331840, "substitution": ["X77", 19, 3, 1, 23, 19, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X78", "expressionCharacters": 19, "replacementCharacters": 3, "rssBytes": 199331840}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X78", "expressionCharacters": 19, "factorSimplifyEvents": 2, "rssBytes": 199331840, "substitution": ["X78", 19, 3, 0, 21, 19, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X81", "expressionCharacters": 19, "replacementCharacters": 115, "rssBytes": 199331840}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X81", "expressionCharacters": 131, "factorSimplifyEvents": 3, "rssBytes": 199335936, "substitution": ["X81", 19, 115, 1, 135, 131, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X82", "expressionCharacters": 131, "replacementCharacters": 117, "rssBytes": 199335936}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X82", "expressionCharacters": 131, "factorSimplifyEvents": 4, "rssBytes": 199340032, "substitution": ["X82", 131, 117, 0, 133, 131, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X77", "expressionCharacters": 19, "replacementCharacters": 3, "rssBytes": 199340032}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X77", "expressionCharacters": 19, "factorSimplifyEvents": 6, "rssBytes": 199340032, "substitution": ["X77", 19, 3, 0, 21, 19, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X78", "expressionCharacters": 19, "replacementCharacters": 3, "rssBytes": 199340032}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X78", "expressionCharacters": 19, "factorSimplifyEvents": 7, "rssBytes": 199340032, "substitution": ["X78", 19, 3, 1, 23, 19, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X81", "expressionCharacters": 19, "replacementCharacters": 115, "rssBytes": 199340032}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X81", "expressionCharacters": 19, "factorSimplifyEvents": 8, "rssBytes": 199340032, "substitution": ["X81", 19, 115, 0, 21, 19, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X82", "expressionCharacters": 19, "replacementCharacters": 117, "rssBytes": 199340032}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X82", "expressionCharacters": 133, "factorSimplifyEvents": 9, "rssBytes": 199340032, "substitution": ["X82", 19, 117, 1, 137, 133, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X89", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 199340032}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X89", "expressionCharacters": 3, "factorSimplifyEvents": 1, "rssBytes": 199340032, "substitution": ["X89", 3, 3, 1, 7, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X90", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 199340032}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X90", "expressionCharacters": 3, "factorSimplifyEvents": 2, "rssBytes": 199340032, "substitution": ["X90", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X93", "expressionCharacters": 3, "replacementCharacters": 128, "rssBytes": 199340032}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X93", "expressionCharacters": 3, "factorSimplifyEvents": 3, "rssBytes": 199340032, "substitution": ["X93", 3, 128, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X94", "expressionCharacters": 3, "replacementCharacters": 128, "rssBytes": 199340032}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X94", "expressionCharacters": 3, "factorSimplifyEvents": 4, "rssBytes": 199340032, "substitution": ["X94", 3, 128, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X89", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 199340032}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X89", "expressionCharacters": 3, "factorSimplifyEvents": 6, "rssBytes": 199340032, "substitution": ["X89", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X90", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 199340032}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X90", "expressionCharacters": 3, "factorSimplifyEvents": 7, "rssBytes": 199340032, "substitution": ["X90", 3, 3, 1, 7, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X93", "expressionCharacters": 3, "replacementCharacters": 128, "rssBytes": 199340032}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X93", "expressionCharacters": 3, "factorSimplifyEvents": 8, "rssBytes": 199340032, "substitution": ["X93", 3, 128, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X94", "expressionCharacters": 3, "replacementCharacters": 128, "rssBytes": 199340032}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X94", "expressionCharacters": 3, "factorSimplifyEvents": 9, "rssBytes": 199340032, "substitution": ["X94", 3, 128, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X89", "expressionCharacters": 121, "replacementCharacters": 3, "rssBytes": 199340032}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X89", "expressionCharacters": 121, "factorSimplifyEvents": 11, "rssBytes": 199344128, "substitution": ["X89", 121, 3, 0, 123, 121, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X90", "expressionCharacters": 121, "replacementCharacters": 3, "rssBytes": 199344128}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X90", "expressionCharacters": 121, "factorSimplifyEvents": 12, "rssBytes": 199344128, "substitution": ["X90", 121, 3, 0, 123, 121, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X93", "expressionCharacters": 121, "replacementCharacters": 128, "rssBytes": 199344128}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X93", "expressionCharacters": 246, "factorSimplifyEvents": 13, "rssBytes": 199360512, "substitution": ["X93", 121, 128, 1, 250, 246, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X94", "expressionCharacters": 246, "replacementCharacters": 128, "rssBytes": 199360512}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X94", "expressionCharacters": 371, "factorSimplifyEvents": 14, "rssBytes": 199397376, "substitution": ["X94", 246, 128, 1, 375, 371, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X89", "expressionCharacters": 117, "replacementCharacters": 3, "rssBytes": 199417856}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X89", "expressionCharacters": 117, "factorSimplifyEvents": 16, "rssBytes": 199417856, "substitution": ["X89", 117, 3, 0, 119, 117, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X90", "expressionCharacters": 117, "replacementCharacters": 3, "rssBytes": 199417856}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X90", "expressionCharacters": 117, "factorSimplifyEvents": 17, "rssBytes": 199417856, "substitution": ["X90", 117, 3, 0, 119, 117, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X93", "expressionCharacters": 117, "replacementCharacters": 128, "rssBytes": 199417856}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X93", "expressionCharacters": 242, "factorSimplifyEvents": 18, "rssBytes": 199430144, "substitution": ["X93", 117, 128, 1, 246, 242, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X94", "expressionCharacters": 242, "replacementCharacters": 128, "rssBytes": 199430144}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X94", "expressionCharacters": 367, "factorSimplifyEvents": 19, "rssBytes": 199446528, "substitution": ["X94", 242, 128, 1, 371, 367, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X105", "expressionCharacters": 4, "replacementCharacters": 3, "rssBytes": 199446528}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X105", "expressionCharacters": 3, "factorSimplifyEvents": 1, "rssBytes": 199446528, "substitution": ["X105", 4, 3, 1, 7, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X106", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 199446528}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X106", "expressionCharacters": 3, "factorSimplifyEvents": 2, "rssBytes": 199446528, "substitution": ["X106", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X108", "expressionCharacters": 3, "replacementCharacters": 29, "rssBytes": 199446528}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X108", "expressionCharacters": 3, "factorSimplifyEvents": 3, "rssBytes": 199446528, "substitution": ["X108", 3, 29, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X105", "expressionCharacters": 4, "replacementCharacters": 3, "rssBytes": 199446528}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X105", "expressionCharacters": 4, "factorSimplifyEvents": 5, "rssBytes": 199446528, "substitution": ["X105", 4, 3, 0, 6, 4, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X106", "expressionCharacters": 4, "replacementCharacters": 3, "rssBytes": 199446528}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X106", "expressionCharacters": 3, "factorSimplifyEvents": 6, "rssBytes": 199450624, "substitution": ["X106", 4, 3, 1, 7, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X108", "expressionCharacters": 3, "replacementCharacters": 29, "rssBytes": 199450624}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X108", "expressionCharacters": 3, "factorSimplifyEvents": 7, "rssBytes": 199450624, "substitution": ["X108", 3, 29, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X105", "expressionCharacters": 79, "replacementCharacters": 3, "rssBytes": 199450624}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X105", "expressionCharacters": 79, "factorSimplifyEvents": 9, "rssBytes": 199450624, "substitution": ["X105", 79, 3, 0, 81, 79, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X106", "expressionCharacters": 79, "replacementCharacters": 3, "rssBytes": 199450624}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X106", "expressionCharacters": 79, "factorSimplifyEvents": 10, "rssBytes": 199450624, "substitution": ["X106", 79, 3, 0, 81, 79, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 2, "port": "X108", "expressionCharacters": 79, "replacementCharacters": 29, "rssBytes": 199450624}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 2, "port": "X108", "expressionCharacters": 104, "factorSimplifyEvents": 11, "rssBytes": 199450624, "substitution": ["X108", 79, 29, 1, 108, 104, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X105", "expressionCharacters": 78, "replacementCharacters": 3, "rssBytes": 199450624}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X105", "expressionCharacters": 78, "factorSimplifyEvents": 13, "rssBytes": 199450624, "substitution": ["X105", 78, 3, 0, 80, 78, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X106", "expressionCharacters": 78, "replacementCharacters": 3, "rssBytes": 199450624}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X106", "expressionCharacters": 78, "factorSimplifyEvents": 14, "rssBytes": 199450624, "substitution": ["X106", 78, 3, 0, 80, 78, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 3, "port": "X108", "expressionCharacters": 78, "replacementCharacters": 29, "rssBytes": 199450624}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 3, "port": "X108", "expressionCharacters": 103, "factorSimplifyEvents": 15, "rssBytes": 199450624, "substitution": ["X108", 78, 29, 1, 107, 103, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X119", "expressionCharacters": 133, "replacementCharacters": 21, "rssBytes": 199450624}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X119", "expressionCharacters": 184, "factorSimplifyEvents": 1, "rssBytes": 199450624, "substitution": ["X119", 133, 21, 3, 192, 184, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 0, "port": "X120", "expressionCharacters": 184, "replacementCharacters": 21, "rssBytes": 199450624}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 0, "port": "X120", "expressionCharacters": 218, "factorSimplifyEvents": 2, "rssBytes": 199450624, "substitution": ["X120", 184, 21, 2, 224, 218, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X119", "expressionCharacters": 133, "replacementCharacters": 21, "rssBytes": 199450624}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X119", "expressionCharacters": 167, "factorSimplifyEvents": 4, "rssBytes": 199450624, "substitution": ["X119", 133, 21, 2, 173, 167, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14940, "coordinate": 1, "port": "X120", "expressionCharacters": 167, "replacementCharacters": 21, "rssBytes": 199450624}
+{"event": "scalar-substitution-finished", "pid": 14940, "coordinate": 1, "port": "X120", "expressionCharacters": 218, "factorSimplifyEvents": 5, "rssBytes": 199450624, "substitution": ["X120", 167, 21, 3, 226, 218, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 0, "port": "X15", "expressionCharacters": 3, "replacementCharacters": 2, "rssBytes": 197017600}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 0, "port": "X15", "expressionCharacters": 2, "factorSimplifyEvents": 1, "rssBytes": 197472256, "substitution": ["X15", 3, 2, 1, 6, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 0, "port": "X16", "expressionCharacters": 2, "replacementCharacters": 2, "rssBytes": 197472256}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 0, "port": "X16", "expressionCharacters": 2, "factorSimplifyEvents": 2, "rssBytes": 197472256, "substitution": ["X16", 2, 2, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 0, "port": "X19", "expressionCharacters": 2, "replacementCharacters": 357, "rssBytes": 197472256}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 0, "port": "X19", "expressionCharacters": 2, "factorSimplifyEvents": 3, "rssBytes": 197472256, "substitution": ["X19", 2, 357, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 0, "port": "X20", "expressionCharacters": 2, "replacementCharacters": 356, "rssBytes": 197472256}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 0, "port": "X20", "expressionCharacters": 2, "factorSimplifyEvents": 4, "rssBytes": 197472256, "substitution": ["X20", 2, 356, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 0, "port": "X21", "expressionCharacters": 2, "replacementCharacters": 355, "rssBytes": 197472256}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 0, "port": "X21", "expressionCharacters": 2, "factorSimplifyEvents": 5, "rssBytes": 197472256, "substitution": ["X21", 2, 355, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 0, "port": "X22", "expressionCharacters": 2, "replacementCharacters": 355, "rssBytes": 197472256}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 0, "port": "X22", "expressionCharacters": 2, "factorSimplifyEvents": 6, "rssBytes": 197472256, "substitution": ["X22", 2, 355, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 0, "port": "X23", "expressionCharacters": 2, "replacementCharacters": 355, "rssBytes": 197472256}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 0, "port": "X23", "expressionCharacters": 2, "factorSimplifyEvents": 7, "rssBytes": 197472256, "substitution": ["X23", 2, 355, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 0, "port": "X24", "expressionCharacters": 2, "replacementCharacters": 355, "rssBytes": 197472256}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 0, "port": "X24", "expressionCharacters": 2, "factorSimplifyEvents": 8, "rssBytes": 197472256, "substitution": ["X24", 2, 355, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 0, "port": "X25", "expressionCharacters": 2, "replacementCharacters": 359, "rssBytes": 197472256}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 0, "port": "X25", "expressionCharacters": 2, "factorSimplifyEvents": 9, "rssBytes": 197472256, "substitution": ["X25", 2, 359, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 0, "port": "X26", "expressionCharacters": 2, "replacementCharacters": 356, "rssBytes": 197472256}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 0, "port": "X26", "expressionCharacters": 2, "factorSimplifyEvents": 10, "rssBytes": 197472256, "substitution": ["X26", 2, 356, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 0, "port": "X27", "expressionCharacters": 2, "replacementCharacters": 359, "rssBytes": 197472256}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 0, "port": "X27", "expressionCharacters": 2, "factorSimplifyEvents": 11, "rssBytes": 197472256, "substitution": ["X27", 2, 359, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 0, "port": "X28", "expressionCharacters": 2, "replacementCharacters": 356, "rssBytes": 197472256}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 0, "port": "X28", "expressionCharacters": 2, "factorSimplifyEvents": 12, "rssBytes": 197472256, "substitution": ["X28", 2, 356, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 1, "port": "X15", "expressionCharacters": 3, "replacementCharacters": 2, "rssBytes": 197472256}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 1, "port": "X15", "expressionCharacters": 3, "factorSimplifyEvents": 14, "rssBytes": 197476352, "substitution": ["X15", 3, 2, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 1, "port": "X16", "expressionCharacters": 3, "replacementCharacters": 2, "rssBytes": 197476352}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 1, "port": "X16", "expressionCharacters": 2, "factorSimplifyEvents": 15, "rssBytes": 197476352, "substitution": ["X16", 3, 2, 1, 6, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 1, "port": "X19", "expressionCharacters": 2, "replacementCharacters": 357, "rssBytes": 197480448}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 1, "port": "X19", "expressionCharacters": 2, "factorSimplifyEvents": 16, "rssBytes": 197480448, "substitution": ["X19", 2, 357, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 1, "port": "X20", "expressionCharacters": 2, "replacementCharacters": 356, "rssBytes": 197480448}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 1, "port": "X20", "expressionCharacters": 2, "factorSimplifyEvents": 17, "rssBytes": 197480448, "substitution": ["X20", 2, 356, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 1, "port": "X21", "expressionCharacters": 2, "replacementCharacters": 355, "rssBytes": 197480448}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 1, "port": "X21", "expressionCharacters": 2, "factorSimplifyEvents": 18, "rssBytes": 197480448, "substitution": ["X21", 2, 355, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 1, "port": "X22", "expressionCharacters": 2, "replacementCharacters": 355, "rssBytes": 197480448}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 1, "port": "X22", "expressionCharacters": 2, "factorSimplifyEvents": 19, "rssBytes": 197545984, "substitution": ["X22", 2, 355, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 1, "port": "X23", "expressionCharacters": 2, "replacementCharacters": 355, "rssBytes": 197545984}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 1, "port": "X23", "expressionCharacters": 2, "factorSimplifyEvents": 20, "rssBytes": 197545984, "substitution": ["X23", 2, 355, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 1, "port": "X24", "expressionCharacters": 2, "replacementCharacters": 355, "rssBytes": 197545984}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 1, "port": "X24", "expressionCharacters": 2, "factorSimplifyEvents": 21, "rssBytes": 197545984, "substitution": ["X24", 2, 355, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 1, "port": "X25", "expressionCharacters": 2, "replacementCharacters": 359, "rssBytes": 197545984}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 1, "port": "X25", "expressionCharacters": 2, "factorSimplifyEvents": 22, "rssBytes": 197545984, "substitution": ["X25", 2, 359, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 1, "port": "X26", "expressionCharacters": 2, "replacementCharacters": 356, "rssBytes": 197545984}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 1, "port": "X26", "expressionCharacters": 2, "factorSimplifyEvents": 23, "rssBytes": 197545984, "substitution": ["X26", 2, 356, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 1, "port": "X27", "expressionCharacters": 2, "replacementCharacters": 359, "rssBytes": 197545984}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 1, "port": "X27", "expressionCharacters": 2, "factorSimplifyEvents": 24, "rssBytes": 197545984, "substitution": ["X27", 2, 359, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 1, "port": "X28", "expressionCharacters": 2, "replacementCharacters": 356, "rssBytes": 197545984}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 1, "port": "X28", "expressionCharacters": 2, "factorSimplifyEvents": 25, "rssBytes": 197545984, "substitution": ["X28", 2, 356, 0, 4, 2, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 2, "port": "X15", "expressionCharacters": 3, "replacementCharacters": 2, "rssBytes": 197545984}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 2, "port": "X15", "expressionCharacters": 3, "factorSimplifyEvents": 27, "rssBytes": 197545984, "substitution": ["X15", 3, 2, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 2, "port": "X16", "expressionCharacters": 3, "replacementCharacters": 2, "rssBytes": 197545984}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 2, "port": "X16", "expressionCharacters": 3, "factorSimplifyEvents": 28, "rssBytes": 197545984, "substitution": ["X16", 3, 2, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 2, "port": "X19", "expressionCharacters": 3, "replacementCharacters": 357, "rssBytes": 197545984}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 2, "port": "X19", "expressionCharacters": 3, "factorSimplifyEvents": 29, "rssBytes": 197545984, "substitution": ["X19", 3, 357, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 2, "port": "X20", "expressionCharacters": 3, "replacementCharacters": 356, "rssBytes": 197545984}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 2, "port": "X20", "expressionCharacters": 3, "factorSimplifyEvents": 30, "rssBytes": 197545984, "substitution": ["X20", 3, 356, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 2, "port": "X21", "expressionCharacters": 3, "replacementCharacters": 355, "rssBytes": 197545984}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 2, "port": "X21", "expressionCharacters": 3, "factorSimplifyEvents": 31, "rssBytes": 197545984, "substitution": ["X21", 3, 355, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 2, "port": "X22", "expressionCharacters": 3, "replacementCharacters": 355, "rssBytes": 197545984}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 2, "port": "X22", "expressionCharacters": 3, "factorSimplifyEvents": 32, "rssBytes": 197545984, "substitution": ["X22", 3, 355, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 2, "port": "X23", "expressionCharacters": 3, "replacementCharacters": 355, "rssBytes": 197545984}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 2, "port": "X23", "expressionCharacters": 3, "factorSimplifyEvents": 33, "rssBytes": 197545984, "substitution": ["X23", 3, 355, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 2, "port": "X24", "expressionCharacters": 3, "replacementCharacters": 355, "rssBytes": 197545984}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 2, "port": "X24", "expressionCharacters": 3, "factorSimplifyEvents": 34, "rssBytes": 197545984, "substitution": ["X24", 3, 355, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 2, "port": "X25", "expressionCharacters": 3, "replacementCharacters": 359, "rssBytes": 197545984}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 2, "port": "X25", "expressionCharacters": 359, "factorSimplifyEvents": 35, "rssBytes": 197545984, "substitution": ["X25", 3, 359, 1, 363, 359, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 2, "port": "X26", "expressionCharacters": 359, "replacementCharacters": 356, "rssBytes": 197545984}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 2, "port": "X26", "expressionCharacters": 359, "factorSimplifyEvents": 36, "rssBytes": 197545984, "substitution": ["X26", 359, 356, 0, 361, 359, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 2, "port": "X27", "expressionCharacters": 359, "replacementCharacters": 359, "rssBytes": 197550080}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 2, "port": "X27", "expressionCharacters": 359, "factorSimplifyEvents": 37, "rssBytes": 197550080, "substitution": ["X27", 359, 359, 0, 361, 359, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 2, "port": "X28", "expressionCharacters": 359, "replacementCharacters": 356, "rssBytes": 197550080}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 2, "port": "X28", "expressionCharacters": 359, "factorSimplifyEvents": 38, "rssBytes": 197550080, "substitution": ["X28", 359, 356, 0, 361, 359, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 3, "port": "X15", "expressionCharacters": 3, "replacementCharacters": 2, "rssBytes": 197550080}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 3, "port": "X15", "expressionCharacters": 3, "factorSimplifyEvents": 40, "rssBytes": 197550080, "substitution": ["X15", 3, 2, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 3, "port": "X16", "expressionCharacters": 3, "replacementCharacters": 2, "rssBytes": 197550080}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 3, "port": "X16", "expressionCharacters": 3, "factorSimplifyEvents": 41, "rssBytes": 197550080, "substitution": ["X16", 3, 2, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 3, "port": "X19", "expressionCharacters": 3, "replacementCharacters": 357, "rssBytes": 197550080}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 3, "port": "X19", "expressionCharacters": 3, "factorSimplifyEvents": 42, "rssBytes": 197550080, "substitution": ["X19", 3, 357, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 3, "port": "X20", "expressionCharacters": 3, "replacementCharacters": 356, "rssBytes": 197550080}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 3, "port": "X20", "expressionCharacters": 3, "factorSimplifyEvents": 43, "rssBytes": 197550080, "substitution": ["X20", 3, 356, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 3, "port": "X21", "expressionCharacters": 3, "replacementCharacters": 355, "rssBytes": 197550080}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 3, "port": "X21", "expressionCharacters": 3, "factorSimplifyEvents": 44, "rssBytes": 197550080, "substitution": ["X21", 3, 355, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 3, "port": "X22", "expressionCharacters": 3, "replacementCharacters": 355, "rssBytes": 197550080}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 3, "port": "X22", "expressionCharacters": 3, "factorSimplifyEvents": 45, "rssBytes": 197550080, "substitution": ["X22", 3, 355, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 3, "port": "X23", "expressionCharacters": 3, "replacementCharacters": 355, "rssBytes": 197550080}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 3, "port": "X23", "expressionCharacters": 3, "factorSimplifyEvents": 46, "rssBytes": 197550080, "substitution": ["X23", 3, 355, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 3, "port": "X24", "expressionCharacters": 3, "replacementCharacters": 355, "rssBytes": 197550080}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 3, "port": "X24", "expressionCharacters": 3, "factorSimplifyEvents": 47, "rssBytes": 197550080, "substitution": ["X24", 3, 355, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 3, "port": "X25", "expressionCharacters": 3, "replacementCharacters": 359, "rssBytes": 197550080}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 3, "port": "X25", "expressionCharacters": 3, "factorSimplifyEvents": 48, "rssBytes": 197550080, "substitution": ["X25", 3, 359, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 3, "port": "X26", "expressionCharacters": 3, "replacementCharacters": 356, "rssBytes": 197550080}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 3, "port": "X26", "expressionCharacters": 356, "factorSimplifyEvents": 49, "rssBytes": 197550080, "substitution": ["X26", 3, 356, 1, 360, 356, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 3, "port": "X27", "expressionCharacters": 356, "replacementCharacters": 359, "rssBytes": 197550080}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 3, "port": "X27", "expressionCharacters": 356, "factorSimplifyEvents": 50, "rssBytes": 197550080, "substitution": ["X27", 356, 359, 0, 358, 356, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 3, "port": "X28", "expressionCharacters": 356, "replacementCharacters": 356, "rssBytes": 197550080}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 3, "port": "X28", "expressionCharacters": 356, "factorSimplifyEvents": 51, "rssBytes": 197550080, "substitution": ["X28", 356, 356, 0, 358, 356, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 4, "port": "X15", "expressionCharacters": 3, "replacementCharacters": 2, "rssBytes": 197550080}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 4, "port": "X15", "expressionCharacters": 3, "factorSimplifyEvents": 53, "rssBytes": 197554176, "substitution": ["X15", 3, 2, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 4, "port": "X16", "expressionCharacters": 3, "replacementCharacters": 2, "rssBytes": 197558272}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 4, "port": "X16", "expressionCharacters": 3, "factorSimplifyEvents": 54, "rssBytes": 197558272, "substitution": ["X16", 3, 2, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 4, "port": "X19", "expressionCharacters": 3, "replacementCharacters": 357, "rssBytes": 197558272}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 4, "port": "X19", "expressionCharacters": 3, "factorSimplifyEvents": 55, "rssBytes": 197558272, "substitution": ["X19", 3, 357, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 4, "port": "X20", "expressionCharacters": 3, "replacementCharacters": 356, "rssBytes": 197558272}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 4, "port": "X20", "expressionCharacters": 3, "factorSimplifyEvents": 56, "rssBytes": 197558272, "substitution": ["X20", 3, 356, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 4, "port": "X21", "expressionCharacters": 3, "replacementCharacters": 355, "rssBytes": 197558272}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 4, "port": "X21", "expressionCharacters": 3, "factorSimplifyEvents": 57, "rssBytes": 197562368, "substitution": ["X21", 3, 355, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 4, "port": "X22", "expressionCharacters": 3, "replacementCharacters": 355, "rssBytes": 197562368}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 4, "port": "X22", "expressionCharacters": 3, "factorSimplifyEvents": 58, "rssBytes": 197562368, "substitution": ["X22", 3, 355, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 4, "port": "X23", "expressionCharacters": 3, "replacementCharacters": 355, "rssBytes": 197562368}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 4, "port": "X23", "expressionCharacters": 3, "factorSimplifyEvents": 59, "rssBytes": 197562368, "substitution": ["X23", 3, 355, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 4, "port": "X24", "expressionCharacters": 3, "replacementCharacters": 355, "rssBytes": 197562368}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 4, "port": "X24", "expressionCharacters": 3, "factorSimplifyEvents": 60, "rssBytes": 197562368, "substitution": ["X24", 3, 355, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 4, "port": "X25", "expressionCharacters": 3, "replacementCharacters": 359, "rssBytes": 197562368}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 4, "port": "X25", "expressionCharacters": 3, "factorSimplifyEvents": 61, "rssBytes": 197562368, "substitution": ["X25", 3, 359, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 4, "port": "X26", "expressionCharacters": 3, "replacementCharacters": 356, "rssBytes": 197562368}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 4, "port": "X26", "expressionCharacters": 3, "factorSimplifyEvents": 62, "rssBytes": 197562368, "substitution": ["X26", 3, 356, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 4, "port": "X27", "expressionCharacters": 3, "replacementCharacters": 359, "rssBytes": 197562368}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 4, "port": "X27", "expressionCharacters": 359, "factorSimplifyEvents": 63, "rssBytes": 197562368, "substitution": ["X27", 3, 359, 1, 363, 359, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 4, "port": "X28", "expressionCharacters": 359, "replacementCharacters": 356, "rssBytes": 197562368}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 4, "port": "X28", "expressionCharacters": 359, "factorSimplifyEvents": 64, "rssBytes": 197570560, "substitution": ["X28", 359, 356, 0, 361, 359, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 5, "port": "X15", "expressionCharacters": 3, "replacementCharacters": 2, "rssBytes": 197574656}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 5, "port": "X15", "expressionCharacters": 3, "factorSimplifyEvents": 66, "rssBytes": 197603328, "substitution": ["X15", 3, 2, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 5, "port": "X16", "expressionCharacters": 3, "replacementCharacters": 2, "rssBytes": 197607424}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 5, "port": "X16", "expressionCharacters": 3, "factorSimplifyEvents": 67, "rssBytes": 197607424, "substitution": ["X16", 3, 2, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 5, "port": "X19", "expressionCharacters": 3, "replacementCharacters": 357, "rssBytes": 197607424}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 5, "port": "X19", "expressionCharacters": 3, "factorSimplifyEvents": 68, "rssBytes": 197607424, "substitution": ["X19", 3, 357, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 5, "port": "X20", "expressionCharacters": 3, "replacementCharacters": 356, "rssBytes": 197607424}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 5, "port": "X20", "expressionCharacters": 3, "factorSimplifyEvents": 69, "rssBytes": 197607424, "substitution": ["X20", 3, 356, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 5, "port": "X21", "expressionCharacters": 3, "replacementCharacters": 355, "rssBytes": 197607424}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 5, "port": "X21", "expressionCharacters": 3, "factorSimplifyEvents": 70, "rssBytes": 197611520, "substitution": ["X21", 3, 355, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 5, "port": "X22", "expressionCharacters": 3, "replacementCharacters": 355, "rssBytes": 197611520}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 5, "port": "X22", "expressionCharacters": 3, "factorSimplifyEvents": 71, "rssBytes": 197611520, "substitution": ["X22", 3, 355, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 5, "port": "X23", "expressionCharacters": 3, "replacementCharacters": 355, "rssBytes": 197611520}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 5, "port": "X23", "expressionCharacters": 3, "factorSimplifyEvents": 72, "rssBytes": 197611520, "substitution": ["X23", 3, 355, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 5, "port": "X24", "expressionCharacters": 3, "replacementCharacters": 355, "rssBytes": 197611520}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 5, "port": "X24", "expressionCharacters": 3, "factorSimplifyEvents": 73, "rssBytes": 197611520, "substitution": ["X24", 3, 355, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 5, "port": "X25", "expressionCharacters": 3, "replacementCharacters": 359, "rssBytes": 197611520}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 5, "port": "X25", "expressionCharacters": 3, "factorSimplifyEvents": 74, "rssBytes": 197611520, "substitution": ["X25", 3, 359, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 5, "port": "X26", "expressionCharacters": 3, "replacementCharacters": 356, "rssBytes": 197611520}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 5, "port": "X26", "expressionCharacters": 3, "factorSimplifyEvents": 75, "rssBytes": 197611520, "substitution": ["X26", 3, 356, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 5, "port": "X27", "expressionCharacters": 3, "replacementCharacters": 359, "rssBytes": 197611520}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 5, "port": "X27", "expressionCharacters": 3, "factorSimplifyEvents": 76, "rssBytes": 197611520, "substitution": ["X27", 3, 359, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 5, "port": "X28", "expressionCharacters": 3, "replacementCharacters": 356, "rssBytes": 197611520}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 5, "port": "X28", "expressionCharacters": 356, "factorSimplifyEvents": 77, "rssBytes": 197619712, "substitution": ["X28", 3, 356, 1, 360, 356, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 6, "port": "X15", "expressionCharacters": 350, "replacementCharacters": 2, "rssBytes": 197627904}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 6, "port": "X15", "expressionCharacters": 350, "factorSimplifyEvents": 79, "rssBytes": 197763072, "substitution": ["X15", 350, 2, 0, 352, 350, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 6, "port": "X16", "expressionCharacters": 350, "replacementCharacters": 2, "rssBytes": 197763072}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 6, "port": "X16", "expressionCharacters": 350, "factorSimplifyEvents": 80, "rssBytes": 197763072, "substitution": ["X16", 350, 2, 0, 352, 350, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 6, "port": "X19", "expressionCharacters": 350, "replacementCharacters": 357, "rssBytes": 197763072}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 6, "port": "X19", "expressionCharacters": 1058, "factorSimplifyEvents": 81, "rssBytes": 197873664, "substitution": ["X19", 350, 357, 2, 1064, 1058, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 6, "port": "X20", "expressionCharacters": 1058, "replacementCharacters": 356, "rssBytes": 197873664}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 6, "port": "X20", "expressionCharacters": 1764, "factorSimplifyEvents": 82, "rssBytes": 197881856, "substitution": ["X20", 1058, 356, 2, 1770, 1764, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 6, "port": "X21", "expressionCharacters": 1764, "replacementCharacters": 355, "rssBytes": 197881856}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 6, "port": "X21", "expressionCharacters": 2468, "factorSimplifyEvents": 83, "rssBytes": 197881856, "substitution": ["X21", 1764, 355, 2, 2474, 2468, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 6, "port": "X22", "expressionCharacters": 2468, "replacementCharacters": 355, "rssBytes": 197881856}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 6, "port": "X22", "expressionCharacters": 3172, "factorSimplifyEvents": 84, "rssBytes": 197910528, "substitution": ["X22", 2468, 355, 2, 3178, 3172, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 6, "port": "X23", "expressionCharacters": 3172, "replacementCharacters": 355, "rssBytes": 197910528}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 6, "port": "X23", "expressionCharacters": 3172, "factorSimplifyEvents": 85, "rssBytes": 197922816, "substitution": ["X23", 3172, 355, 0, 3174, 3172, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 6, "port": "X24", "expressionCharacters": 3172, "replacementCharacters": 355, "rssBytes": 197922816}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 6, "port": "X24", "expressionCharacters": 3172, "factorSimplifyEvents": 86, "rssBytes": 197922816, "substitution": ["X24", 3172, 355, 0, 3174, 3172, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 6, "port": "X25", "expressionCharacters": 3172, "replacementCharacters": 359, "rssBytes": 197922816}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 6, "port": "X25", "expressionCharacters": 3172, "factorSimplifyEvents": 87, "rssBytes": 197922816, "substitution": ["X25", 3172, 359, 0, 3174, 3172, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 6, "port": "X26", "expressionCharacters": 3172, "replacementCharacters": 356, "rssBytes": 197922816}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 6, "port": "X26", "expressionCharacters": 3172, "factorSimplifyEvents": 88, "rssBytes": 197922816, "substitution": ["X26", 3172, 356, 0, 3174, 3172, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 6, "port": "X27", "expressionCharacters": 3172, "replacementCharacters": 359, "rssBytes": 197922816}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 6, "port": "X27", "expressionCharacters": 3172, "factorSimplifyEvents": 89, "rssBytes": 197922816, "substitution": ["X27", 3172, 359, 0, 3174, 3172, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 6, "port": "X28", "expressionCharacters": 3172, "replacementCharacters": 356, "rssBytes": 197922816}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 6, "port": "X28", "expressionCharacters": 3172, "factorSimplifyEvents": 90, "rssBytes": 197922816, "substitution": ["X28", 3172, 356, 0, 3174, 3172, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 7, "port": "X15", "expressionCharacters": 390, "replacementCharacters": 2, "rssBytes": 197922816}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 7, "port": "X15", "expressionCharacters": 390, "factorSimplifyEvents": 92, "rssBytes": 197931008, "substitution": ["X15", 390, 2, 0, 392, 390, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 7, "port": "X16", "expressionCharacters": 390, "replacementCharacters": 2, "rssBytes": 197931008}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 7, "port": "X16", "expressionCharacters": 390, "factorSimplifyEvents": 93, "rssBytes": 197931008, "substitution": ["X16", 390, 2, 0, 392, 390, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 7, "port": "X19", "expressionCharacters": 390, "replacementCharacters": 357, "rssBytes": 197931008}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 7, "port": "X19", "expressionCharacters": 1098, "factorSimplifyEvents": 94, "rssBytes": 197931008, "substitution": ["X19", 390, 357, 2, 1104, 1098, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 7, "port": "X20", "expressionCharacters": 1098, "replacementCharacters": 356, "rssBytes": 197931008}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 7, "port": "X20", "expressionCharacters": 1804, "factorSimplifyEvents": 95, "rssBytes": 197931008, "substitution": ["X20", 1098, 356, 2, 1810, 1804, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 7, "port": "X21", "expressionCharacters": 1804, "replacementCharacters": 355, "rssBytes": 197931008}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 7, "port": "X21", "expressionCharacters": 1804, "factorSimplifyEvents": 96, "rssBytes": 197931008, "substitution": ["X21", 1804, 355, 0, 1806, 1804, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 7, "port": "X22", "expressionCharacters": 1804, "replacementCharacters": 355, "rssBytes": 197931008}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 7, "port": "X22", "expressionCharacters": 1804, "factorSimplifyEvents": 97, "rssBytes": 197931008, "substitution": ["X22", 1804, 355, 0, 1806, 1804, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 7, "port": "X23", "expressionCharacters": 1804, "replacementCharacters": 355, "rssBytes": 197931008}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 7, "port": "X23", "expressionCharacters": 2508, "factorSimplifyEvents": 98, "rssBytes": 197931008, "substitution": ["X23", 1804, 355, 2, 2514, 2508, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 7, "port": "X24", "expressionCharacters": 2508, "replacementCharacters": 355, "rssBytes": 197931008}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 7, "port": "X24", "expressionCharacters": 3212, "factorSimplifyEvents": 99, "rssBytes": 197931008, "substitution": ["X24", 2508, 355, 2, 3218, 3212, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 7, "port": "X25", "expressionCharacters": 3212, "replacementCharacters": 359, "rssBytes": 197931008}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 7, "port": "X25", "expressionCharacters": 3212, "factorSimplifyEvents": 100, "rssBytes": 197939200, "substitution": ["X25", 3212, 359, 0, 3214, 3212, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 7, "port": "X26", "expressionCharacters": 3212, "replacementCharacters": 356, "rssBytes": 197939200}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 7, "port": "X26", "expressionCharacters": 3212, "factorSimplifyEvents": 101, "rssBytes": 197939200, "substitution": ["X26", 3212, 356, 0, 3214, 3212, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 7, "port": "X27", "expressionCharacters": 3212, "replacementCharacters": 359, "rssBytes": 197939200}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 7, "port": "X27", "expressionCharacters": 3212, "factorSimplifyEvents": 102, "rssBytes": 197939200, "substitution": ["X27", 3212, 359, 0, 3214, 3212, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 7, "port": "X28", "expressionCharacters": 3212, "replacementCharacters": 356, "rssBytes": 197939200}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 7, "port": "X28", "expressionCharacters": 3212, "factorSimplifyEvents": 103, "rssBytes": 197939200, "substitution": ["X28", 3212, 356, 0, 3214, 3212, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 0, "port": "X69", "expressionCharacters": 131, "replacementCharacters": 3, "rssBytes": 198135808}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 0, "port": "X69", "expressionCharacters": 131, "factorSimplifyEvents": 1, "rssBytes": 198135808, "substitution": ["X69", 131, 3, 1, 135, 131, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 0, "port": "X70", "expressionCharacters": 131, "replacementCharacters": 3, "rssBytes": 198135808}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 0, "port": "X70", "expressionCharacters": 131, "factorSimplifyEvents": 2, "rssBytes": 198144000, "substitution": ["X70", 131, 3, 0, 133, 131, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 0, "port": "X73", "expressionCharacters": 131, "replacementCharacters": 497, "rssBytes": 198144000}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 0, "port": "X73", "expressionCharacters": 625, "factorSimplifyEvents": 11, "rssBytes": 198967296, "substitution": ["X73", 131, 497, 1, 629, 625, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 0, "port": "X74", "expressionCharacters": 625, "replacementCharacters": 497, "rssBytes": 198967296}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 0, "port": "X74", "expressionCharacters": 1119, "factorSimplifyEvents": 24, "rssBytes": 199561216, "substitution": ["X74", 625, 497, 1, 1123, 1119, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 1, "port": "X69", "expressionCharacters": 133, "replacementCharacters": 3, "rssBytes": 199806976}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 1, "port": "X69", "expressionCharacters": 133, "factorSimplifyEvents": 38, "rssBytes": 199806976, "substitution": ["X69", 133, 3, 0, 135, 133, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 1, "port": "X70", "expressionCharacters": 133, "replacementCharacters": 3, "rssBytes": 199806976}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 1, "port": "X70", "expressionCharacters": 133, "factorSimplifyEvents": 39, "rssBytes": 199806976, "substitution": ["X70", 133, 3, 1, 137, 133, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 1, "port": "X73", "expressionCharacters": 133, "replacementCharacters": 497, "rssBytes": 199806976}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 1, "port": "X73", "expressionCharacters": 627, "factorSimplifyEvents": 46, "rssBytes": 199819264, "substitution": ["X73", 133, 497, 1, 631, 627, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 1, "port": "X74", "expressionCharacters": 627, "replacementCharacters": 497, "rssBytes": 199819264}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 1, "port": "X74", "expressionCharacters": 1121, "factorSimplifyEvents": 59, "rssBytes": 200159232, "substitution": ["X74", 627, 497, 1, 1125, 1121, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 0, "port": "X97", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 200269824}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 0, "port": "X97", "expressionCharacters": 3, "factorSimplifyEvents": 1, "rssBytes": 200269824, "substitution": ["X97", 3, 3, 1, 7, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 0, "port": "X98", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 200269824}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 0, "port": "X98", "expressionCharacters": 3, "factorSimplifyEvents": 2, "rssBytes": 200269824, "substitution": ["X98", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 0, "port": "X100", "expressionCharacters": 3, "replacementCharacters": 371, "rssBytes": 200269824}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 0, "port": "X100", "expressionCharacters": 3, "factorSimplifyEvents": 3, "rssBytes": 200269824, "substitution": ["X100", 3, 371, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 0, "port": "X102", "expressionCharacters": 3, "replacementCharacters": 367, "rssBytes": 200269824}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 0, "port": "X102", "expressionCharacters": 3, "factorSimplifyEvents": 4, "rssBytes": 200269824, "substitution": ["X102", 3, 367, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 1, "port": "X97", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 200269824}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 1, "port": "X97", "expressionCharacters": 3, "factorSimplifyEvents": 6, "rssBytes": 200269824, "substitution": ["X97", 3, 3, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 1, "port": "X98", "expressionCharacters": 3, "replacementCharacters": 3, "rssBytes": 200269824}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 1, "port": "X98", "expressionCharacters": 3, "factorSimplifyEvents": 7, "rssBytes": 200269824, "substitution": ["X98", 3, 3, 1, 7, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 1, "port": "X100", "expressionCharacters": 3, "replacementCharacters": 371, "rssBytes": 200269824}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 1, "port": "X100", "expressionCharacters": 3, "factorSimplifyEvents": 8, "rssBytes": 200269824, "substitution": ["X100", 3, 371, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 1, "port": "X102", "expressionCharacters": 3, "replacementCharacters": 367, "rssBytes": 200269824}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 1, "port": "X102", "expressionCharacters": 3, "factorSimplifyEvents": 9, "rssBytes": 200269824, "substitution": ["X102", 3, 367, 0, 5, 3, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 2, "port": "X97", "expressionCharacters": 104, "replacementCharacters": 3, "rssBytes": 200269824}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 2, "port": "X97", "expressionCharacters": 104, "factorSimplifyEvents": 11, "rssBytes": 200269824, "substitution": ["X97", 104, 3, 0, 106, 104, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 2, "port": "X98", "expressionCharacters": 104, "replacementCharacters": 3, "rssBytes": 200269824}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 2, "port": "X98", "expressionCharacters": 104, "factorSimplifyEvents": 12, "rssBytes": 200269824, "substitution": ["X98", 104, 3, 0, 106, 104, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 2, "port": "X100", "expressionCharacters": 104, "replacementCharacters": 371, "rssBytes": 200269824}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 2, "port": "X100", "expressionCharacters": 471, "factorSimplifyEvents": 13, "rssBytes": 200269824, "substitution": ["X100", 104, 371, 1, 475, 471, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 2, "port": "X102", "expressionCharacters": 471, "replacementCharacters": 367, "rssBytes": 200269824}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 2, "port": "X102", "expressionCharacters": 834, "factorSimplifyEvents": 14, "rssBytes": 200278016, "substitution": ["X102", 471, 367, 1, 838, 834, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 3, "port": "X97", "expressionCharacters": 103, "replacementCharacters": 3, "rssBytes": 200282112}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 3, "port": "X97", "expressionCharacters": 103, "factorSimplifyEvents": 16, "rssBytes": 200282112, "substitution": ["X97", 103, 3, 0, 105, 103, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 3, "port": "X98", "expressionCharacters": 103, "replacementCharacters": 3, "rssBytes": 200282112}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 3, "port": "X98", "expressionCharacters": 103, "factorSimplifyEvents": 17, "rssBytes": 200282112, "substitution": ["X98", 103, 3, 0, 105, 103, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 3, "port": "X100", "expressionCharacters": 103, "replacementCharacters": 371, "rssBytes": 200282112}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 3, "port": "X100", "expressionCharacters": 470, "factorSimplifyEvents": 18, "rssBytes": 200282112, "substitution": ["X100", 103, 371, 1, 474, 470, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 3, "port": "X102", "expressionCharacters": 470, "replacementCharacters": 367, "rssBytes": 200282112}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 3, "port": "X102", "expressionCharacters": 833, "factorSimplifyEvents": 19, "rssBytes": 200286208, "substitution": ["X102", 470, 367, 1, 837, 833, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 0, "port": "X123", "expressionCharacters": 120, "replacementCharacters": 218, "rssBytes": 200286208}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 0, "port": "X123", "expressionCharacters": 334, "factorSimplifyEvents": 1, "rssBytes": 200286208, "substitution": ["X123", 120, 218, 1, 338, 334, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 0, "port": "X124", "expressionCharacters": 334, "replacementCharacters": 218, "rssBytes": 200286208}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 0, "port": "X124", "expressionCharacters": 548, "factorSimplifyEvents": 2, "rssBytes": 200286208, "substitution": ["X124", 334, 218, 1, 552, 548, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 1, "port": "X123", "expressionCharacters": 117, "replacementCharacters": 218, "rssBytes": 200286208}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 1, "port": "X123", "expressionCharacters": 331, "factorSimplifyEvents": 4, "rssBytes": 200286208, "substitution": ["X123", 117, 218, 1, 335, 331, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 1, "port": "X124", "expressionCharacters": 331, "replacementCharacters": 218, "rssBytes": 200286208}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 1, "port": "X124", "expressionCharacters": 545, "factorSimplifyEvents": 5, "rssBytes": 200286208, "substitution": ["X124", 331, 218, 1, 549, 545, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 2, "port": "X123", "expressionCharacters": 124, "replacementCharacters": 218, "rssBytes": 200286208}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 2, "port": "X123", "expressionCharacters": 338, "factorSimplifyEvents": 7, "rssBytes": 200286208, "substitution": ["X123", 124, 218, 1, 342, 338, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 2, "port": "X124", "expressionCharacters": 338, "replacementCharacters": 218, "rssBytes": 200286208}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 2, "port": "X124", "expressionCharacters": 552, "factorSimplifyEvents": 8, "rssBytes": 200286208, "substitution": ["X124", 338, 218, 1, 556, 552, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 3, "port": "X123", "expressionCharacters": 114, "replacementCharacters": 218, "rssBytes": 200286208}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 3, "port": "X123", "expressionCharacters": 328, "factorSimplifyEvents": 10, "rssBytes": 200286208, "substitution": ["X123", 114, 218, 1, 332, 328, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 14970, "coordinate": 3, "port": "X124", "expressionCharacters": 328, "replacementCharacters": 218, "rssBytes": 200286208}
+{"event": "scalar-substitution-finished", "pid": 14970, "coordinate": 3, "port": "X124", "expressionCharacters": 542, "factorSimplifyEvents": 11, "rssBytes": 200286208, "substitution": ["X124", 328, 218, 1, 546, 542, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 0, "port": "X47", "expressionCharacters": 1119, "replacementCharacters": 2, "rssBytes": 197783552}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 0, "port": "X47", "expressionCharacters": 1118, "factorSimplifyEvents": 15, "rssBytes": 199372800, "substitution": ["X47", 1119, 2, 1, 1122, 1118, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 0, "port": "X48", "expressionCharacters": 1118, "replacementCharacters": 2, "rssBytes": 199372800}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 0, "port": "X48", "expressionCharacters": 1118, "factorSimplifyEvents": 28, "rssBytes": 199561216, "substitution": ["X48", 1118, 2, 0, 1120, 1118, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 0, "port": "X49", "expressionCharacters": 1118, "replacementCharacters": 359, "rssBytes": 199561216}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 0, "port": "X49", "expressionCharacters": 1474, "factorSimplifyEvents": 41, "rssBytes": 199757824, "substitution": ["X49", 1118, 359, 1, 1478, 1474, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 0, "port": "X50", "expressionCharacters": 1474, "replacementCharacters": 356, "rssBytes": 199757824}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 0, "port": "X50", "expressionCharacters": 1827, "factorSimplifyEvents": 54, "rssBytes": 199884800, "substitution": ["X50", 1474, 356, 1, 1831, 1827, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 0, "port": "X51", "expressionCharacters": 1827, "replacementCharacters": 359, "rssBytes": 199884800}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 0, "port": "X51", "expressionCharacters": 2183, "factorSimplifyEvents": 67, "rssBytes": 199983104, "substitution": ["X51", 1827, 359, 1, 2187, 2183, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 0, "port": "X52", "expressionCharacters": 2183, "replacementCharacters": 356, "rssBytes": 199983104}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 0, "port": "X52", "expressionCharacters": 2536, "factorSimplifyEvents": 80, "rssBytes": 200110080, "substitution": ["X52", 2183, 356, 1, 2540, 2536, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 0, "port": "X54", "expressionCharacters": 2536, "replacementCharacters": 3172, "rssBytes": 200110080}
+Timeout (0:00:10)!
+Thread 0x00007b21fd331080 (most recent call first):
+  File "/usr/local/lib/python3.13/dist-packages/mpmath/identification.py", line 268 in pslq
+  File "/usr/local/lib/python3.13/dist-packages/mpmath/identification.py", line 827 in identify
+  File "/usr/local/lib/python3.13/dist-packages/sympy/simplify/simplify.py", line 1500 in nsimplify_real
+  File "/usr/local/lib/python3.13/dist-packages/sympy/simplify/simplify.py", line 1518 in nsimplify
+  File "/usr/local/lib/python3.13/dist-packages/sympy/simplify/simplify.py", line 1579 in _real_to_rational
+  File "/usr/local/lib/python3.13/dist-packages/sympy/simplify/simplify.py", line 1460 in nsimplify
+  File "/usr/local/lib/python3.13/dist-packages/sympy/core/random.py", line 64 in random_complex_number
+  File "/usr/local/lib/python3.13/dist-packages/sympy/core/expr.py", line 559 in _random
+  File "/usr/local/lib/python3.13/dist-packages/sympy/core/expr.py", line 724 in is_constant
+  File "/usr/local/lib/python3.13/dist-packages/sympy/core/expr.py", line 801 in equals
+  File "/usr/local/lib/python3.13/dist-packages/sympy/core/relational.py", line 437 in _eval_simplify
+  File "/usr/local/lib/python3.13/dist-packages/sympy/simplify/simplify.py", line 616 in simplify
+  File "/usr/local/lib/python3.13/dist-packages/sympy/functions/elementary/piecewise.py", line 1223 in piecewise_simplify_arguments
+  File "/usr/local/lib/python3.13/dist-packages/sympy/functions/elementary/piecewise.py", line 1345 in piecewise_simplify
+  File "/usr/local/lib/python3.13/dist-packages/sympy/functions/elementary/piecewise.py", line 223 in _eval_simplify
+  File "/usr/local/lib/python3.13/dist-packages/sympy/simplify/simplify.py", line 616 in simplify
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 439 in stabilize
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 480 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 507 in generic_visit
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 507 in generic_visit
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 507 in generic_visit
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 507 in generic_visit
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 507 in generic_visit
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 507 in generic_visit
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 507 in generic_visit
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 507 in generic_visit
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 507 in generic_visit
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 507 in generic_visit
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 507 in generic_visit
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 482 in _stabilize
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 443 in stabilize
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 639 in substitute
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_parallel.py", line 85 in _job
+  File "/usr/lib/python3.13/concurrent/futures/process.py", line 255 in _process_worker
+  File "/usr/lib/python3.13/multiprocessing/process.py", line 108 in run
+  File "/usr/lib/python3.13/multiprocessing/process.py", line 313 in _bootstrap
+  File "/usr/lib/python3.13/multiprocessing/popen_fork.py", line 84 in _launch
+  File "/usr/lib/python3.13/multiprocessing/popen_fork.py", line 20 in __init__
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 0, "port": "X54", "expressionCharacters": 97606, "factorSimplifyEvents": 95, "rssBytes": 200347648, "substitution": ["X54", 2536, 3172, 30, 97668, 97606, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 0, "port": "X55", "expressionCharacters": 97606, "replacementCharacters": 3212, "rssBytes": 200347648}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 0, "port": "X55", "expressionCharacters": 193876, "factorSimplifyEvents": 110, "rssBytes": 200839168, "substitution": ["X55", 97606, 3212, 30, 193938, 193876, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 1, "port": "X47", "expressionCharacters": 1121, "replacementCharacters": 2, "rssBytes": 201506816}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 1, "port": "X47", "expressionCharacters": 1121, "factorSimplifyEvents": 136, "rssBytes": 201568256, "substitution": ["X47", 1121, 2, 0, 1123, 1121, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 1, "port": "X48", "expressionCharacters": 1121, "replacementCharacters": 2, "rssBytes": 201568256}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 1, "port": "X48", "expressionCharacters": 1120, "factorSimplifyEvents": 149, "rssBytes": 201625600, "substitution": ["X48", 1121, 2, 1, 1124, 1120, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 1, "port": "X49", "expressionCharacters": 1120, "replacementCharacters": 359, "rssBytes": 201625600}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 1, "port": "X49", "expressionCharacters": 1476, "factorSimplifyEvents": 162, "rssBytes": 201728000, "substitution": ["X49", 1120, 359, 1, 1480, 1476, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 1, "port": "X50", "expressionCharacters": 1476, "replacementCharacters": 356, "rssBytes": 201728000}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 1, "port": "X50", "expressionCharacters": 1829, "factorSimplifyEvents": 175, "rssBytes": 201850880, "substitution": ["X50", 1476, 356, 1, 1833, 1829, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 1, "port": "X51", "expressionCharacters": 1829, "replacementCharacters": 359, "rssBytes": 201850880}
+Timeout (0:00:10)!
+Thread 0x00007b21fd331080 (most recent call first):
+  File "/usr/local/lib/python3.13/dist-packages/mpmath/identification.py", line 262 in pslq
+  File "/usr/local/lib/python3.13/dist-packages/mpmath/identification.py", line 801 in identify
+  File "/usr/local/lib/python3.13/dist-packages/sympy/simplify/simplify.py", line 1500 in nsimplify_real
+  File "/usr/local/lib/python3.13/dist-packages/sympy/simplify/simplify.py", line 1518 in nsimplify
+  File "/usr/local/lib/python3.13/dist-packages/sympy/simplify/simplify.py", line 1579 in _real_to_rational
+  File "/usr/local/lib/python3.13/dist-packages/sympy/simplify/simplify.py", line 1460 in nsimplify
+  File "/usr/local/lib/python3.13/dist-packages/sympy/core/random.py", line 64 in random_complex_number
+  File "/usr/local/lib/python3.13/dist-packages/sympy/core/expr.py", line 559 in _random
+  File "/usr/local/lib/python3.13/dist-packages/sympy/core/expr.py", line 724 in is_constant
+  File "/usr/local/lib/python3.13/dist-packages/sympy/core/expr.py", line 801 in equals
+  File "/usr/local/lib/python3.13/dist-packages/sympy/core/relational.py", line 437 in _eval_simplify
+  File "/usr/local/lib/python3.13/dist-packages/sympy/simplify/simplify.py", line 616 in simplify
+  File "/usr/local/lib/python3.13/dist-packages/sympy/functions/elementary/piecewise.py", line 1223 in piecewise_simplify_arguments
+  File "/usr/local/lib/python3.13/dist-packages/sympy/functions/elementary/piecewise.py", line 1345 in piecewise_simplify
+  File "/usr/local/lib/python3.13/dist-packages/sympy/functions/elementary/piecewise.py", line 223 in _eval_simplify
+  File "/usr/local/lib/python3.13/dist-packages/sympy/simplify/simplify.py", line 616 in simplify
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 439 in stabilize
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 480 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 507 in generic_visit
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 507 in generic_visit
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 507 in generic_visit
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 507 in generic_visit
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 507 in generic_visit
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 507 in generic_visit
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 507 in generic_visit
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 507 in generic_visit
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 507 in generic_visit
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 507 in generic_visit
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 507 in generic_visit
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/usr/lib/python3.13/ast.py", line 498 in generic_visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 481 in visit_Call
+  File "/usr/lib/python3.13/ast.py", line 422 in visit
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 482 in _stabilize
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 443 in stabilize
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 639 in substitute
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_parallel.py", line 85 in _job
+  File "/usr/lib/python3.13/concurrent/futures/process.py", line 255 in _process_worker
+  File "/usr/lib/python3.13/multiprocessing/process.py", line 108 in run
+  File "/usr/lib/python3.13/multiprocessing/process.py", line 313 in _bootstrap
+  File "/usr/lib/python3.13/multiprocessing/popen_fork.py", line 84 in _launch
+  File "/usr/lib/python3.13/multiprocessing/popen_fork.py", line 20 in __init__
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 1, "port": "X51", "expressionCharacters": 2185, "factorSimplifyEvents": 188, "rssBytes": 202178560, "substitution": ["X51", 1829, 359, 1, 2189, 2185, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 1, "port": "X52", "expressionCharacters": 2185, "replacementCharacters": 356, "rssBytes": 202178560}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 1, "port": "X52", "expressionCharacters": 2538, "factorSimplifyEvents": 201, "rssBytes": 202190848, "substitution": ["X52", 2185, 356, 1, 2542, 2538, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 1, "port": "X54", "expressionCharacters": 2538, "replacementCharacters": 3172, "rssBytes": 202190848}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 1, "port": "X54", "expressionCharacters": 97608, "factorSimplifyEvents": 214, "rssBytes": 202387456, "substitution": ["X54", 2538, 3172, 30, 97670, 97608, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 1, "port": "X55", "expressionCharacters": 97608, "replacementCharacters": 3212, "rssBytes": 202387456}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 1, "port": "X55", "expressionCharacters": 193878, "factorSimplifyEvents": 227, "rssBytes": 202862592, "substitution": ["X55", 97608, 3212, 30, 193940, 193878, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 0, "port": "X111", "expressionCharacters": 548, "replacementCharacters": 3, "rssBytes": 204476416}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 0, "port": "X111", "expressionCharacters": 543, "factorSimplifyEvents": 1, "rssBytes": 204484608, "substitution": ["X111", 548, 3, 5, 555, 543, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 0, "port": "X112", "expressionCharacters": 543, "replacementCharacters": 3, "rssBytes": 204484608}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 0, "port": "X112", "expressionCharacters": 538, "factorSimplifyEvents": 2, "rssBytes": 204484608, "substitution": ["X112", 543, 3, 5, 550, 538, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 0, "port": "X115", "expressionCharacters": 538, "replacementCharacters": 834, "rssBytes": 204484608}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 0, "port": "X115", "expressionCharacters": 4688, "factorSimplifyEvents": 3, "rssBytes": 206491648, "substitution": ["X115", 538, 834, 5, 4700, 4688, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 0, "port": "X116", "expressionCharacters": 4688, "replacementCharacters": 833, "rssBytes": 206491648}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 0, "port": "X116", "expressionCharacters": 8833, "factorSimplifyEvents": 4, "rssBytes": 208764928, "substitution": ["X116", 4688, 833, 5, 8845, 8833, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 1, "port": "X111", "expressionCharacters": 545, "replacementCharacters": 3, "rssBytes": 208826368}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 1, "port": "X111", "expressionCharacters": 540, "factorSimplifyEvents": 6, "rssBytes": 208826368, "substitution": ["X111", 545, 3, 5, 552, 540, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 1, "port": "X112", "expressionCharacters": 540, "replacementCharacters": 3, "rssBytes": 208826368}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 1, "port": "X112", "expressionCharacters": 535, "factorSimplifyEvents": 7, "rssBytes": 208826368, "substitution": ["X112", 540, 3, 5, 547, 535, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 1, "port": "X115", "expressionCharacters": 535, "replacementCharacters": 834, "rssBytes": 208826368}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 1, "port": "X115", "expressionCharacters": 4685, "factorSimplifyEvents": 8, "rssBytes": 208826368, "substitution": ["X115", 535, 834, 5, 4697, 4685, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 1, "port": "X116", "expressionCharacters": 4685, "replacementCharacters": 833, "rssBytes": 208826368}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 1, "port": "X116", "expressionCharacters": 8830, "factorSimplifyEvents": 9, "rssBytes": 208871424, "substitution": ["X116", 4685, 833, 5, 8842, 8830, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 2, "port": "X111", "expressionCharacters": 552, "replacementCharacters": 3, "rssBytes": 208883712}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 2, "port": "X111", "expressionCharacters": 547, "factorSimplifyEvents": 11, "rssBytes": 208883712, "substitution": ["X111", 552, 3, 5, 559, 547, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 2, "port": "X112", "expressionCharacters": 547, "replacementCharacters": 3, "rssBytes": 208883712}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 2, "port": "X112", "expressionCharacters": 542, "factorSimplifyEvents": 12, "rssBytes": 208883712, "substitution": ["X112", 547, 3, 5, 554, 542, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 2, "port": "X115", "expressionCharacters": 542, "replacementCharacters": 834, "rssBytes": 208883712}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 2, "port": "X115", "expressionCharacters": 4692, "factorSimplifyEvents": 13, "rssBytes": 208883712, "substitution": ["X115", 542, 834, 5, 4704, 4692, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 2, "port": "X116", "expressionCharacters": 4692, "replacementCharacters": 833, "rssBytes": 208883712}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 2, "port": "X116", "expressionCharacters": 8837, "factorSimplifyEvents": 14, "rssBytes": 208936960, "substitution": ["X116", 4692, 833, 5, 8849, 8837, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 3, "port": "X111", "expressionCharacters": 542, "replacementCharacters": 3, "rssBytes": 208961536}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 3, "port": "X111", "expressionCharacters": 537, "factorSimplifyEvents": 16, "rssBytes": 208961536, "substitution": ["X111", 542, 3, 5, 549, 537, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 3, "port": "X112", "expressionCharacters": 537, "replacementCharacters": 3, "rssBytes": 208961536}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 3, "port": "X112", "expressionCharacters": 532, "factorSimplifyEvents": 17, "rssBytes": 208961536, "substitution": ["X112", 537, 3, 5, 544, 532, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 3, "port": "X115", "expressionCharacters": 532, "replacementCharacters": 834, "rssBytes": 208961536}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 3, "port": "X115", "expressionCharacters": 4682, "factorSimplifyEvents": 18, "rssBytes": 208961536, "substitution": ["X115", 532, 834, 5, 4694, 4682, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15001, "coordinate": 3, "port": "X116", "expressionCharacters": 4682, "replacementCharacters": 833, "rssBytes": 208961536}
+{"event": "scalar-substitution-finished", "pid": 15001, "coordinate": 3, "port": "X116", "expressionCharacters": 8827, "factorSimplifyEvents": 19, "rssBytes": 209002496, "substitution": ["X116", 4682, 833, 5, 8839, 8827, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15122, "coordinate": 0, "port": "X85", "expressionCharacters": 8833, "replacementCharacters": 193876, "rssBytes": 206401536}
+{"event": "scalar-substitution-finished", "pid": 15122, "coordinate": 0, "port": "X85", "expressionCharacters": 20365498, "factorSimplifyEvents": 1, "rssBytes": 226938880, "substitution": ["X85", 8833, 193876, 105, 20365710, 20365498, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15122, "coordinate": 0, "port": "X86", "expressionCharacters": 20365498, "replacementCharacters": 193878, "rssBytes": 226938880}
+{"event": "scalar-substitution-finished", "pid": 15122, "coordinate": 0, "port": "X86", "expressionCharacters": 40722373, "factorSimplifyEvents": 2, "rssBytes": 247296000, "substitution": ["X86", 20365498, 193878, 105, 40722585, 40722373, "admitted"]}
+Timeout (0:00:10)!
+Thread 0x00007b21fd331080 (most recent call first):
+  File "/usr/lib/python3.13/re/__init__.py", line 177 in search
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 379 in compact_regions
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 442 in stabilize
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_parallel.py", line 90 in _job
+  File "/usr/lib/python3.13/concurrent/futures/process.py", line 255 in _process_worker
+  File "/usr/lib/python3.13/multiprocessing/process.py", line 108 in run
+  File "/usr/lib/python3.13/multiprocessing/process.py", line 313 in _bootstrap
+  File "/usr/lib/python3.13/multiprocessing/popen_fork.py", line 84 in _launch
+  File "/usr/lib/python3.13/multiprocessing/popen_fork.py", line 20 in __init__
+  File "__init__", line ??? in __init__
+  <invalid frame>
+{"event": "scalar-substitution-start", "pid": 15122, "coordinate": 1, "port": "X85", "expressionCharacters": 8830, "replacementCharacters": 193876, "rssBytes": 246964224}
+{"event": "scalar-substitution-finished", "pid": 15122, "coordinate": 1, "port": "X85", "expressionCharacters": 20365495, "factorSimplifyEvents": 4, "rssBytes": 286924800, "substitution": ["X85", 8830, 193876, 105, 20365707, 20365495, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15122, "coordinate": 1, "port": "X86", "expressionCharacters": 20365495, "replacementCharacters": 193878, "rssBytes": 286924800}
+Timeout (0:00:10)!
+Thread 0x00007b21fd331080 (most recent call first):
+  File "/usr/lib/python3.13/re/__init__.py", line 177 in search
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 379 in compact_regions
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 580 in compact
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 587 in stabilize_budget_envelope
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 624 in substitute
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_parallel.py", line 85 in _job
+  File "/usr/lib/python3.13/concurrent/futures/process.py", line 255 in _process_worker
+  File "/usr/lib/python3.13/multiprocessing/process.py", line 108 in run
+  File "/usr/lib/python3.13/multiprocessing/process.py", line 313 in _bootstrap
+  File "/usr/lib/python3.13/multiprocessing/popen_fork.py", line 84 in _launch
+  File "/usr/lib/python3.13/multiprocessing/popen_fork.py", line 20 in __init__
+  File "__init__", line ??? in __init__
+  <invalid frame>
+{"event": "scalar-substitution-finished", "pid": 15122, "coordinate": 1, "port": "X86", "expressionCharacters": 40722370, "factorSimplifyEvents": 5, "rssBytes": 328028160, "substitution": ["X86", 20365495, 193878, 105, 40722582, 40722370, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15122, "coordinate": 2, "port": "X85", "expressionCharacters": 8837, "replacementCharacters": 193876, "rssBytes": 328028160}
+{"event": "scalar-substitution-finished", "pid": 15122, "coordinate": 2, "port": "X85", "expressionCharacters": 20365502, "factorSimplifyEvents": 7, "rssBytes": 328278016, "substitution": ["X85", 8837, 193876, 105, 20365714, 20365502, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15122, "coordinate": 2, "port": "X86", "expressionCharacters": 20365502, "replacementCharacters": 193878, "rssBytes": 328278016}
+{"event": "scalar-substitution-finished", "pid": 15122, "coordinate": 2, "port": "X86", "expressionCharacters": 40722377, "factorSimplifyEvents": 8, "rssBytes": 369004544, "substitution": ["X86", 20365502, 193878, 105, 40722589, 40722377, "admitted"]}
+Timeout (0:00:10)!
+Thread 0x00007b21fd331080 (most recent call first):
+  File "/usr/lib/python3.13/re/__init__.py", line 177 in search
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 379 in compact_regions
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_strings.py", line 442 in stabilize
+  File "/content/llm-inner-sympy-trace-2g/helpers/direct_sympy_parallel.py", line 90 in _job
+  File "/usr/lib/python3.13/concurrent/futures/process.py", line 255 in _process_worker
+  File "/usr/lib/python3.13/multiprocessing/process.py", line 108 in run
+  File "/usr/lib/python3.13/multiprocessing/process.py", line 313 in _bootstrap
+  File "/usr/lib/python3.13/multiprocessing/popen_fork.py", line 84 in _launch
+  File "/usr/lib/python3.13/multiprocessing/popen_fork.py", line 20 in __init__
+  File "__init__", line ??? in __init__
+  <invalid frame>
+{"event": "scalar-substitution-start", "pid": 15122, "coordinate": 3, "port": "X85", "expressionCharacters": 8827, "replacementCharacters": 193876, "rssBytes": 369004544}
+{"event": "scalar-substitution-finished", "pid": 15122, "coordinate": 3, "port": "X85", "expressionCharacters": 20365492, "factorSimplifyEvents": 10, "rssBytes": 389472256, "substitution": ["X85", 8827, 193876, 105, 20365704, 20365492, "admitted"]}
+{"event": "scalar-substitution-start", "pid": 15122, "coordinate": 3, "port": "X86", "expressionCharacters": 20365492, "replacementCharacters": 193878, "rssBytes": 389472256}
+{"event": "scalar-substitution-finished", "pid": 15122, "coordinate": 3, "port": "X86", "expressionCharacters": 40722367, "factorSimplifyEvents": 11, "rssBytes": 389226496, "substitution": ["X86", 20365492, 193878, 105, 40722579, 40722367, "admitted"]}

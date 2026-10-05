@@ -1,0 +1,10 @@
+{
+  "length": 7,
+  "workingExpressionsEmitted": 0,
+  "verifiedLogits": 0,
+  "mismatches": [],
+  "finalArtifactEmitted": false,
+  "finalArtifactParity": false,
+  "stop": "Whole-architecture worker deadline exceeded",
+  "seconds": 145.4873139450001
+}

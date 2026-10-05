@@ -1,0 +1,12 @@
+...............................................Projection reduction allocation parity: {"characters": 16777284, "byteIdentical": true, "peakAllocatedBytes": {"retained-products": 67109596, "consumed-products": 33555001}}
+{"characters": 20400010, "normalIdentifierSeconds": 0.5085533780002152, "equivalentIdentifierSeconds": 0.015145106999625568, "identical": true}
+Producer wrapper allocation parity: {"characters": 16777246, "byteIdentical": true, "peakAllocatedBytes": {"literal-wrapper": 33574884, "compact-wrapper": 16798155}}
+..Parallel working coordinate parity: cases=60 mismatches=0; finalParity=false
+..........
+----------------------------------------------------------------------
+Ran 59 tests in 151.392s
+
+OK
+Whole architecture pair parity: logits=20 stages=12 merges=11 mismatches=0; finalArtifactParity=false
+Whole architecture all-logit parity: cases=96 logits=1728 lengths=[1, 2, 3, 4, 5, 6, 7, 8] mismatches=0; finalArtifactParity=false
+Last-position parity: cases=96 logits=384 lengths=[1, 2, 3, 4, 5, 6, 7, 8] mismatches=0; finalArtifactParity=false

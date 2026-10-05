@@ -6,6 +6,7 @@ Numerical primitives remain explicit until the separate closure gate succeeds.
 """
 from dataclasses import dataclass
 import math
+import struct
 
 from direct_sympy_checkpoint import CheckpointStrings,f32,rms_half_bound
 from direct_sympy_operators import OperatorBlock,compose_operators
@@ -98,14 +99,34 @@ def architecture_plan(checkpoint,length,*,max_characters=512*1024**2):
         angles=torch.arange(length,dtype=torch.float32)[:,None]*frequency[None,:]
         cos=torch.cat((angles,angles),dim=1).cos().half().tolist()
         sin=torch.cat((angles,angles),dim=1).sin().half().tolist()
-        blocks=[];names=[];next_port=1;size=length*d
+        blocks=[];names=[];next_port=1;size=length*d;finite_half_ports=set()
         model.domains={}
         def stage(name,build):
             nonlocal next_port,size
             ports=tuple(f'X{next_port+i}' for i in range(size));next_port+=size
+            # finite_architecture has proved all stored interfaces finite;
+            # every stage below stores Half outputs. This is a provenance
+            # proof for these ports, never a domain inherited from another
+            # arbitrary block or a mere assumption from an identifier.
+            finite_half_ports.clear();finite_half_ports.update(ports)
             model.memo.clear();model.events.clear()
             outputs=tuple(build(ports))
             blocks.append(OperatorBlock(ports,outputs));names.append(name);size=len(outputs)
+        def product(a,b):
+            def half_operand(text):
+                if text in finite_half_ports:return True
+                try:
+                    value=float(text)
+                    return math.isfinite(value) and struct.unpack('e',struct.pack('e',value))[0]==value
+                except (ValueError,OverflowError):return False
+            if half_operand(a) and half_operand(b):
+                # Two finite Half operands have <=22 product bits and
+                # nonzero exponents [-48,32]: F32 multiplication is exact,
+                # including either sign of zero. Keep every subsequent
+                # addition/reduction/storage boundary in original order.
+                left=model.compiler.substitute('(X999999998 * X999999999)','X999999998',a,model.domains)
+                return model.compiler.substitute(left,'X999999999',b,model.domains)
+            return model.op('*',a,b)
         def dot(weight,row,inputs):
             rows,columns=model.shape(weight)
             if not 0<=row<rows or len(inputs)!=columns:raise ValueError('Projection geometry mismatch')
@@ -113,9 +134,7 @@ def architecture_plan(checkpoint,length,*,max_characters=512*1024**2):
             for column in range(columns):
                 coefficient=model.weight(weight,row,column)
                 if not math.isfinite(float(coefficient)):raise ValueError('Finite checkpoint weights required')
-                # Ports have a dtype, but no finite-range proof yet. In
-                # particular 0*inf must not disappear while building a block.
-                terms.append(model.op('*',inputs[column],coefficient))
+                terms.append(product(inputs[column],coefficient))
             return model.reduction(terms)
         def norm(name,ports,key):
             return [model.norm(key+':'+str(row),name,i,lambda j:ports[row*d+j]) for row in range(length) for i in range(d)]
@@ -141,8 +160,8 @@ def architecture_plan(checkpoint,length,*,max_characters=512*1024**2):
                                 base=offset+(row*count+head)*hd
                                 for i in range(hd):
                                     other=p[base+(i+hd//2)%hd]
-                                    a='R16('+model.op('*',p[base+i],repr(cos[row][i]))+')'
-                                    b='R16('+model.op('*',other,repr((-1 if i<hd//2 else 1)*sin[row][i]))+')'
+                                    a='R16('+product(p[base+i],repr(cos[row][i]))+')'
+                                    b='R16('+product(other,repr((-1 if i<hd//2 else 1)*sin[row][i]))+')'
                                     result.append(add(a,b))
                         offset+=length*count*hd
                     return result+list(p[offset:])
@@ -153,7 +172,7 @@ def architecture_plan(checkpoint,length,*,max_characters=512*1024**2):
                     for row,head,key in triples:
                         qbase=state+(row*heads+head)*hd
                         kbase=state+qsize+(key*kv+head//(heads//kv))*hd
-                        value=model.reduction([model.op('*',p[qbase+i],p[kbase+i]) for i in range(hd)])
+                        value=model.reduction([product(p[qbase+i],p[kbase+i]) for i in range(hd)])
                         result.append('R16('+model.op('*',value,repr(f32(hd**-0.5)))+')')
                     return result
                 stage(prefix+'attention-scores',scores)
@@ -194,13 +213,13 @@ def architecture_plan(checkpoint,length,*,max_characters=512*1024**2):
                         for head in range(heads):
                             probabilities=p[prob_offset:prob_offset+row+1];prob_offset+=row+1
                             for i in range(hd):
-                                result.append(model.reduction([model.op('*',probabilities[key],p[state+(key*kv+head//(heads//kv))*hd+i]) for key in range(row+1)]))
+                                result.append(model.reduction([product(probabilities[key],p[state+(key*kv+head//(heads//kv))*hd+i]) for key in range(row+1)]))
                     return result
                 stage(prefix+'attention-context',context)
             else:
                 # The sole causal key has exactly unit probability. Remove Q/K
                 # and their rotary/softmax dependencies before reading weights.
-                stage(prefix+'attention-context',lambda p:list(p[:state])+[model.reduction([model.op('*','1.0',p[state+(head//(heads//kv))*hd+i])]) for head in range(heads) for i in range(hd)])
+                stage(prefix+'attention-context',lambda p:list(p[:state])+[model.reduction([product('1.0',p[state+(head//(heads//kv))*hd+i])]) for head in range(heads) for i in range(hd)])
             stage(prefix+'attention-output',lambda p:list(p[:state])+[dot(prefix+'self_attn.o_proj.weight',i,p[state+row*heads*hd:state+(row+1)*heads*hd]) for row in range(length) for i in range(d)])
             stage(prefix+'attention-residual',lambda p:[add(p[i],p[state+i]) for i in range(state)])
             stage(prefix+'post-normalization',lambda p:list(p)+norm(prefix+'post_attention_layernorm.weight',p,'post'))

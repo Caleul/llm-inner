@@ -122,6 +122,28 @@ class EquivalentScanTests(unittest.TestCase):
         self.assertLess(peaks['compact-wrapper'],peaks['literal-wrapper']*0.65)
         print('Producer wrapper allocation parity: '+json.dumps({'characters':len(expression),'byteIdentical':True,'peakAllocatedBytes':peaks}))
 
+    def test_completed_registration_parses_compact_grammar_without_reopening_producer_copies(self):
+        from fractions import Fraction as F
+        from unittest.mock import patch
+        import direct_sympy_strings as strings
+        domains={'X1':strings.Domain(F(-1),F(1),-24,False)}
+        # A valid, wide call represents a previously completed producer.
+        # Registration with its known outer AST does not assert numeric facts.
+        leaf='R16(Add('+', '.join(['X1']*100000)+'))'
+        expression='R32('+ ' + '.join([leaf]*12)+')'
+        compiler=strings.StringCompiler(max_characters=8*1048576)
+        compiler.register_completed_region(leaf,domains,strings.syntax('R16(X1)'))
+        seen=[];original=strings.syntax
+        def record(text):
+            seen.append(len(text));return original(text)
+        with install(),patch.object(strings,'syntax',side_effect=record):
+            compiler.register_completed_region(expression,domains)
+            with self.assertRaises(SyntaxError):
+                compiler.register_completed_region(expression+' @',domains)
+        self.assertIn((compiler.context(domains),expression),compiler._regions)
+        self.assertLess(max(seen),512)
+        self.assertNotIn((compiler.context(domains),expression+' @'),compiler._regions)
+
     def test_envelope_compaction_keeps_input_refining_barriers_limits_and_producer_restoration(self):
         from fractions import Fraction as F
         from direct_sympy_strings import StringCompiler,Domain,syntax

@@ -57,6 +57,7 @@ def _job(job):
         faulthandler.dump_traceback_later(10,repeat=True)
     compiler,domains=_BASE
     before=len(compiler.events);before_substitutions=len(compiler.substitution_events);started=time.monotonic()
+    unused_interface_ports=0
     kind,paths,hole,output=job
     if kind=='block':
         expression=hole
@@ -77,9 +78,24 @@ def _job(job):
             right=blocks[1]
             if len(left['outputs'])!=len(right['inputs']):raise ValueError('Operator interface dimension mismatch')
             expressions=[]
-            for value in right['outputs']:
+            for coordinate,value in enumerate(right['outputs']):
+                # Interfaces are disjoint across the operator chain. A
+                # replacement introduces only left-side names, so it cannot
+                # make another right-side port newly reachable. Do not parse
+                # or simplify a producer absent from this scalar output.
+                dependencies=set(re.findall(r'\bX[1-9][0-9]*\b',value))
                 for name,replacement in zip(right['inputs'],left['outputs']):
+                    if name not in dependencies:
+                        unused_interface_ports+=1
+                        continue
+                    if trace_stalls:
+                        print(json.dumps({'event':'scalar-substitution-start','pid':os.getpid(),'coordinate':coordinate,'port':name,
+                            'expressionCharacters':len(value),'replacementCharacters':len(replacement),'rssBytes':resident_bytes()}),flush=True)
                     value=compiler.substitute(value,name,replacement,domains)
+                    if trace_stalls:
+                        print(json.dumps({'event':'scalar-substitution-finished','pid':os.getpid(),'coordinate':coordinate,'port':name,
+                            'expressionCharacters':len(value),'factorSimplifyEvents':len(compiler.events)-before,
+                            'rssBytes':resident_bytes(),'substitution':compiler.substitution_events[-1]}),flush=True)
                 expressions.append(compiler.stabilize('('+value+')',domains))
         expression=json.dumps({'inputs':left['inputs'],'outputs':expressions},separators=(',',':'))
         if len(expression.encode('utf-8'))>hole:
@@ -89,6 +105,7 @@ def _job(job):
     if trace_stalls:faulthandler.cancel_dump_traceback_later()
     return {'path':output,'characters':len(expression),'inputBytes':sum(Path(path).stat().st_size for path in paths),
         'events':compiler.events[before:],'substitutionEvents':compiler.substitution_events[before_substitutions:],
+        'unusedInterfacePorts':unused_interface_ports,
         'kind':kind,'seconds':time.monotonic()-started,'pid':os.getpid(),'rssBytes':resident_bytes()}
 
 

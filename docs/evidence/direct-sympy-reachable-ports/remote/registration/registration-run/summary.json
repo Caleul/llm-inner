@@ -1,0 +1,56 @@
+{
+  "lengths": [
+    1,
+    2
+  ],
+  "vocab": 4,
+  "outputScope": "last-position-only",
+  "results": [
+    {
+      "length": 1,
+      "workingExpressionsEmitted": 0,
+      "verifiedLogits": 0,
+      "mismatches": [],
+      "finalArtifactEmitted": false,
+      "finalArtifactParity": false,
+      "stop": "Whole-architecture worker deadline exceeded",
+      "seconds": 150.00852898300036,
+      "plan": {
+        "length": 1,
+        "width": 2,
+        "vocab": 4,
+        "stageNames": [
+          "model.layers.0.pre-normalization",
+          "model.layers.0.qkv-projections",
+          "model.layers.0.attention-context",
+          "model.layers.0.attention-output",
+          "model.layers.0.attention-residual",
+          "model.layers.0.post-normalization",
+          "model.layers.0.gate-up",
+          "model.layers.0.activation-product",
+          "model.layers.0.down-projection",
+          "model.layers.0.mlp-residual",
+          "final-normalization",
+          "output-logits"
+        ],
+        "weightsRead": 56,
+        "operatorCount": 12,
+        "selectedOutputIndices": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "originalComputedOutputs": 25,
+        "reachableComputedOutputs": 25,
+        "originalInterfaceOutputSlots": 41,
+        "reachableInterfaceOutputSlots": 41
+      },
+      "exitCode": 1,
+      "wallSeconds": 153.16716678100056,
+      "peakObservedAggregateRSSBytes": 475750400
+    }
+  ],
+  "complete": false,
+  "finalArtifactParity": false
+}

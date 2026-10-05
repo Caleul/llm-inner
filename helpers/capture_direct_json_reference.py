@@ -5,6 +5,7 @@ subnormals, checkpoint embeddings and independently generated finite F16 values.
 """
 import argparse
 import json
+import platform
 from pathlib import Path
 
 import torch
@@ -70,7 +71,10 @@ def main():
                           for row in matrix.contiguous().view(torch.int16).tolist()],
                           "scorePeaks": list(score_peaks),
                           "logitF64Bits": [[f"0x{int(x) & 0xffffffffffffffff:016x}" for x in row] for row in bits]})
-    Path(args.output).write_text(json.dumps({"torch": torch.__version__, "backend": "cpu-arm64-eager",
+    machine=platform.machine().lower()
+    architecture='arm64' if machine in ('arm64','aarch64') else machine
+    Path(args.output).write_text(json.dumps({"torch": torch.__version__, "backend": f"cpu-{architecture}-eager",
+        "machine": platform.machine(), "system": platform.system(),
         "width": width, "vocab": embedding.num_embeddings, "context": context, "cases": cases}, indent=2) + "\n")
 
 
