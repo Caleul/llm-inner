@@ -439,13 +439,41 @@ class CheckpointStrings:
                 {"X999999998":activation,"X999999999":up})
         return "R16("+self.op("*",activation,up)+")"
 
+    def directed_residual_radius(self,layer,prefix,coordinate):
+        """Propagate signed attention bounds through actual residual storage."""
+        cache=getattr(self,'directed_residual_radii',None)
+        if cache is None:self.directed_residual_radii=cache={}
+        if prefix not in cache:
+            from direct_sympy_layer_bounds import composed_dot_intervals,half
+            from direct_sympy_conversions import half_cell_radius_bound
+            original=[self.conversions.bounds(syntax(self.hidden(layer-1,i))) for i in range(self.width)]
+            intervals=self.norm_intervals(prefix+'input_layernorm.weight',lambda i:self.hidden(layer-1,i))
+            heads=self.config['num_attention_heads'];kv_heads=self.config['num_key_value_heads']
+            dimension=self.config.get('head_dim',self.width//heads)
+            mapping=[(i//dimension//(heads//kv_heads))*dimension+i%dimension for i in range(self.width)]
+            updates=composed_dot_intervals(self,prefix+'self_attn.v_proj.weight',prefix+'self_attn.o_proj.weight',intervals,mapping) if intervals is not None else None
+            radii=[None]*self.width
+            if updates is not None:
+                for i,(source,update) in enumerate(zip(original,updates)):
+                    if source is None or any(half(abs(v))!=abs(v) for v in (source.minimum,source.maximum)):continue
+                    try:
+                        # Two finite Half operands add exactly in F64.
+                        # Keep both original storage boundaries at endpoints.
+                        low=struct.unpack('e',struct.pack('e',struct.unpack('f',struct.pack('f',source.minimum+update[0]))[0]))[0]
+                        high=struct.unpack('e',struct.pack('e',struct.unpack('f',struct.pack('f',source.maximum+update[1]))[0]))[0]
+                    except OverflowError:continue
+                    minimum=low if low>0 else -high if high<0 else 0
+                    radii[i]=half_cell_radius_bound(minimum)
+            cache[prefix]=radii
+        return cache[prefix][coordinate]
+
     def invisible_layer_update(self,layer,prefix,kind,coordinate,value):
         if self.conversions is None:return False
         # The RMS enclosure needs every previous scalar to be finite Half.
         previous=[syntax(self.hidden(layer-1,i)) for i in range(self.width)]
         if any(self.conversions.value_kind(x)!="half" or self.conversions.bounds(x) is None for x in previous):return False
         radius=self.conversions.half_cell_radius(syntax(value))
-        if radius is None:return False
+        if radius is None and kind!='mlp':return False
         if prefix not in self.layer_bound_cache:
             from direct_sympy_layer_bounds import layer as layer_bounds
             self.layer_bound_cache[prefix]=layer_bounds(self,prefix)
@@ -458,6 +486,9 @@ class CheckpointStrings:
             for i,node in enumerate(previous):
                 domain=self.conversions.bounds(node)
                 if max(abs(domain.minimum),abs(domain.maximum))+bounds["attention"][i]>=65520:return False
+            directed=self.directed_residual_radius(layer,prefix,coordinate) if self.memo.get(prefix+'residual:'+str(coordinate))==value else None
+            if directed is not None:radius=max(radius or 0,directed)
+        if radius is None:return False
         bound=bounds[kind][coordinate]
         if bound is None or not bound<radius:return False
         self.elided_updates.append((prefix,kind,coordinate,bound,radius))

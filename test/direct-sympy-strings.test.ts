@@ -295,6 +295,14 @@ test('Cross-normalization path exclusions include every original rounding and re
     assert.match(stdout,/Cross norm proof: pairs=83922948 distanceViolations=0 exclusionViolations=0/);
   });
 
+test('Directed attention bounds retain both projection roundings and prove residual cells for every mixed Half pair',
+  {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_directed_residual_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 2 tests/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/Directed residual proof: pairs=62924800 intervalViolations=0 cellViolations=0/);
+  });
+
 test('Source changes retain only audited partition geometry and recompile numerical evidence',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_partition_replan_test.py'],{timeout:120_000,maxBuffer:1024*1024});

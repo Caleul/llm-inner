@@ -1,0 +1,35 @@
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 15524.88it/s]
+{"cases": 4096, "totalCases": 31462400, "mismatches": 0, "seconds": 15.72696325002471, "complete": false}
+{"cases": 1052672, "totalCases": 31462400, "mismatches": 0, "seconds": 15.975978708011098, "complete": false}
+{"cases": 2101248, "totalCases": 31462400, "mismatches": 0, "seconds": 16.210915167001076, "complete": false}
+{"cases": 3149824, "totalCases": 31462400, "mismatches": 0, "seconds": 16.44858883303823, "complete": false}
+{"cases": 4198400, "totalCases": 31462400, "mismatches": 0, "seconds": 16.686045000038575, "complete": false}
+{"cases": 5246976, "totalCases": 31462400, "mismatches": 0, "seconds": 16.921551083039958, "complete": false}
+{"cases": 6295552, "totalCases": 31462400, "mismatches": 0, "seconds": 17.156109583040234, "complete": false}
+{"cases": 7344128, "totalCases": 31462400, "mismatches": 0, "seconds": 17.39715608302504, "complete": false}
+{"cases": 8392704, "totalCases": 31462400, "mismatches": 0, "seconds": 17.640889292000793, "complete": false}
+{"cases": 9441280, "totalCases": 31462400, "mismatches": 0, "seconds": 17.88550816703355, "complete": false}
+{"cases": 10489856, "totalCases": 31462400, "mismatches": 0, "seconds": 18.128046458004974, "complete": false}
+{"cases": 11538432, "totalCases": 31462400, "mismatches": 0, "seconds": 18.37559070804855, "complete": false}
+{"cases": 12587008, "totalCases": 31462400, "mismatches": 0, "seconds": 18.617175333027262, "complete": false}
+{"cases": 13635584, "totalCases": 31462400, "mismatches": 0, "seconds": 18.867886042047758, "complete": false}
+{"cases": 14684160, "totalCases": 31462400, "mismatches": 0, "seconds": 19.116731625050306, "complete": false}
+{"cases": 15732736, "totalCases": 31462400, "mismatches": 0, "seconds": 19.356891542032827, "complete": false}
+{"cases": 16781312, "totalCases": 31462400, "mismatches": 0, "seconds": 19.60151816700818, "complete": false}
+{"cases": 17829888, "totalCases": 31462400, "mismatches": 0, "seconds": 19.85578241699841, "complete": false}
+{"cases": 18878464, "totalCases": 31462400, "mismatches": 0, "seconds": 20.09671991702635, "complete": false}
+{"cases": 19927040, "totalCases": 31462400, "mismatches": 0, "seconds": 20.335446333047003, "complete": false}
+{"cases": 20975616, "totalCases": 31462400, "mismatches": 0, "seconds": 20.574410125031136, "complete": false}
+{"cases": 22024192, "totalCases": 31462400, "mismatches": 0, "seconds": 20.813292125007138, "complete": false}
+{"cases": 23072768, "totalCases": 31462400, "mismatches": 0, "seconds": 21.052135542035103, "complete": false}
+{"cases": 24121344, "totalCases": 31462400, "mismatches": 0, "seconds": 21.291883249999955, "complete": false}
+{"cases": 25169920, "totalCases": 31462400, "mismatches": 0, "seconds": 21.53277633304242, "complete": false}
+{"cases": 26218496, "totalCases": 31462400, "mismatches": 0, "seconds": 21.773604000045452, "complete": false}
+{"cases": 27267072, "totalCases": 31462400, "mismatches": 0, "seconds": 22.017538667016197, "complete": false}
+{"cases": 28315648, "totalCases": 31462400, "mismatches": 0, "seconds": 22.25941308302572, "complete": false}
+{"cases": 29364224, "totalCases": 31462400, "mismatches": 0, "seconds": 22.500313416996505, "complete": false}
+{"cases": 30412800, "totalCases": 31462400, "mismatches": 0, "seconds": 22.739443292026408, "complete": false}
+{"cases": 31461376, "totalCases": 31462400, "mismatches": 0, "seconds": 22.98377995804185, "complete": false}
+{"cases": 31462400, "totalCases": 31462400, "mismatches": 0, "seconds": 22.985282250039745, "complete": true}

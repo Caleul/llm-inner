@@ -179,6 +179,49 @@ def composed_dot(model,first_name,second_name,inputs,mapping,*,max_products=2**2
     return result
 
 
+def composed_dot_intervals(model,first_name,second_name,intervals,mapping,*,max_products=2**20):
+    """Signed bounds for two original rounded projections, proof only.
+
+    Compose coefficients in exact arithmetic, retaining both reductions
+    and first Half storage. Apply final Half storage monotonically to
+    outward endpoints. No numerical computation is reassociated.
+    """
+    a,b=model.shape(first_name),model.shape(second_name)
+    if (len(a)!=2 or len(b)!=2 or any(type(n)is not int or n<1 for n in a+b)
+        or a[1]!=len(intervals) or b[1]!=len(mapping)
+        or type(max_products)is not int or max_products<1
+        or (2*a[0]+b[0]*b[1])*a[1]+2*b[0]*b[1]>max_products
+        or any(type(i)is not int or not 0<=i<a[0] for i in mapping)):return None
+    if any(pair is None or len(pair)!=2 or pair[0]>pair[1] or any(
+        not math.isfinite(x) or half(abs(x))!=abs(x) for x in pair) for pair in intervals):return None
+    inputs=[max(abs(x),abs(y)) for x,y in intervals]
+    first=dot(model,first_name,inputs)
+    if first is None or dot(model,second_name,[first[i] for i in mapping]) is None:return None
+    gamma=lambda n:Fraction(n+3,2**24-n-3)
+    errors=[]
+    for row,bound in enumerate(first):
+        total=sum((Fraction(inputs[col])*abs(Fraction(float(model.weight(first_name,row,col)))) for col in range(a[1])),Fraction(0))
+        exponent=math.frexp(bound)[1]-1 if bound else -14
+        errors.append(gamma(a[1])*total+Fraction(2)**max(-25,exponent-11))
+    result=[]
+    for row in range(b[0]):
+        weights=[Fraction(float(model.weight(second_name,row,j))) for j in range(b[1])]
+        low=high=Fraction(0)
+        for col,(x,y) in enumerate(intervals):
+            coefficient=sum((weights[j]*Fraction(float(model.weight(first_name,mapping[j],col))) for j in range(b[1])),Fraction(0))
+            lo,hi=sorted((coefficient*Fraction(x),coefficient*Fraction(y)));low+=lo;high+=hi
+        error=sum((abs(w)*errors[mapping[j]] for j,w in enumerate(weights)),Fraction(0))
+        error+=gamma(b[1])*sum((abs(w)*Fraction(first[mapping[j]]) for j,w in enumerate(weights)),Fraction(0))
+        endpoints=[]
+        for value,up in ((low-error,False),(high+error,True)):
+            rounded=float(value)
+            if (Fraction(rounded)<value if up else Fraction(rounded)>value):rounded=math.nextafter(rounded,math.inf if up else -math.inf)
+            try:endpoints.append(struct.unpack('e',struct.pack('e',rounded))[0])
+            except OverflowError:return None
+        result.append(tuple(endpoints))
+    return result
+
+
 def norm(model,name):
     from direct_sympy_checkpoint import rms_half_bound
     bound=rms_half_bound(model.width,struct.unpack('f',struct.pack('f',model.config['rms_norm_eps']))[0])

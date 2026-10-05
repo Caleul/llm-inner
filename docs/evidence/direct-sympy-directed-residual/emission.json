@@ -1,0 +1,101 @@
+{
+  "complete": true,
+  "inputDomains": {
+    "X1": [
+      -16384,
+      -10240
+    ],
+    "X2": [
+      10241,
+      15360
+    ]
+  },
+  "producers": 17,
+  "elidedUpdates": 2,
+  "logicalCharacters": 28514048,
+  "storedCharacters": 10556,
+  "artifact": {
+    "path": "mixed.expr",
+    "characters": 10269774,
+    "sha256": "dcf749ca35f9dc0b4f5a560a6a169c89a71cdc6f79ffec203ffd30ad2b833f89",
+    "paths": 5,
+    "compilerAliases": 0,
+    "complete": true
+  },
+  "paths": {
+    "splitContexts": 10,
+    "completedPaths": 5,
+    "contradictions": 6,
+    "selectorSelections": 37,
+    "CASPasses": 2330,
+    "numericArithmeticEliminated": 475,
+    "numericRecipeAttempts": 99,
+    "numericRecipeAdmissions": 5,
+    "numericRecipeBudgetStops": 0,
+    "coupledProjectionContradictions": 6,
+    "lastArm": {
+      "bodyCharacters": 725773,
+      "guardCharacters": 756471,
+      "decisions": 4,
+      "dependencyGrowth": [
+        {
+          "definition": 1,
+          "storedCharacters": 2897,
+          "expandedCharacters": 2899
+        },
+        {
+          "definition": 2,
+          "storedCharacters": 101,
+          "expandedCharacters": 2987
+        },
+        {
+          "definition": 3,
+          "storedCharacters": 101,
+          "expandedCharacters": 2987
+        },
+        {
+          "definition": 4,
+          "storedCharacters": 160,
+          "expandedCharacters": 6106
+        },
+        {
+          "definition": 6,
+          "storedCharacters": 157,
+          "expandedCharacters": 6103
+        },
+        {
+          "definition": 7,
+          "storedCharacters": 228,
+          "expandedCharacters": 12409
+        },
+        {
+          "definition": 8,
+          "storedCharacters": 230,
+          "expandedCharacters": 12411
+        },
+        {
+          "definition": 10,
+          "storedCharacters": 3261,
+          "expandedCharacters": 350323
+        },
+        {
+          "definition": 11,
+          "storedCharacters": 115,
+          "expandedCharacters": 362818
+        },
+        {
+          "definition": 12,
+          "storedCharacters": 115,
+          "expandedCharacters": 362820
+        },
+        {
+          "definition": 13,
+          "storedCharacters": 165,
+          "expandedCharacters": 725773
+        }
+      ]
+    }
+  },
+  "seconds": 106.24714770796709,
+  "workerSeconds": 107.04141337494366
+}

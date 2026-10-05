@@ -1,0 +1,20 @@
+
+Loading weights:   0%|          | 0/12 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 12/12 [00:00<00:00, 21201.20it/s]
+{"domain": {"X1": [-16384, -10240], "X2": [10241, 15360]}, "added": 31462400, "covered": 31462400, "characters": 10269774, "sha256": "dcf749ca35f9dc0b4f5a560a6a169c89a71cdc6f79ffec203ffd30ad2b833f89", "stop": null, "nativeCases": 8196, "mismatches": 0}
+Traceback (most recent call last):
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/docs/evidence/direct-sympy-directed-residual/recompile.py", line 34, in <module>
+    result=cover(checkpoint,directory,rectangle,max_seconds=budgets['seconds'],
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_cover_regions.py", line 108, in cover
+    parity=verify_region(checkpoint,dimension,artifact,decode(rectangle),random_cases=random_cases)
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_region_parity.py", line 60, in verify_region
+    model=AutoModelForCausalLM.from_pretrained(checkpoint,dtype=torch.float16,attn_implementation='eager').eval()
+  File "/private/tmp/llm-inner-pytorch/lib/python3.10/site-packages/transformers/models/auto/auto_factory.py", line 387, in from_pretrained
+  File "/private/tmp/llm-inner-pytorch/lib/python3.10/site-packages/transformers/modeling_utils.py", line 4089, in from_pretrained
+  File "/private/tmp/llm-inner-pytorch/lib/python3.10/site-packages/transformers/models/llama/modeling_llama.py", line 435, in __init__
+  File "/private/tmp/llm-inner-pytorch/lib/python3.10/site-packages/transformers/modeling_utils.py", line 1263, in __init__
+  File "/private/tmp/llm-inner-pytorch/lib/python3.10/site-packages/transformers/modeling_utils.py", line 1885, in _check_and_adjust_experts_implementation
+  File "/private/tmp/llm-inner-pytorch/lib/python3.10/site-packages/transformers/modeling_utils.py", line 1939, in get_correct_experts_implementation
+  File "/private/tmp/llm-inner-pytorch/lib/python3.10/site-packages/transformers/modeling_utils.py", line 1733, in _grouped_mm_can_dispatch
+  File "/private/tmp/llm-inner-pytorch/lib/python3.10/site-packages/transformers/modeling_utils.py", line 1976, in _can_set_experts_implementation
+FileNotFoundError: [Errno 2] No such file or directory: '/private/tmp/llm-inner-pytorch/lib/python3.10/site-packages/transformers/models/llama/modeling_llama.py'
