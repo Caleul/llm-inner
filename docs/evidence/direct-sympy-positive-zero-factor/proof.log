@@ -1,0 +1,9 @@
+.......
+----------------------------------------------------------------------
+Ran 7 tests in 12.299s
+
+OK
+Exact producer factoring: cases=92166 mismatches=0
+Complete composition growth regression: characters=2296124090440->2296124090440; finalArtifactEmitted=false
+Linear signed-zero factoring: cases=122888 mismatches=0
+Positive-zero multivariable factor: cases=552996 mismatches=0

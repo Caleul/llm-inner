@@ -1,0 +1,876 @@
+✔ Llama interpreta post_attention_layernorm como norma pré-MLP (1.761625ms)
+✔ Gemma 2 preserva quatro normas do bloco (0.791375ms)
+✔ Gemma 4 text refuses a malformed contract before lowering (0.639083ms)
+✔ composite multimodal packages cannot be silently narrowed to text_config (0.210834ms)
+✔ Qwen 3 aplica Q/K/V RMSNorm por cabeça após reshape (0.327084ms)
+✔ Q/K RMSNorm com dimensão diferente de head_dim falha fechado (0.182334ms)
+✔ projeção K com dimensão incompatível falha antes de gerar IR (0.224125ms)
+✔ tensor role resolution rejects unregistered substring naming conventions (0.120959ms)
+✔ MLP gated com dimensão intermediária incompatível falha fechado (0.132375ms)
+✔ embedding e norma final precisam respeitar hidden_size e vocab_size (0.289417ms)
+✔ activation desconhecida falha antes de criar um IR sem semântica executável (0.190833ms)
+✔ swish é normalizado apenas como o alias matemático de SiLU (0.4735ms)
+✔ attention_bias declarado deve coincidir com todos os tensores de projeção (0.231375ms)
+✔ Qwen 2 aplica attention_bias somente a Q/K/V e rejeita bias em o_proj (0.362333ms)
+✔ mlp_bias declarado não aceita tensores extras e flags de bias devem ser booleanas (0.192584ms)
+✔ flags de bias verdadeiras preservam cada bias declarado no IR (0.142459ms)
+✔ tie_word_embeddings escolhe o embedding declarado e preserva bias do módulo lm_head (0.11825ms)
+✔ Gemma 2 usa somente o default semântico registrado para lm_head amarrado ausente (0.118042ms)
+✔ output-head tying must be boolean and untied heads cannot be omitted (0.219042ms)
+✔ declared attention topology cannot silently fall back to full attention (0.157875ms)
+✔ RoPE variants and invalid rotary dimensions fail before generic lowering (0.537417ms)
+✔ declared default RoPE preserves the verified rotate-half contract (0.154208ms)
+✔ native benchmark reports independently timed supported container paths without performance thresholds (564.886417ms)
+✔ native benchmark rejects invalid sampling instead of silently changing workload evidence (0.361208ms)
+✔ scalar coordinate substitution streams repeated producer source (20.153666ms)
+✔ size audit and substitution agree across stream boundaries and UTF-8 (48.336375ms)
+✔ disjoint domains preserve strict holes, intersect both sides and remain immutable (1.356666ms)
+✔ square preimages discard the central impossible interval before its consumer (8.319584ms)
+✔ joint finite proofs retain separated survivors before the next producer (3.934042ms)
+✔ mixed-sign addition and subtraction propagate endpoint preimages before expansion (36.50125ms)
+✔ Rust executes square interval preimages bitwise over every finite half input (1184.398042ms)
+✔ flat union guards do not fill holes or remove a condition using its hull (1637.709375ms)
+✔ signed endpoint preimages preserve every comparison and both zero signs in Rust (3674.548042ms)
+✔ finite-input proof reads weights progressively and covers variable discovered geometry (14.729958ms)
+✔ finite-input proof rejects unsupported angular, normalization, and overflowing residual bounds (0.523541ms)
+✔ binary substitution does not carry a refined operand into sibling paths (59.0355ms)
+✔ deferred binary arithmetic retains the operands of its original branch (837.277417ms)
+✔ joint finite-input contradictions stop the next consumer before dependency expansion (6.050916ms)
+✔ finite input substitution proves joint comparison contradictions without computing output tables (1125.783375ms)
+✔ finite comparison substitution retains both zero signs in fundamental inputs (1411.710083ms)
+✔ proved power-of-two input lattices eliminate intervals containing no reachable F32 value (859.1785ms)
+✔ large exponential domains reduce to certified rounded affine runs in flat Rust (45507.07525ms)
+✔ exponential substitution uses the proved input lattice and preserves every reachable value (461.69175ms)
+✔ Rust softmax scalar substitution preserves the length-dependent SIMD reduction order (521.699625ms)
+✔ product endpoint preimages retain every valid sign and threshold case (5.869375ms)
+✔ inherited sum comparisons survive zero substitution without deleting their guards (1.0915ms)
+✔ normalized comparison consequences propagate into scalar subexpressions to a fixed point (1.615208ms)
+✔ compound comparisons reach a fixed point before their next consumer without a new input binding (1.052667ms)
+✔ square magnitude bounds propagate through the sign of a positive variable product (2.116125ms)
+✔ square magnitude bounds refresh a sign-known input before its next consumer (430.350584ms)
+✔ rounded-affine SiLU substitution preserves all small F16 policy inputs and signed zeros (495.954667ms)
+✔ new fundamental constraints discard inherited contradictions before the next consumer (1.051ms)
+✔ equal-result leaves merge across a gap containing no valid fundamental F16 input (446.465375ms)
+✔ direct root chords correct every F32 value across binades, small variances and subnormal inputs (931.968125ms)
+✔ zero projection weights eliminate their dependencies before they are expanded (1.23325ms)
+✔ SiLU enumeration starts inside the inherited positive or negative interval (0.698542ms)
+✔ later operand restrictions simplify the earlier operand before the next numerical expansion (0.729ms)
+✔ zero nonnegative reductions propagate to original squared inputs (492.107834ms)
+✔ consumer comparisons propagate through rounded and affine producers without manual normalization (450.813042ms)
+✔ activation substitution passes its branches to a rounded consumer without inline conditionals (467.6505ms)
+✔ nested rounded producers substitute into flat consumers before source emission (460.8515ms)
+✔ flat double rounding preserves signed zero, subnormals and half midpoint neighborhoods (475.651042ms)
+✔ the pinned finite half SiLU policy satisfies the magnitude bound used for zero elimination (100.155625ms)
+✔ initial MLP zero proof uses inherited embedding bounds and rejects unrestricted inputs (1823.717417ms)
+✔ a proved signed-zero input eliminates its dependency in the ordered projection (16.276583ms)
+✔ nonzero residual corrections disappear when both rounded sums retain the embedding (2219.343292ms)
+✔ affine substitution distributes coefficients and gathers repeated fundamental variables bitwise (671.266083ms)
+✔ floating rounding and signed-zero barriers survive affine analysis (0.479916ms)
+✔ every operator and guard is visited and branch bounds never leak to the complement (0.880042ms)
+✔ incremental F32 substitution composes exact affine producers before bitwise rounding (149.275459ms)
+✔ invalid affine certificates fail instead of narrowing a numerical domain (0.314042ms)
+✔ affine forms reuse completed shared producers without enumerating literal copies (0.389917ms)
+✔ an identity cannot weaken the half lattice of a completed producer reused by later affine consumers (632.507ms)
+✔ parallel condition workers preserve alias facts, stable candidate choice and serial convergence (232.851417ms)
+✔ parallel conditions retain lazy missing inputs, undefined integer operations and signed floating paths (26.6495ms)
+✔ parallel condition budgets match serial incomplete results and retain earlier progress (79.45575ms)
+✔ shared condition reduction continues past one promotion to its own fixed point (50.453709ms)
+✔ condition candidate and round budgets never masquerade as convergence (4.707042ms)
+✔ later resource exhaustion preserves the already-admitted reduction without claiming convergence (0.719542ms)
+✔ finite comparison proofs preserve endpoints, overlap, strictness and signed-zero equality (6.685709ms)
+✔ a proved guard cuts unreachable numerical producers before lowering for every finite half input (55.250917ms)
+✔ a constant discovered during condition substitution selects its branch before unsupported producers (1.120875ms)
+✔ finite half sum/difference needs no intermediate F32 boundary for every magnitude pair (5899.510291ms)
+✔ JSON half sum fusion preserves signed zero, binade gaps, cancellation and overflow across all finite half operands (4092.411041ms)
+✔ half addition identity is not applied to higher-precision operands or sums of half products (1.896583ms)
+✔ summing exact half products still needs the F32 boundary at an odd half tie (0.896792ms)
+✔ every point of the finite half sum/difference grid within [-1,1] is exact F32 (137.763458ms)
+✔ certified bounded half sums and differences lose their F32 rounding but preserve all finite admitted operands (381.877167ms)
+✔ half-grid rounding removal requires both the half lattice and the absolute domain bound (0.510625ms)
+✔ half-difference exponential removes only its unreachable tiny dispatch and retains exact certified polynomial bits (815.160834ms)
+✔ F32 widening and zero identities retain the stronger completed F16 precision proof (122.014125ms)
+✔ removing a redundant F32 bitword rounding never weakens its F16 producer precision (415.292667ms)
+✔ stronger precision is retained only when proved; arbitrary F32 constants do not acquire F16 precision (0.228ms)
+✔ backward half-output bounds certify every finite half cell with exact F32 tie ownership (339.533792ms)
+✔ unchanged structural and precision fixed points retain completed producer identity (0.904458ms)
+✔ incremental substitution stabilizes children before consumers and removes equivalent producer subtraction (139.039ms)
+✔ a selected coordinate is emitted as a complete scalar artifact without pretending to cover the vector (51.104458ms)
+﹣ one complete source-discovered coordinate preserves live PyTorch bits after each dependency is stabilized (0.080959ms) # SKIP
+✔ unsigned interval propagation encloses every u16 operand through wrap, masks, shifts and conversion (1231.810416ms)
+✔ derived integer comparisons inherit path bounds without losing wrap or lazy failure semantics (163.012084ms)
+✔ positive IEEE magnitude classification equals unsigned word ordering including zeros and nonfinite payloads (557.790917ms)
+✔ scoped unsigned magnitude proofs enclose all finite half inputs through F32 arithmetic and conversion (163.096459ms)
+✔ a scoped lower bound removes only proved residual changes and keeps the signed complement (6.0465ms)
+✔ invalid magnitude proofs are rejected rather than silently shrinking the input domain (0.315875ms)
+✔ scoped normal half conversion removes subnormal decisions for both signs and preserves every admitted half input (450.103916ms)
+﹣ JSON half-difference exponential certificate agrees with live PyTorch throughout the containing F32 lattice (0.480208ms) # SKIP
+﹣ JSON compiler pipeline reports prepared coordinates without publishing an over-budget checkpoint vector (0.060791ms) # SKIP
+﹣ source-discovered JSON working expressions reproduce complete checkpoint logits before primitive lowering (0.042375ms) # SKIP
+✔ normalized root and composed inverse JSON exhaust both F32 exponent parities against native IEEE boundaries (1497.856375ms)
+✔ rational root JSON preserves exact widening across normal exponent boundaries and all positive finite half values (2259.715375ms)
+✔ composed inverse preserves the root rounding boundary instead of silently becoming reciprocal sqrt (0.148458ms)
+✔ residual cell guards retain every finite half at both correction endpoints with a strict F32 margin (1823.039792ms)
+✔ residual cells never remove signed-zero canonicalization or claim a non-strict or invalid bound (0.621959ms)
+✔ RMS consumer certificate exhausts root error cells and their finite half pair preimages (225.749708ms)
+✔ RMS certificate keeps four steps for unsupported widths, resource limits and invalid domains (9.543667ms)
+✔ three-step root is restricted to the certified consumer; standalone roots retain exact rounding (1.719834ms)
+﹣ certified RMS critical pairs match live PyTorch for every sign and one/eight-token shapes (1.024167ms) # SKIP
+✔ closed JSON RMS composition preserves every critical coordinate and sign without pending primitives (70.421625ms)
+✔ constant F32 cells preserve exact dyadic results for every admitted half correction and both signs (179.38725ms)
+✔ constant-cell folding rejects zeros, ties, overflow, unknown operations and invalid bounds (0.120583ms)
+✔ a certified constant cell cuts its producer before lowering and folds the downstream root (1.60725ms)
+✔ JSON correlated score proof reads weights progressively and covers every paired RoPE coefficient (1.892542ms)
+✔ JSON correlated score proof refuses unsupported geometry, unavailable coefficient budgets and nonfinite projections (0.999042ms)
+✔ compiler structural sharing preserves the entire literal tree and floating evaluation order (2.508708ms)
+✔ structural sharing distinguishes IEEE payloads, signed zeros, types and input names (0.164ms)
+✔ structural sharing keeps lazy failures and rejects cycles or exhausted compiler budgets (0.359542ms)
+✔ equivalent condition objects count as one repeated candidate instead of hiding a reduction (1.127083ms)
+✔ finite product and quotient sign provenance removes positive-root consumers while preserving all half signs (182.215375ms)
+✔ product and quotient sign proofs match actual F32 arithmetic over all finite half values and coefficient signs (1833.07675ms)
+✔ sign proofs do not classify intervals containing zero and prove finite squares positive even at negative zero (0.729875ms)
+✔ certified source signs preserve direct and double-rounded half cells without repeating the positive divisor (427.108667ms)
+✔ JSON zero identities preserve every finite half value and both zero signs (202.688833ms)
+✔ JSON reduction trailing zero is removed only after its accumulator excludes negative zero (376.407709ms)
+✔ JSON branch zero-sign proof requires both arms and does not assume half underflow is positive (3.647209ms)
+✔ JSON exact constants survive serialization including signed zero and all finite F16 bits (85.24675ms)
+✔ JSON bitword mask and shift identities preserve all u16 values and unsigned width boundaries (1422.82175ms)
+✔ JSON conditional facts remove repeated decisions without distributing branches (0.576834ms)
+✔ JSON shared conditions combine repeated queries after fixed point without changing floating path arithmetic (5.979042ms)
+✔ JSON shared condition promotion does not expose lazy missing inputs or undefined integer operations (0.447292ms)
+✔ JSON fixed point propagates integer bounds to remove implied and contradictory conditions (1.35175ms)
+✔ JSON factoring is allowed for modular integers and withheld across float rounding (0.267ms)
+✔ JSON simplification preserves -0 and does not hide undefined integer operations (0.217875ms)
+✔ JSON precision cancels redundant bit rounding only with a proved lattice and preserves signed zeros (318.037541ms)
+✔ JSON certified F16 source ranges eliminate only unreachable sign, subnormal and overflow arms (1550.728792ms)
+✔ JSON working range analysis encloses F32 endpoint rounding and refuses unknown or zero-crossing divisors (0.810917ms)
+✔ JSON normal double rounding is fused with both widened even and odd tie cells preserved (6717.724875ms)
+✔ JSON finite double rounding composes normal and subnormal arms without duplicating the F32 result (2605.628417ms)
+✔ JSON exponential truncation is certified over every possible bounded half-score difference (378.843208ms)
+✔ JSON rejects hidden floating conversions and malformed operation types (0.221208ms)
+✔ JSON F32 to F16 bitwise conversion preserves every finite F16 value including signed zeros (723.393917ms)
+✔ JSON F32 to F16 explicit decisions agree with independent dyadic rounding at ties and sampled F32 bits (93.936125ms)
+✔ JSON exact widening covers every finite F16 bit pattern and sampled F32 normal/subnormal values (1343.606666ms)
+✔ JSON positive normal F32 square root is lowered without native sqrt and agrees bitwise on exponent and mantissa boundaries (790.63525ms)
+✔ JSON factorized SiLU polynomial is certified against every finite F16 point in its declared domain (3393.752333ms)
+✔ JSON direct F64 to F16 composition matches an independent dyadic oracle at every half midpoint (2339.427417ms)
+✔ JSON exponential eliminates constant range reduction and reproduces the pinned F32 polynomial in its proved domain (517.921792ms)
+✔ JSON normal rounding followed by exact widening collapses to one bitword rounding expression (7.415292ms)
+✔ JSON composed F16 conversion and widening preserves all F16 values and sampled F32 rounding boundaries (481.636583ms)
+✔ JSON F64 to F32 bitwise conversion agrees with IEEE rounding at boundaries and sampled binary64 values (75.298792ms)
+✔ JSON admission distinguishes shared decisions from expanded occurrences and rejects residual implicit rounding (0.386833ms)
+✔ JSON admission rejects exponential duplication and longest shared paths without expanding the tree (3.423458ms)
+✔ JSON measurement predicts serialization and huge duplication without rendering expanded expressions (0.478334ms)
+✔ JSONL stream emits all scalar coordinates with exact syntax and refuses to publish incomplete vectors (25.300541ms)
+✔ independent streaming numeric passes leave executable direct expressions (411.56125ms)
+✔ numeric pipeline emits audited executable source from an independent expression file (17.187625ms)
+✔ literal folding runs before branch expansion and preserves signed zero (7.632625ms)
+✔ literal RoPE dimension is simplified before position branching (9.256125ms)
+﹣ real compiler preserves serial bytes, partitioned worker bytes and complete PyTorch logits (0.447625ms) # Set LLM_INNER_DIRECT_PYTHON to PyTorch 2.12.1 CPU arm64
+✔ F16 partitions cover every finite input exactly once and keep signed zeros together (21.18275ms)
+✔ compilation units preserve the n=3 versus n>=4 softmax policy boundary (1.634ms)
+✔ pure identity cache preserves SHA256 exactly and never retains unbounded keys (0.366959ms)
+✔ paged weights decode every finite F16 bit pattern exactly including negative zero (273.839417ms)
+✔ weight pages evict bounded bytes without confusing shards or tensor offsets (0.172834ms)
+✔ worker budget bounds admission instead of treating more workers as more available RAM (0.180042ms)
+✔ dynamic pool assembles canonical bytes despite out-of-order worker completion (501.226375ms)
+✔ pool stops on worker failure, unexpected clean exit, cancellation and duplicate IDs (91.639541ms)
+✔ fragment assembly rejects corruption, omissions and output over budget (77.436833ms)
+✔ shared output budget counts only emitted bytes across independent streams (3.566959ms)
+✔ partitioned Rust preserves disjoint branch results bitwise for every finite F16 input (1412.85775ms)
+✔ batched source digest preserves per-fragment bytes including UTF16 surrogate boundaries (0.8575ms)
+✔ checkpoint identity rejects changed config, replaced payload and new shards (5.709667ms)
+✔ publication lease rejects concurrent compilation and releases ownership after failure (2.63725ms)
+✔ stream file errors reject completion without an unhandled asynchronous error (0.58175ms)
+✔ pool fails when measured RSS exceeds the requested budget (1002.919792ms)
+✔ power-of-two boundary normalization matches independent generic GCD decoding (61.803208ms)
+✔ affine numerical runs invert emitted binary64 operations over the discrete producer (55.045333ms)
+✔ positive reciprocal comparisons propagate before the root producer is expanded further (14.786083ms)
+✔ direct corrected-root comparisons invert to the original positive F32 input (1.165958ms)
+✔ rounded affine conditions invert both rounding stages and tie ownership (102.61125ms)
+✔ backward rounded condition remains contradictory after exact affine substitution (0.152833ms)
+✔ reciprocal-root consumer preimages preserve ordered CPU rounding (0.647333ms)
+✔ normalization sum preserves declared CPU vector, cascade and tail order (63.076875ms)
+✔ square-root substitution emits only exact affine leaves on its F32 input domain (1614.306166ms)
+✔ fully substituted SiLU matches every finite F16 backend-policy input (1645.24575ms)
+✔ reduction admission rejects intermediaries and loops across streaming chunk boundaries (0.805875ms)
+✔ composed F64 to F32 to F16 is substituted through every half midpoint preimage (624.915542ms)
+✔ exponential substitution removes numerical temporaries before Rust compilation (541.730542ms)
+✔ inline half rounding preserves every finite adjacent midpoint and ties to even (863.760416ms)
+✔ Rust executes flattened exact rounding over all finite half values and midpoint neighbors (701.023291ms)
+✔ inherited affine conditions eliminate impossible and redundant Rust branches before emission (479.468208ms)
+✔ reachable transformed branches flatten into reduced leaf conditions (583.106209ms)
+✔ rounded producer comparisons propagate to flat input conditions before emission (1165.312416ms)
+✔ reciprocal-root comparisons eliminate the primitive and entry-domain redundancies (557.863875ms)
+✔ substitution emits composed rounding without local variables or numerical loops (576.141166ms)
+✔ positive interval facts remove impossible rounding branches without changing midpoint ties (862.421875ms)
+✔ streaming scalar reduction preserves binary64 grouping and signed zeros (1.081333ms)
+✔ matrix reads and interval correlations are reduced without storing expressions (0.448166ms)
+✔ inherited square sums acquire the same fingerprint after zero substitution (0.434875ms)
+✔ bounded output batching preserves bytes, inspection isolation and admission (67.487958ms)
+﹣ Signed normal-binade conversions contain one source occurrence and preserve native IEEE boundaries (0.470917ms) # SKIP
+﹣ Certified constant projections avoid dead producers and preserve signed Half outcomes (0.048ms) # SKIP
+﹣ Tight Half update bounds preserve ordered F32 reductions and eliminate dependencies with proof (0.037583ms) # SKIP
+﹣ Memory-admitted parallel regions preserve full geometry, ordered numerical bodies and native parity (0.036667ms) # SKIP
+﹣ Fresh broad-region covers refine only pending intersections and preserve exact source compatibility (0.037042ms) # SKIP
+﹣ Native parity corpus covers mixed signed zeros without exponential growth in high dimensions (0.033459ms) # SKIP
+﹣ Correlated RMS bounds eliminate proved constant components before expanding mean and inverse (0.037208ms) # SKIP
+﹣ Scoped exact algebra factors closed producers while preserving native payloads and IEEE barriers (0.031125ms) # SKIP
+﹣ Finite F32 cells and compile-time constants preserve native boundaries and signed zeros (0.038333ms) # SKIP
+﹣ Proved unsigned masks remove redundant operations without changing overflow or numeric contexts (0.08075ms) # SKIP
+﹣ Stabilized branches share decisions, preserve lazy guards and emit flat input-only expressions (0.602584ms) # SKIP
+﹣ Compiler-only literal sharing uses expanded costs and emits bit-exact input-only expressions (0.041958ms) # SKIP
+﹣ SymPy factors typed word polynomials modulo 2^64 without reassociating floating operations (0.024667ms) # SKIP
+﹣ Parallel SymPy blocks preserve ordered F32 folds, branch contexts and memory admission (0.021167ms) # SKIP
+﹣ Equivalent scan backend preserves Unicode regex results and byte-identical saved compiler states (0.025708ms) # SKIP
+﹣ SymPy savepoints preserve completed rounding frontiers and reject incompatible or corrupt state (0.025708ms) # SKIP
+﹣ SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs (0.028667ms) # SKIP
+﹣ SymPy checkpoint working string is re-read and matches a freshly captured coordinate reference (0.021583ms) # SKIP
+﹣ SymPy elementary conversion strings preserve native IEEE cells and composed boundaries (0.020083ms) # SKIP
+﹣ Bounded SiLU arithmetic lowering matches every certified Half scalar and vector input (0.020333ms) # SKIP
+﹣ Positive F32 square-root word lowering preserves all mantissas, parities and subnormals (0.0195ms) # SKIP
+﹣ IEEE sign projections preserve signed zero and reduce completed down-conversion strings (0.019333ms) # SKIP
+﹣ Half interval precision removes redundant F32 rounding with native emitted-expression parity (0.018792ms) # SKIP
+﹣ Disjoint input partitions preserve complete Half coverage and emitted coordinate parity within each certified region (0.047041ms) # SKIP
+﹣ Proved signed-zero updates preserve formats, branch isolation and native payloads (0.018875ms) # SKIP
+﹣ Constant IEEE cells eliminate whole producers and propagate compound branch contexts (0.055791ms) # SKIP
+﹣ Identical emitted coordinate bodies coalesce without losing coverage, signed zeros or lazy guards (0.059625ms) # SKIP
+﹣ Budgeted coordinate continuation persists actual producers and rejects incompatible saved dimensions (0.041417ms) # SKIP
+﹣ Coupled projection exclusions preserve rounded reductions across every central Half pair (0.023041ms) # SKIP
+﹣ Cross-normalization path exclusions include every original rounding and reject foreign contexts (0.23575ms) # SKIP
+﹣ Directed attention bounds retain both projection roundings and prove residual cells for every mixed Half pair (0.03975ms) # SKIP
+﹣ RMS subnormal branch proofs retain shared means and original Half storage cells (0.023958ms) # SKIP
+﹣ Source changes retain only audited partition geometry and recompile numerical evidence (0.052ms) # SKIP
+﹣ Branch-local projection cells propagate constants in original dependency order without replacing residual sums (0.06375ms) # SKIP
+✔ PyTorch CPU pow -0.5 transcript preserves the F32 RMS reciprocal-square-root boundary (0.614375ms)
+✔ PyTorch CPU BF16 slow-GEMM and Welford schedules preserve their registered reduction trees (0.541208ms)
+✔ pinned PyTorch ARM SLEEF tanh transcript preserves authoritative F32 results (0.4725ms)
+✔ pinned PyTorch ARM SLEEF trig and BF16 RoPE casts preserve authoritative results (0.896791ms)
+✔ pinned PyTorch ARM SLEEF exp and BF16 eager attention preserve authoritative results (1.008708ms)
+✔ PyTorch CPU cascade RMS schedule reproduces the authoritative BF16 vector (0.223875ms)
+✔ executor F64 runs a generated dense Llama decoder through logits (2.732417ms)
+✔ shared-KV consumers reuse the producer cache across F64 decode without duplicate ownership (2.781833ms)
+✔ shared-KV consumers preserve F32 incremental logits and producer-only cache (2.598625ms)
+✔ operation differential report compares every stable IR output and records required evidence (1.811041ms)
+✔ operation differential report fails closed for missing captures, shape drift, and numeric divergence (1.3025ms)
+✔ a complete operation trace with a numerical mismatch is approximate, not incomplete (0.575333ms)
+✔ operation differential report compares terminal softcapped logits to final_logit_softcap (0.451583ms)
+✔ executor F64 fails closed for compiler-default implicit dtype policies (0.207333ms)
+✔ executor F64 rejects missing cast boundaries instead of assuming F64 (0.205791ms)
+✔ executor F64 rejects an attention softmax declared in another dtype (0.244417ms)
+✔ executor F32 fails closed instead of treating non-default RoPE as rotate_half (0.413541ms)
+✔ executor F64 applies a canonical additive attention mask before softmax (0.271417ms)
+✔ executor F64 incremental KV cache matches the final full-prompt logits (0.242875ms)
+✔ F64 greedy generation advances absolute positions and returns a cache for every emitted token (0.538708ms)
+✔ greedy selection uses the final sequence logits, rejects non-finite scores, and keeps the lowest tied token (0.15425ms)
+✔ generation differential report requires token, position, terminal-logit, and KV-cache agreement (0.874375ms)
+✔ generation differential report marks token/position divergence approximate and missing evidence incomplete (0.336584ms)
+✔ generation differential report rejects malformed authoritative captures (0.431667ms)
+✔ generation differential report never treats a different prompt or malformed candidate result as equivalent (0.317417ms)
+✔ greedy generation evaluates EOS before stopping and rejects ambiguous generation inputs (0.22925ms)
+✔ executor F64 rejects incomplete and incompatible KV caches (0.181125ms)
+✔ executors reject malformed or non-canonical additive attention masks (0.377958ms)
+✔ executor F32 incremental KV cache preserves declared F32 boundaries (0.54725ms)
+✔ F32 greedy generation keeps F32 logits and canonical cache ownership (0.439041ms)
+✔ reader range-loads an on-disk F64 Safetensors fixture into executor logits (15.509542ms)
+✔ reader rejects F32 range loads instead of silently widening their semantics (6.168ms)
+✔ reader range-loads F32 Safetensors into the explicit F32 executor (7.190417ms)
+✔ reader range-loads F16 and BF16 Safetensors losslessly into F32 values (3.66225ms)
+✔ F32 executor runs a complete decoder from F16 and BF16 Safetensors storage (15.634125ms)
+✔ F32 dense dispatch rejects integer and quantized storage rather than guessing a conversion (26.537875ms)
+✔ F32 executor rejects an F64 policy instead of silently changing cast boundaries (0.302625ms)
+✔ MLX dequantized F32 payload preserves declared provenance and rejects malformed backend bytes (0.279042ms)
+✔ F32 executor accepts MLX materialized weights only with matching quantization provenance (0.448666ms)
+✔ Safetensors inspection rejects inverted, out-of-payload, and overlapping tensor ranges (55.639125ms)
+✔ Safetensors inspection rejects hostile shard paths and oversized headers before opening them (8.866667ms)
+✔ MLX quantization requires U32 packing and a row-compatible scales matrix (12.090667ms)
+✔ native MLX affine reader reconstructs little-endian U32 codes with per-group F32 parameters (4.751958ms)
+✔ finite F16 decode has affine branches exactly equal to the reference (20.18075ms)
+✔ multiplicação literal F16 vira somente ramos com folhas lineares constantes (170.398334ms)
+✔ redutor finito reduz ReLU F16 a dois caminhos afins (2.047875ms)
+✔ peso literal do fixture passa pela mesma regra condicional (137.177709ms)
+✔ SiLU F16 do PyTorch capturada é substituída por ramos lineares sem exp (18.6455ms)
+✔ exp F32 de SLEEF reproduz divergências observadas contra Math.exp (0.779833ms)
+✔ inlined exponential matches pinned CPU F32 exponential (92.202167ms)
+✔ streaming replaces exp and all internal rounding calls (103.763459ms)
+✔ direct F32 rounding agrees with Math.fround at boundaries and sampled doubles (35.114542ms)
+✔ direct F16 bits agree with the declared finite F32 to F16 rule (123.081625ms)
+✔ streaming substitutes input-dependent rounding calls across chunks (36.250333ms)
+✔ in-place rounding preserves a complete diagnostic scalar forward (3681.211916ms)
+✔ direct square root agrees with F32 RMS normalization results (71.21325ms)
+✔ streaming replaces square root without a model program (11.918333ms)
+✔ greedy F16 choice compares values and keeps the first index on ties (0.98125ms)
+✔ selected token and winning logit match the PyTorch forward for varied lengths (5229.919458ms)
+✔ streaming substitutes hidden calls across read boundaries without changing surrounding text (26.220667ms)
+✔ streaming expands context then score across file boundaries (8.569792ms)
+✔ streaming audit counts unresolved numeric calls across chunks (4.941459ms)
+✔ streaming folds literal F32/F16 boundaries and keeps signed zero behavior (11.714417ms)
+✔ streaming replaces generic F16 decoding with affine guards (6.39ms)
+✔ streaming embeds F16 add, multiply and sign branches (8.139292ms)
+✔ streaming lowers RoPE calls for the configured context (5.63ms)
+✔ limite de contexto usa configuração e default do adaptador (0.934083ms)
+✔ MLP escalar com cache gate/up preserva valores F16 para n variável (126.94175ms)
+✔ atenção escalar com cache Q/K/V preserva valores F16 para n variável e escores extremos (205.930541ms)
+✔ compila uma linha final literal antes de substituir o forward (3967.128167ms)
+✔ artefato escalar salvo executa logits sem consultar o checkpoint (3497.661083ms)
+✔ descobre o forward do pacote e gera logits escalares sem nomes de tensores fornecidos pelo teste (2035.604792ms)
+✔ duas camadas completas preservam valores finais por dimensão com cache escalar (88761.697375ms)
+✔ atenção escalar paramétrica compara dimensões finais com PyTorch para n=1..8 e escores extremos (56456.244667ms)
+✔ if/else F16 respeita limites, empate par, sinal e overflow (0.384833ms)
+✔ substitui pesos de cada dimensão e compõe duas projeções com arredondamento entre elas (3.213875ms)
+✔ q_proj real: 16 dimensões coincidem com a referência PyTorch F16 no vetor fixo (2.535625ms)
+✔ Q/K/V reais das duas camadas: 192 resultados do forward de dois tokens coincidem bit a bit (15.405458ms)
+✔ fórmulas escalares com pesos substituídos aceitam n tokens e compõem projeções sem estágios (25.534333ms)
+✔ fórmulas paramétricas de quatro acumuladores reproduzem PyTorch para n=1..4 (10.498416ms)
+✔ RMSNorm paramétrica F16 reproduz valores PyTorch por dimensão para n=1..4 (4.115166ms)
+✔ substituição literal de RMSNorm em Q preserva o resultado PyTorch para n variável (27.477792ms)
+✔ MLP completa é uma fórmula plana por dimensão para n=1..4 (1578.063375ms)
+✔ atenção de um token: compõe V e O nas duas camadas com paridade de bits (28.3945ms)
+✔ RoPE e scores mascarados de dois tokens coincidem por head e camada (17.682166ms)
+✔ atenção completa de dois tokens atravessa AV e O com paridade de bits (35.764541ms)
+✔ RoPE branches cover every position and dimension in the compiled context (78.266792ms)
+✔ poda declarações escalares não alcançadas após substituição (2.015916ms)
+✔ Gemma 4 audio lowering makes subsampling, chunk-relative attention, local convolution, projection, and scatter explicit (7.42325ms)
+✔ Gemma 4 audio reproduces eager additive-mask logical inversion across the complete blocked class (0.520292ms)
+✔ Gemma 4 audio masks invalid frames before subsampling and rejects wrong placeholder cardinality (3.37575ms)
+✔ Gemma 4 audio BF16 policy dispatches every compatible assignment by operation class (1.420416ms)
+✔ Gemma 4 audio context cast narrows the complete native F32 value-matmul boundary to BF16 (0.213167ms)
+✔ Gemma 4 audio refuses a missing runtime numeric contract instead of applying a local default (0.56375ms)
+✔ constant pool binário lê somente o range Safetensors indexado e valida identidade (12.926458ms)
+✔ gate promove somente ganho com identidade token/logit (38.094167ms)
+✔ gate rejeita divergência e ganho abaixo do mínimo (29.859083ms)
+✔ gate falha fechado sem hash terminal e valida CLI (7.160333ms)
+✔ empacota grafo fechado, constant pool e tokenizer sem caminhos externos (25.547625ms)
+✔ Gemma 4 modality suite requires zero-tolerance image, video, and audio generation evidence (1.800209ms)
+✔ Gemma 4 scalar statement dataflow exposes local coordinates and bidirectional edges (3.349709ms)
+✔ Gemma 4 scalar statement programs embed closed syntax trees and reject textual drift (2.045334ms)
+✔ Gemma 4 embeds one executable F32 runtime-math program class for every formula (4.222ms)
+✔ Gemma 4 coordinate navigation parses nested indices without operation or layer dispatch (2.588916ms)
+✔ Gemma 4 authoritative traces bind eager inference mode instead of accepting no-grad drift (0.466291ms)
+✔ dense literal decoders execute serialized row-major addresses and IEEE bit programs (72.395042ms)
+✔ Gemma linear scalar audits preserve fused products and spell out every ARM reduction region (0.518833ms)
+✔ Gemma normalization scalar audits expose complete cascade and Welford state transitions (0.264208ms)
+✔ Gemma 4 composite trace dispatches every modality through one explicit feature/scatter contract (0.082ms)
+✔ Gemma 4 composite trace validates each modality shape and rejects mixed routing before source access (0.689042ms)
+✔ Gemma 4 reduction probe CLI rejects unknown and duplicate targeted profile IDs before opening artifacts (144.500583ms)
+✔ Gemma 4 composite prelude replaces PAD-backed image/video/audio slots before context PLE and enters text core (12.972875ms)
+✔ Gemma 4 composite lowers vision blocks into distinct full/sliding masks and rejects ambiguous caller masks (2.153625ms)
+✔ Gemma 4 composite reuses producer-owned KV after vision-aware prefill without reapplying block masks (1.963416ms)
+✔ Gemma 4 composite literal embeds every tower weight and replays multimodal prefill plus cached decode after source bytes are removed (7227.10125ms)
+✔ Gemma 4 composite streamed writer emits an atomic self-contained JSON file without accumulating source payloads (453.230792ms)
+✔ Gemma 4 streamed literal artifact indexes exact tensor ranges after its checkpoint path is removed (4388.539584ms)
+✔ Gemma 4 literal payload verifier proves every embedded storage byte before source removal (1627.021583ms)
+✔ Gemma 4 literal artifact verifies its embedded payload commitments after source removal (1224.507667ms)
+✔ Gemma 4 literal headers expose and stream-validate operation-declared F64 reductions (1842.385542ms)
+✔ Gemma 4 literal artifact supplies bounded BF16/F32-compatible embedding and linear kernels after source removal (1358.349375ms)
+✔ Gemma 4 paged text interpreter replays prefill and cached greedy decode from literal ranges after source removal (942.925833ms)
+✔ paged dense kernels widen BF16 only from declared literal ranges (0.248375ms)
+✔ paged linear keeps the declared F64 accumulator distinct from F32 products and BF16 storage (0.091209ms)
+✔ paged linear applies an explicit interleaved F32 lane schedule instead of selecting one from shape (0.133042ms)
+✔ paged linear preserves the declared horizontal lane fold instead of assuming ascending accumulation (0.072875ms)
+✔ paged linear replays the ARM BF16 dot register tree rather than a generic 32-lane fold (0.243834ms)
+✔ paged linear keeps the BFDOT adjacent-pair lane contract distinct from modulo lanes (0.171667ms)
+✔ paged linear distinguishes a tiled adjacent-product lane schedule from index-modulo lanes (0.08475ms)
+✔ paged linear keeps fused multiply-add lanes distinct from separately rounded products (0.068875ms)
+✔ paged linear preserves ordered FMA and adjacent dot-product block boundaries (0.137083ms)
+✔ paged linear keeps finite tiled blocks distinct from persistent tiled lanes (0.098125ms)
+✔ Gemma 4 linear reduction probe binds a candidate schedule to traced producer and output tensors (5242.03925ms)
+✔ Gemma 4 shared-KV consumers embed but explicitly label their checkpoint-local K/V tensors (473.615375ms)
+✔ Gemma 4 composite fails closed for cardinality, partial modality inputs, and malformed vision blocks (0.973708ms)
+✔ Gemma 4 package audit makes PLE, per-type heads, multimodal towers, and shared-KV owners explicit (2.151ms)
+✔ Gemma 4 package audit fails closed when a shared-KV owner has an incompatible K projection (0.651833ms)
+✔ Gemma 4 package audit rejects a missing checkpointed clippable-linear bound (0.608333ms)
+✔ materializa todas as dimensões finais como calc_final_n = F_n(x) (8.811666ms)
+✔ gerador falha fechado para binding ou cardinalidade divergentes (2.803709ms)
+✔ publica uma definição autenticada e executável de EVAL_EXACT_DAG (4.852792ms)
+✔ rejeita semântica de redução ou arredondamento não publicada (1.221083ms)
+✔ substitui funções intermediárias e retorna somente calc_final_n e x[i] (1.237333ms)
+✔ recusa expansão maior que o limite antes de retornar JSON parcial (0.263542ms)
+✔ substitui produtores entre camadas e deixa uma raiz fechada por output (10.7465ms)
+✔ lê uma única dimensão final sem depender do tamanho das seções anteriores (9.147959ms)
+✔ rejeita binding final sem raiz autenticada (1.687917ms)
+✔ resolve EVAL_EXACT_DAG até a chamada e o corpo matemático autenticado (7.666334ms)
+✔ cache Metal recua ao maior prefixo token-idêntico e recalcula o token terminal (153.868042ms)
+✔ checkpoints diagnósticos cobrem macro, atenção e PLE em ordem estável (2.561416ms)
+✔ linear paginado delega um tile completo ao kernel nativo opt-in (0.374958ms)
+✔ linear paginado rejeita resposta nativa truncada (0.237417ms)
+✔ kernel nativo recebe bytes BF16 sem expansão JavaScript (0.129875ms)
+✔ kernel nativo referenciado evita transportar bytes da matriz pelo JavaScript (0.12325ms)
+✔ duas projeções com a mesma entrada compartilham um único despacho referenciado (0.257542ms)
+✔ linear em lote rejeita resposta truncada antes de publicar saída parcial (0.089458ms)
+✔ projeção terminal opta explicitamente pelo GEMM BF16 nativo (0.11575ms)
+✔ projeção terminal integral ignora a paginação e despacha toda a matriz BF16 (0.107542ms)
+✔ projeção terminal envia a paginação inteira para um único despacho do worker (0.130792ms)
+✔ epílogo greedy projeta somente o hidden terminal de cada batch (0.6945ms)
+✔ seleção terminal rejeita shape e payload incompatíveis (0.214709ms)
+✔ emite e executa uma função paramétrica fechada por dimensão sem desenrolar o dot product (10.918417ms)
+✔ memoiza subexpressões somente pelos índices livres e valida o limite de memória (0.694167ms)
+✔ representa um dot product de dimensão simbólica sem expandir seus termos (9.065125ms)
+✔ expande operações paramétricas da saída para a entrada preservando o valor (8.733542ms)
+✔ não cancela x/x sem prova de não-zero (0.101375ms)
+✔ fecha boundaries textuais em um único vetor x e dobra posição e máscara (1.082ms)
+✔ Gemma 4 payload integrity partitions decoded bytes into ordered gap-free commitments (38.341292ms)
+✖ evidência do default de oito threads vincula corpus e tokens autoritativos (4.660125ms)
+✖ evidência rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de latência (1.691042ms)
+✖ evidência do corte de prefill terminal preserva corpus e correção de raiz (2.062708ms)
+✖ evidência promove antecipação do prefixo exato somente em sessão com cache (1.125792ms)
+✖ evidência promove o maior prefixo exato entre sessões sem alterar logits (1.4895ms)
+✖ evidência promove contexto sensível exato sem replay do decoder (2.186542ms)
+✖ evidência adia prefill exato sem cache e preserva antecipação do contexto exato (1.278042ms)
+✖ evidência promove cabeça BF16 integral e rejeita prefill agrupado divergente (1.577333ms)
+✖ evidência promove cache de decisão exata e rejeita fronteira Q8 0-18 (0.901584ms)
+✔ evidência promove a fronteira Q8 0-19 com menos fallbacks e paridade integral (0.932708ms)
+✔ evidência rejeita fronteiras Q8 esparsas que reduzem fallbacks mas pioram o híbrido (0.519875ms)
+✖ evidência rejeita Q8 na projeção down quando velocidade e verificação deixam de coexistir (1.006625ms)
+✖ evidência rejeita grupos Q8 que divergem ou ampliam o fallback (1.899917ms)
+✔ calibração três-vias agrega acordo token a token e throughput (2.110209ms)
+✔ calibração preserva métricas da cabeça quantizada certificada (0.268292ms)
+✔ opções da calibração validam corpus e preservam opções do runtime (4.589125ms)
+✔ opções da calibração rejeitam corpus vazio e limites inválidos (2.49225ms)
+✔ interface diferencial contém controles e apresentação dos dois executores (2.180667ms)
+✔ interface projeta o veredito somente de original × LLM compilada (0.529084ms)
+✔ matriz da interface aceita linhas ou JSON e rejeita entradas ambíguas (0.213125ms)
+✔ matriz da interface agrega paridade, desempenho e divergência de logits sem esconder casos (0.710833ms)
+✔ avalia o efeito do fallback somente depois da referência sem usá-la na seleção (0.118208ms)
+✔ modo compilado exige que o worker autentique exatamente o mapa final (0.11675ms)
+✔ métricas diretas separam primeiro token, decode, speedup e prefill evitado (0.140833ms)
+✔ métricas top-K diretas quantificam logit escolhido, margem greedy e sobreposição (0.2985ms)
+✔ servidor integra geração direta persistente e decodifica seus tokens (117.747375ms)
+✔ streaming entrega tokens antes do relatório e reutiliza prefixo comprovado da sessão (596.979625ms)
+✔ servidor diferencial valida opções reprodutíveis (5.495417ms)
+✔ bundle compilado fornece modelo, constantes e tokenizer sem o diretório original (16.954917ms)
+✔ servidor reutiliza um worker carregado para múltiplos prompts (109.307416ms)
+✔ endpoint final liga qualquer dimensão de logit ao token decodificado (47.846666ms)
+✔ verificação seletiva é fail-closed e usa somente a margem do caminho rápido (0.276584ms)
+✔ prefill exato antecipado exige ao menos um token Metal futuro (0.067875ms)
+✔ prefixo exato antecipado reconhece contexto sensível idêntico em outra sessão (0.058334ms)
+✔ servidor substitui empate Metal pelo resultado do verificador compilado (607.692ms)
+✔ sessão com KV exato antecipa o prefixo sensível e reutiliza o restante Metal (469.535125ms)
+✔ modo down recupera margem sensível no mesmo worker MLX compilado (138.1155ms)
+✔ verificador exato corrige a raiz e retoma a continuação compilada quando suas margens são seguras (232.938083ms)
+✔ decodifica BF16, F32 e F64 finitos como racionais exatos (0.805583ms)
+✔ normaliza constantes, termos semelhantes e fatores idênticos (9.825667ms)
+✔ remove casts conceitualmente ao construir uma expressão real fatorada (4.0385ms)
+✔ rejeita valores IEEE não finitos (0.221292ms)
+✔ avalia em F64 sem casts intermediários e arredonda apenas o resultado (0.394125ms)
+✔ compila loops escalares locais em uma única raiz real (12.760958ms)
+✔ estima substituição física e emite atribuição SSA legível (1.813333ms)
+✔ lowering real remove casts e transforma BMM runtime em soma matemática (9.430042ms)
+✔ lowering real converte SiLU para divisão e exp matemáticos (0.969208ms)
+✔ compõe camadas de trás para frente e simplifica coeficientes entre substituições (2.444625ms)
+✔ aplica identidades trigonométricas exatas e paridade transcendente (7.688958ms)
+✔ preserva domínios usando abs em sqrt de quadrado (0.262ms)
+✔ Gemma 4 native-reduction coverage binds both exact operands and native output in program order (0.9355ms)
+✔ Gemma 4 native-reduction coverage fails closed for an earlier or tampered operand checkpoint (0.273709ms)
+✔ Gemma 4 runtime-reduction provider accepts only its pinned contract and exact output shape (4.9755ms)
+✔ Gemma 4 runtime-reduction transport preserves exact finite IEEE-F32 bits (0.331041ms)
+✔ Gemma 4 runtime-reduction transcript binds the exact invocation environment (0.378625ms)
+✔ Gemma 4 runtime-reduction replay commits every receipt in artifact-declared operation order (0.987ms)
+✖ Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter (3679.827459ms)
+✖ Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms (2806.582792ms)
+✔ verificação seletiva encerra depois do último empate comprovado (0.679917ms)
+✔ verificação seletiva não encerra com divergência, captura ou empate posterior (0.113625ms)
+✔ ranqueia logits do último passo com desempate greedy pelo menor token (0.780959ms)
+✔ Gemma 4 text embedding scale preserves the native BF16 scalar cast (0.998583ms)
+✔ Gemma 4 E4B source dispatch covers the compatible BF16 linear class without assignment IDs (0.125625ms)
+✔ Gemma 4 E4B source dispatch covers every compatible eager BF16 attention (0.0945ms)
+✔ Gemma 4 text preserves authoritative BF16 result boundaries in its IR (2.569459ms)
+✔ standalone Gemma 4 text lowering makes PLE, proportional RoPE, unscaled V norm, and scalar assignments explicit (0.363708ms)
+✔ Gemma 4 text F32 reference path executes the complete PLE branch and proportional RoPE (1.447833ms)
+✔ vincula cada closure real autenticada a uma família vetorizada de kernel (1.547292ms)
+✔ falha fechado quando a closure contém operação sem lowering (0.217375ms)
+✔ falha fechado quando calc_final não chama exatamente a operação despachada (0.105125ms)
+✔ plano persistido precisa preservar cada binding e coincidir integralmente com o artefato (0.643541ms)
+✔ certificado runtime compacto preserva raiz, programa real e SHA do plano (0.341459ms)
+✔ autoriza somente o despacho completo e ordenado da closure global (0.308125ms)
+✔ cache exato prioriza o prefixo token a token da mesma sessão (0.787291ms)
+✔ cache exato trunca o maior prefixo compartilhado e sempre recompõe o hidden terminal (0.136042ms)
+✔ cache exato prefere o contexto compartilhado mais longo e resolve somente igualdade integral (0.125583ms)
+✔ cache exato limita sessões por LRU e valida o estado residente (0.214458ms)
+✔ Gemma 4 vision lowerer makes 2-D RoPE, clipping, pooling, projection, and image scatter explicit (3.712417ms)
+✔ Gemma 4 vision rejects non-pair padding coordinates and mismatched image placeholders (0.499125ms)
+✔ Gemma 4 vision zeros padding patches before spatial pooling (2.10525ms)
+✔ Gemma 4 vision dispatches BF16 numeric policy across complete operation classes (0.932959ms)
+✔ native GGUF reader catalogs v3 typed metadata, aligned F32 payloads and declared dimensions (20.928708ms)
+✔ native GGUF reader rejects still-unimplemented packed GGML types instead of guessing a dequantizer (6.514667ms)
+✔ native GGUF reader widens verified dense F16 storage to F32 without reclassifying it as quantized (5.370917ms)
+✔ native GGUF reader widens verified dense BF16 storage with IEEE-754 edge cases (3.768875ms)
+✔ native GGUF reader rejects BF16 tensors whose declared dense interval exceeds the payload (4.90425ms)
+✔ native GGUF reader decodes the documented Q8_0 half-scale plus signed-byte block layout (7.269917ms)
+✔ native GGUF reader decodes Q8_1 binary32 scale and auxiliary sum without using Q8_0 offsets (10.359875ms)
+✔ native GGUF reader decodes Q8_K binary32 scale plus 256 signed-byte codes (7.388083ms)
+✔ native GGUF reader decodes Q2_K packed scale/minimum nibbles and four two-bit code planes (6.841542ms)
+✔ native GGUF reader decodes Q3_K packed signed scales, high-bit mask, and four 2-bit planes (5.678166ms)
+✔ native GGUF reader decodes Q4_0 low then high nibbles with the centered -8 formula (4.99425ms)
+✔ native GGUF reader decodes Q4_1 scale and minimum with low then high unsigned nibbles (6.522875ms)
+✔ native GGUF reader decodes Q5_0 high-bit plane plus low then high nibbles with the centered -16 formula (8.427667ms)
+✔ native GGUF reader decodes Q5_1 scale, minimum, high-bit plane and low then high affine codes (12.512625ms)
+✔ native GGUF reader decodes Q6_K low and high planes with signed per-16-value scales (5.72075ms)
+✔ native GGUF reader decodes Q4_K packed scale/minimum hierarchy and code planes (8.19725ms)
+✔ native GGUF reader decodes Q5_K packed scale/minimum hierarchy, high-bit plane, and code planes (4.003208ms)
+✔ native GGUF reader rejects Q8_0 shapes whose fastest GGML dimension cannot contain complete blocks (3.228583ms)
+✔ native GGUF reader rejects Q8_1 shapes whose fastest GGML dimension cannot contain complete blocks (3.71075ms)
+✔ native GGUF reader rejects Q8_K shapes and intervals that cannot contain complete 256-value blocks (6.125333ms)
+✔ native GGUF reader rejects Q3_K shapes and intervals that cannot contain complete 256-value blocks (7.362792ms)
+✔ native GGUF reader rejects Q2_K shapes and intervals that cannot contain complete 256-value blocks (9.4565ms)
+✔ native GGUF reader rejects Q4_0 shapes whose fastest GGML dimension cannot contain complete blocks (7.791958ms)
+✔ native GGUF reader rejects Q4_1 shapes whose fastest GGML dimension cannot contain complete blocks (5.790875ms)
+✔ native GGUF reader rejects Q5_0 shapes whose fastest GGML dimension cannot contain complete blocks (6.700292ms)
+✔ native GGUF reader rejects Q5_1 shapes whose fastest GGML dimension cannot contain complete blocks (9.869459ms)
+✔ native GGUF reader rejects Q6_K shapes and intervals that cannot contain complete 256-value blocks (19.541667ms)
+✔ native GGUF reader rejects Q4_K shapes and intervals that cannot contain complete 256-value blocks (17.052459ms)
+✔ native GGUF reader rejects Q5_K shapes and intervals that cannot contain complete 256-value blocks (11.290209ms)
+✔ native GGUF reader rejects unaligned tensor offsets and unsupported container versions (6.908542ms)
+✔ explicit Llama GGUF adapter reverses only documented GGML matrix dimensions and materializes dense F32 ranges (19.264625ms)
+✔ explicit Llama GGUF adapter lowers and materializes dense BF16 constants (16.108333ms)
+✔ explicit Qwen 3 GGUF adapter reverses registered matrices and preserves head-local Q/K norms (18.9395ms)
+✔ Qwen 2 GGUF layout selection is metadata-bound and reverses no unregistered tensor (0.6075ms)
+✔ Llama GGUF adapter rejects a documented matrix with non-matrix GGML dimensions (5.165375ms)
+✔ explicit Llama GGUF adapter lowers and materializes verified Q8_0 matrices with provenance (19.074ms)
+✔ explicit Llama GGUF adapter lowers and materializes verified Q8_1 matrices with provenance (16.065625ms)
+✔ explicit Llama GGUF adapter lowers and materializes verified Q4_0 matrices with provenance (11.74075ms)
+✔ explicit Llama GGUF adapter lowers and materializes verified Q4_1 matrices with provenance (10.317583ms)
+✔ explicit Llama GGUF adapter lowers and materializes verified Q5_0 matrices with provenance (17.669042ms)
+✔ explicit Llama GGUF adapter lowers and materializes verified Q5_1 matrices with affine provenance (16.32075ms)
+✔ explicit Llama GGUF adapter lowers and materializes verified Q6_K matrices with provenance (56.293292ms)
+✔ explicit Llama GGUF adapter lowers and materializes verified Q4_K matrices with provenance (26.617042ms)
+✔ explicit Llama GGUF adapter lowers and materializes verified Q5_K matrices with provenance (28.077333ms)
+✔ explicit Llama GGUF adapter lowers and materializes verified Q8_K matrices with provenance (31.419083ms)
+✔ explicit Llama GGUF adapter lowers and materializes verified Q3_K matrices with provenance (49.491458ms)
+✔ explicit Llama GGUF adapter lowers and materializes verified Q2_K matrices with provenance (28.762459ms)
+✖ scalar-substitution example contains concrete learned values and reproduces its F32 result (1.281ms)
+✔ dense F32 Safetensors becomes a source-independent literal program that replays after checkpoint removal (29.383583ms)
+✔ literal program validation rejects an assignment that reads an undeclared predecessor (10.306125ms)
+✔ literal F16 and BF16 programs retain stored bytes, declare IEEE decoders, and replay after source removal (64.842833ms)
+✔ literal validation rejects an altered decoder instead of implicitly widening storage (9.397458ms)
+✔ literal MLX affine U32 embeds codes and BF16 parameters, then replays after source removal (69.69475ms)
+✔ literal GGUF Q8_0 embeds original blocks and replays forward and greedy generation after source removal (68.3435ms)
+✔ materializer reads every unique dense F32 IR constant once and rejects stale references (3.657208ms)
+✔ materializer requires the declared MLX bridge and preserves its provenance (0.989167ms)
+✔ materializer selects a native verified MLX affine reader before the optional bridge (0.150667ms)
+✔ temporary Safetensors source materializes binary32 values through the catalog range reader (14.407917ms)
+✔ literal dense materialization decodes an arbitrary-rank BF16 tensor through a bounded range read (0.834583ms)
+✔ literal dense materialization rejects oversized and truncated payloads (0.937583ms)
+✔ MAX_FEATURES limita somente preview, não inFeatures (1.150291ms)
+✔ native checkpoint comparator preserves capture order and does not upgrade a partial probe (3.1575ms)
+✔ Gemma 4 native trace coverage rejects partial, duplicate, output-drift, and unexpected assignments (0.608792ms)
+✔ Gemma 4 bounded native reduction capture accepts only a declared MLP projection and its named producer (0.5785ms)
+﹣ version-pinned Transformers Llama capture records native operations, cache, and greedy continuation (0.147667ms) # Transformers/PyTorch runtime is external to the clean Node checkout; set LLM_INNER_TRANSFORMERS_PYTHON to enable this native integration test.
+﹣ version-pinned Transformers Qwen 2 capture records its bias-bearing native operations, cache, and greedy continuation (0.092916ms) # Transformers/PyTorch runtime is external to the clean Node checkout; set LLM_INNER_TRANSFORMERS_PYTHON to enable this native integration test.
+﹣ version-pinned Transformers Gemma 2 capture records four norms, softcaps, cache, and greedy continuation (0.076709ms) # Transformers/PyTorch runtime is external to the clean Node checkout; set LLM_INNER_TRANSFORMERS_PYTHON to enable this native integration test.
+✔ Transformers capture rejects a non-Llama adapter before launching Python (22.177708ms)
+✔ Transformers Gemma 2 capture rejects Q/K-normalized IR before launching Python (12.103334ms)
+✔ MLX kernel capture independently records dense Llama execution and greedy generation traces (695.492542ms)
+✔ MLX kernel capture independently dequantizes affine U32 Llama before execution and greedy generation (464.262083ms)
+✔ MLX kernel capture independently executes affine U32 Llama group_size 64 (662.0565ms)
+✔ MLX kernel capture replays affine U32 Llama with F16 scales and biases (533.6775ms)
+✔ MLX kernel capture replays affine U32 Llama with BF16 scales and biases (445.001833ms)
+✔ MLX kernel capture preserves mixed per-module affine contracts in operation and generation provenance (474.634958ms)
+✔ MLX kernel capture rejects an affine matrix whose scale and bias dtypes differ (20.507875ms)
+✔ MLX kernel capture covers every declared affine bit width and the no-bias identity (4768.174458ms)
+✔ MLX kernel capture independently records Mistral, Gemma 1/2, and Qwen 2/3 attention traces (2058.585125ms)
+✔ integrity-bound F32 trace runs catalog-to-materializer-to-executor differential comparison (106.221709ms)
+✔ trace bundle rejects decimal-array tensor payloads and unsafe checkpoint paths (1.82575ms)
+✔ trace bundles preserve and validate the declared execution mode and attention implementation (3.705334ms)
+✔ F64 Safetensors replays binary64 operations, KV cache, logits, and greedy generation without F32 narrowing (157.025834ms)
+✔ integrity-bound F32 generation trace verifies positions, terminal logits, and canonical KV cache (112.546417ms)
+✔ generation traces bind shared-KV continuation state to its producer exactly once (107.976542ms)
+✔ F16 and BF16 dense Safetensors and GGUF packages replay independent F32 operation, cache, logits, and generation traces (363.220125ms)
+✔ Gemma F32 Safetensors replays complete execution and greedy generation with embedding scale and unit-offset norms (157.787958ms)
+✔ Qwen 3 F32 Safetensors replays Q/K head norms, attention biases, and greedy generation (140.402042ms)
+✔ dense GGUF Llama replays Safetensors forward and greedy-generation evidence through the same IR semantics (38.021708ms)
+✔ dense GGUF Qwen 2 replays Safetensors attention-bias execution and greedy-generation evidence (34.130667ms)
+✔ dense GGUF Qwen 3 replays Safetensors Q/K-norm execution and greedy-generation evidence (43.4285ms)
+✔ Q8_0 GGUF Qwen 2 and Qwen 3 replay their distinct attention contracts through execution and generation (99.8905ms)
+✔ Q4_0 GGUF Qwen 2 and Qwen 3 replay their distinct attention contracts through execution and generation (92.81975ms)
+✔ Q4_K GGUF Qwen 2 and Qwen 3 replay their distinct attention contracts through execution and generation (188.837167ms)
+✔ Q5_K GGUF Qwen 2 and Qwen 3 replay their distinct attention contracts through execution and generation (176.411375ms)
+✔ Q6_K GGUF Qwen 2 and Qwen 3 replay their distinct attention contracts through execution and generation (162.90475ms)
+✔ Q3_K GGUF Qwen 2 and Qwen 3 replay their distinct attention contracts through execution and generation (206.450208ms)
+✔ Q2_K GGUF Qwen 2 and Qwen 3 replay their distinct attention contracts through execution and generation (128.851542ms)
+✔ Q8_K GGUF Qwen 2 and Qwen 3 replay their distinct attention contracts through execution and generation (135.722417ms)
+✔ Q8_1 GGUF Qwen 2 and Qwen 3 replay their distinct attention contracts through execution and generation (184.161708ms)
+✔ Q4_1 GGUF Qwen 2 and Qwen 3 replay their distinct attention contracts through execution and generation (115.237167ms)
+✔ Q5_0 GGUF Qwen 2 and Qwen 3 replay their distinct attention contracts through execution and generation (134.339458ms)
+✔ Q5_1 GGUF Qwen 2 and Qwen 3 replay their distinct attention contracts through execution and generation (162.206875ms)
+✔ MLX affine U32 Llama replays independently constructed dense F32 execution and generation evidence (177.957625ms)
+✔ Q8_0 GGUF Llama replays independently materialized dense F32 forward and greedy-generation evidence (92.295125ms)
+✔ Q8_1 GGUF Llama replays independently constructed dense F32 forward and greedy-generation evidence (125.771542ms)
+✔ Q5_1 GGUF Llama replays independently constructed affine dense F32 forward and greedy-generation evidence (85.009625ms)
+✔ Q5_0 GGUF Llama replays independently constructed centered dense F32 forward and greedy-generation evidence (80.087667ms)
+✔ Q4_0 GGUF Llama replays independently constructed centered dense F32 forward and greedy-generation evidence (73.64475ms)
+✔ Q4_1 GGUF Llama replays independently constructed affine dense F32 forward and greedy-generation evidence (79.540292ms)
+✔ Q4_K GGUF Llama replays independently constructed affine dense F32 forward and greedy-generation evidence (90.900333ms)
+✔ Q5_K GGUF Llama replays independently constructed affine dense F32 forward and greedy-generation evidence (90.24375ms)
+✔ Q6_K GGUF Llama replays independently constructed signed dense F32 forward and greedy-generation evidence (101.192834ms)
+✔ Q3_K GGUF Llama replays independently constructed signed dense F32 forward and greedy-generation evidence (128.391291ms)
+✔ Q2_K GGUF Llama replays independently constructed affine dense F32 forward and greedy-generation evidence (94.095167ms)
+✔ Q8_K GGUF Llama replays independently constructed signed dense F32 forward and greedy-generation evidence (102.455125ms)
+✔ semantic IR fingerprints ignore source locations and preview-only controls (3.422625ms)
+✔ validates the ordered autonomous provider set (1.085708ms)
+✔ selects providers in configured order and reports the earliest cooldown (0.7605ms)
+✔ builds non-interactive approval-free invocations for every provider (0.330375ms)
+✔ classifies quota, rate and capacity limits without classifying ordinary failures (1.002042ms)
+✔ does not classify historical limit text echoed inside the runner prompt (0.073208ms)
+✔ uses capped exponential retry delays (0.341042ms)
+✔ a transient limit consumes neither a loop sequence nor a consecutive failure (0.917042ms)
+✔ repeated limits increase the persisted attempt and delay (0.706459ms)
+✔ clears only the provider that recovered (0.176084ms)
+✔ each provider has an independent exponential backoff (0.151042ms)
+✔ builds an isolated engineering task without controller context (0.88875ms)
+✖ keeps the real agent-visible task free of controller context (8.748583ms)
+✔ requires exactly one explicit objective result (0.522417ms)
+✔ prevents an implementation session from certifying its own changes (0.073833ms)
+✔ creates internal continuity records without assigning future work (0.122584ms)
+✔ worker PyTorch preserva a redução pow(-0.5) do RMSNorm Gemma 4 (2.718083ms)
+✔ prelude PLE usa matmul BF16 nativo sem ampliar pesos para F32 (1.661709ms)
+✔ worker PyTorch compartilha as fronteiras eager BF16 entre atenção isolada e decoder stack (2.020667ms)
+✔ worker PyTorch constrói RoPE pela mesma frequência inversa e matmul do Transformers (2.59225ms)
+✔ worker PyTorch preserva BSHD até RoPE e usa o repeat_kv físico do Transformers (0.516583ms)
+ℹ tests 628
+ℹ suites 0
+ℹ pass 570
+ℹ fail 15
+ℹ cancelled 0
+ℹ skipped 43
+ℹ todo 0
+ℹ duration_ms 160042.294292
+
+✖ failing tests:
+
+test at dist/test/gemma4-real-calibration.test.js:15:1
+✖ evidência do default de oito threads vincula corpus e tokens autoritativos (4.660125ms)
+  Error: ENOENT: no such file or directory, open 'artifacts/gemma4-q8-layers-0-20-margin0-calibration-32x8.json'
+      at async open (node:internal/fs/promises:637:25)
+      at async readFile (node:internal/fs/promises:1269:14)
+      at async digest (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/test/gemma4-real-calibration.test.js:19:64)
+      at async TestContext.<anonymous> (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/test/gemma4-real-calibration.test.js:21:18)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'artifacts/gemma4-q8-layers-0-20-margin0-calibration-32x8.json'
+  }
+
+test at dist/test/gemma4-real-calibration.test.js:27:1
+✖ evidência rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de latência (1.691042ms)
+  Error: ENOENT: no such file or directory, open 'artifacts/gemma4-q8-layers-0-20-margin0-calibration-32x8.json'
+      at async open (node:internal/fs/promises:637:25)
+      at async readFile (node:internal/fs/promises:1269:14)
+      at async TestContext.<anonymous> (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/test/gemma4-real-calibration.test.js:34:48)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'artifacts/gemma4-q8-layers-0-20-margin0-calibration-32x8.json'
+  }
+
+test at dist/test/gemma4-real-calibration.test.js:43:1
+✖ evidência do corte de prefill terminal preserva corpus e correção de raiz (2.062708ms)
+  Error: ENOENT: no such file or directory, open 'artifacts/gemma4-q8-layers-0-20-margin0-calibration-32x8.json'
+      at async open (node:internal/fs/promises:637:25)
+      at async readFile (node:internal/fs/promises:1269:14)
+      at async digest (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/test/gemma4-real-calibration.test.js:48:64)
+      at async TestContext.<anonymous> (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/test/gemma4-real-calibration.test.js:50:18)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'artifacts/gemma4-q8-layers-0-20-margin0-calibration-32x8.json'
+  }
+
+test at dist/test/gemma4-real-calibration.test.js:52:1
+✖ evidência promove antecipação do prefixo exato somente em sessão com cache (1.125792ms)
+  Error: ENOENT: no such file or directory, open 'artifacts/gemma4-q8-layers-0-19-margin0-calibration-32x8.json'
+      at async open (node:internal/fs/promises:637:25)
+      at async readFile (node:internal/fs/promises:1269:14)
+      at async digest (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/test/gemma4-real-calibration.test.js:54:64)
+      at async TestContext.<anonymous> (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/test/gemma4-real-calibration.test.js:56:18)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'artifacts/gemma4-q8-layers-0-19-margin0-calibration-32x8.json'
+  }
+
+test at dist/test/gemma4-real-calibration.test.js:67:1
+✖ evidência promove o maior prefixo exato entre sessões sem alterar logits (1.4895ms)
+  Error: ENOENT: no such file or directory, open 'artifacts/gemma4-compiled-global-runtime-bundle/constants.runtime-index.json'
+      at async open (node:internal/fs/promises:637:25)
+      at async readFile (node:internal/fs/promises:1269:14)
+      at async digest (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/test/gemma4-real-calibration.test.js:69:64)
+      at async TestContext.<anonymous> (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/test/gemma4-real-calibration.test.js:72:18)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'artifacts/gemma4-compiled-global-runtime-bundle/constants.runtime-index.json'
+  }
+
+test at dist/test/gemma4-real-calibration.test.js:81:1
+✖ evidência promove contexto sensível exato sem replay do decoder (2.186542ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + '4bccd4ce7e6071c78addfb91f2e67b7bf8737ef4ac344d781700c8ff2b2cfe0d'
+  - '55363a368960bb7429d680e4b753917557791475b33d8fe32e44399b32c0bd04'
+
+      at TestContext.<anonymous> (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/test/gemma4-real-calibration.test.js:85:16)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '4bccd4ce7e6071c78addfb91f2e67b7bf8737ef4ac344d781700c8ff2b2cfe0d',
+    expected: '55363a368960bb7429d680e4b753917557791475b33d8fe32e44399b32c0bd04',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/gemma4-real-calibration.test.js:94:1
+✖ evidência adia prefill exato sem cache e preserva antecipação do contexto exato (1.278042ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + '4bccd4ce7e6071c78addfb91f2e67b7bf8737ef4ac344d781700c8ff2b2cfe0d'
+  - '55363a368960bb7429d680e4b753917557791475b33d8fe32e44399b32c0bd04'
+
+      at TestContext.<anonymous> (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/test/gemma4-real-calibration.test.js:98:16)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '4bccd4ce7e6071c78addfb91f2e67b7bf8737ef4ac344d781700c8ff2b2cfe0d',
+    expected: '55363a368960bb7429d680e4b753917557791475b33d8fe32e44399b32c0bd04',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/gemma4-real-calibration.test.js:111:1
+✖ evidência promove cabeça BF16 integral e rejeita prefill agrupado divergente (1.577333ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + '4bccd4ce7e6071c78addfb91f2e67b7bf8737ef4ac344d781700c8ff2b2cfe0d'
+  - '55363a368960bb7429d680e4b753917557791475b33d8fe32e44399b32c0bd04'
+
+      at TestContext.<anonymous> (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/test/gemma4-real-calibration.test.js:115:16)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '4bccd4ce7e6071c78addfb91f2e67b7bf8737ef4ac344d781700c8ff2b2cfe0d',
+    expected: '55363a368960bb7429d680e4b753917557791475b33d8fe32e44399b32c0bd04',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at dist/test/gemma4-real-calibration.test.js:127:1
+✖ evidência promove cache de decisão exata e rejeita fronteira Q8 0-18 (0.901584ms)
+  Error: ENOENT: no such file or directory, open 'artifacts/gemma4-exact-decision-cache-promotion.json'
+      at async open (node:internal/fs/promises:637:25)
+      at async readFile (node:internal/fs/promises:1269:14)
+      at async TestContext.<anonymous> (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/test/gemma4-real-calibration.test.js:128:33)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'artifacts/gemma4-exact-decision-cache-promotion.json'
+  }
+
+test at dist/test/gemma4-real-calibration.test.js:180:1
+✖ evidência rejeita Q8 na projeção down quando velocidade e verificação deixam de coexistir (1.006625ms)
+  Error: ENOENT: no such file or directory, open 'artifacts/gemma4-q8-layers-0-19-margin0-calibration-32x8.json'
+      at async open (node:internal/fs/promises:637:25)
+      at async readFile (node:internal/fs/promises:1269:14)
+      at async digest (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/test/gemma4-real-calibration.test.js:192:64)
+      at async TestContext.<anonymous> (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/test/gemma4-real-calibration.test.js:194:18)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'artifacts/gemma4-q8-layers-0-19-margin0-calibration-32x8.json'
+  }
+
+test at dist/test/gemma4-real-calibration.test.js:196:1
+✖ evidência rejeita grupos Q8 que divergem ou ampliam o fallback (1.899917ms)
+  Error: ENOENT: no such file or directory, open 'artifacts/gemma4-compiled-global-runtime-bundle/manifest.json'
+      at async open (node:internal/fs/promises:637:25)
+      at async readFile (node:internal/fs/promises:1269:14)
+      at async digest (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/test/gemma4-real-calibration.test.js:198:64)
+      at async TestContext.<anonymous> (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/test/gemma4-real-calibration.test.js:199:18)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'artifacts/gemma4-compiled-global-runtime-bundle/manifest.json'
+  }
+
+test at dist/test/gemma4-runtime-reduction-trace-coverage.test.js:242:1
+✖ Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter (3679.827459ms)
+  Error: vision_layer_0_attention_scores: helper PyTorch encerrou com código 1: Traceback (most recent call last):
+    File "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-gemma4-runtime-reduction-XANApx/embedded-runtime-reduction.py", line 585, in <module>
+      main()
+      ~~~~^^
+    File "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-gemma4-runtime-reduction-XANApx/embedded-runtime-reduction.py", line 547, in main
+      raise ValueError(
+      ...<2 lines>...
+      )
+  ValueError: Runtime reduction environment identity diverges from the pinned contract: expected {'pythonImplementation': 'CPython', 'pythonVersion': '3.14.3', 'operatingSystem': 'macOS', 'operatingSystemVersion': '26.5.2', 'operatingSystemBuild': '25F84', 'kernelRelease': '25.5.0', 'machineModel': 'Mac15,10', 'cpuBrand': 'Apple M3 Max', 'torchBuildConfigSha256': '606e3853213dea3faabc6d58b66ed7e419ee4452a6d53c2b27495a2ecc4e07a7', 'runtimeDependencyIdentity': {'schemaVersion': 1, 'files': [{'role': 'cpython-runtime', 'locator': 'sys.base_prefix/Python', 'bytes': 5438400, 'sha256': 'e5728c35bdc26dee85e45b3fb94780afc1c9f97ced6b0af64d54e4eab3422e0a'}, {'role': 'torch-python-extension', 'locator': 'torch._C.__file__', 'bytes': 50232, 'sha256': 'c48ade47e58bf4d28f4f41bd59b5be4b37e4931b36a1a90c44e9d8f5cb6ee434'}, {'role': 'torch-python-library', 'locator': 'torch.package/lib/libtorch_python.dylib', 'bytes': 29929032, 'sha256': 'cb0f00560a29f0ff82cc125013c4fe5dfd544fba9cc728aa922efa56cd047557'}, {'role': 'torch-cpu-kernel-library', 'locator': 'torch.package/lib/libtorch_cpu.dylib', 'bytes': 248507328, 'sha256': '791f549846676c37c778a6bb043b6fafae54d3d32112a782a388be4ba6e6d52f'}, {'role': 'torch-tensor-runtime-library', 'locator': 'torch.package/lib/libc10.dylib', 'bytes': 1072704, 'sha256': '935940fedf52ad9d3aa40f1570ec4e6529b6be7d860bf0daaced344927d7e657'}, {'role': 'torch-core-library', 'locator': 'torch.package/lib/libtorch.dylib', 'bytes': 16752, 'sha256': '4eab0bfaef1b14044359cefebb0030f1dcc5ad5f757d514a2aa7fff6dd08b032'}, {'role': 'torch-shared-memory-library', 'locator': 'torch.package/lib/libshm.dylib', 'bytes': 64016, 'sha256': '43e8d43211fdbc270a2a5a6d580ed0344f74f5f15cf34f8abe5da6f958323dfe'}, {'role': 'openmp-runtime-library', 'locator': 'torch.package/lib/libomp.dylib', 'bytes': 856096, 'sha256': '6256bee09e93c28d71c65711cc69224d69994c6965648b628b70a22772fe98d4'}, {'role': 'torch-global-dependencies-library', 'locator': 'torch.package/lib/libtorch_global_deps.dylib', 'bytes': 16760, 'sha256': '63504e19a4f955eb4abe956a3f90578e343b033be75f26aa168aa4991db437fd'}], 'pythonSourceTrees': [{'role': 'cpython-standard-library', 'locator': 'os.__file__/..', 'includeSuffixes': ['.py', '.pyi'], 'excludePathParts': ['__pycache__', 'site-packages'], 'canonicalLeafEncoding': 'relative-posix-path\\0byte-count\\0sha256-hex\\n', 'files': 1848, 'bytes': 35754693, 'sha256': '3179ebdc3d1f5bbb1f3612d64fd0feb137af43688523c8c6eb0ff12eb9b4254d'}, {'role': 'torch-python-package', 'locator': 'torch.__file__/..', 'includeSuffixes': ['.py', '.pyi'], 'excludePathParts': ['__pycache__'], 'canonicalLeafEncoding': 'relative-posix-path\\0byte-count\\0sha256-hex\\n', 'files': 2230, 'bytes': 46148427, 'sha256': '31caad9097d0c18d1ea1067589d973544965f4e91d27f223c865608ffbc9c8e7'}], 'sharedCacheImages': [{'role': 'accelerate-blas', 'installName': '/System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib', 'architecture': 'arm64e', 'machoUuid': 'F078C775-D8DC-3C4D-879F-A9BB228DBE06'}]}}; received {'pythonImplementation': 'CPython', 'pythonVersion': '3.14.7', 'operatingSystem': 'macOS', 'operatingSystemVersion': '26.7.1', 'operatingSystemBuild': '25G241', 'kernelRelease': '25.6.0', 'machineModel': 'Mac15,10', 'cpuBrand': 'Apple M3 Max', 'torchBuildConfigSha256': '606e3853213dea3faabc6d58b66ed7e419ee4452a6d53c2b27495a2ecc4e07a7', 'runtimeDependencyIdentity': {'schemaVersion': 1, 'files': [{'role': 'cpython-runtime', 'locator': 'sys.base_prefix/Python', 'bytes': 5452528, 'sha256': 'b112695af23f5e46d84a7c4ef6057603b70b94aacc32e9d548808c2875759d47'}, {'role': 'torch-python-extension', 'locator': 'torch._C.__file__', 'bytes': 50232, 'sha256': 'c48ade47e58bf4d28f4f41bd59b5be4b37e4931b36a1a90c44e9d8f5cb6ee434'}, {'role': 'torch-python-library', 'locator': 'torch.package/lib/libtorch_python.dylib', 'bytes': 29929032, 'sha256': 'cb0f00560a29f0ff82cc125013c4fe5dfd544fba9cc728aa922efa56cd047557'}, {'role': 'torch-cpu-kernel-library', 'locator': 'torch.package/lib/libtorch_cpu.dylib', 'bytes': 248507328, 'sha256': '791f549846676c37c778a6bb043b6fafae54d3d32112a782a388be4ba6e6d52f'}, {'role': 'torch-tensor-runtime-library', 'locator': 'torch.package/lib/libc10.dylib', 'bytes': 1072704, 'sha256': '935940fedf52ad9d3aa40f1570ec4e6529b6be7d860bf0daaced344927d7e657'}, {'role': 'torch-core-library', 'locator': 'torch.package/lib/libtorch.dylib', 'bytes': 16752, 'sha256': '4eab0bfaef1b14044359cefebb0030f1dcc5ad5f757d514a2aa7fff6dd08b032'}, {'role': 'torch-shared-memory-library', 'locator': 'torch.package/lib/libshm.dylib', 'bytes': 64016, 'sha256': '43e8d43211fdbc270a2a5a6d580ed0344f74f5f15cf34f8abe5da6f958323dfe'}, {'role': 'openmp-runtime-library', 'locator': 'torch.package/lib/libomp.dylib', 'bytes': 856096, 'sha256': '6256bee09e93c28d71c65711cc69224d69994c6965648b628b70a22772fe98d4'}, {'role': 'torch-global-dependencies-library', 'locator': 'torch.package/lib/libtorch_global_deps.dylib', 'bytes': 16760, 'sha256': '63504e19a4f955eb4abe956a3f90578e343b033be75f26aa168aa4991db437fd'}], 'pythonSourceTrees': [{'role': 'cpython-standard-library', 'locator': 'os.__file__/..', 'includeSuffixes': ['.py', '.pyi'], 'excludePathParts': ['__pycache__', 'site-packages'], 'canonicalLeafEncoding': 'relative-posix-path\\0byte-count\\0sha256-hex\\n', 'files': 1871, 'bytes': 36536718, 'sha256': '35fc679d6305c4c002219ebc9b0a7e62c4cecac6a3bdbdfcb3cec67d4b5166e6'}, {'role': 'torch-python-package', 'locator': 'torch.__file__/..', 'includeSuffixes': ['.py', '.pyi'], 'excludePathParts': ['__pycache__'], 'canonicalLeafEncoding': 'relative-posix-path\\0byte-count\\0sha256-hex\\n', 'files': 2230, 'bytes': 46148427, 'sha256': '31caad9097d0c18d1ea1067589d973544965f4e91d27f223c865608ffbc9c8e7'}], 'sharedCacheImages': [{'role': 'accelerate-blas', 'installName': '/System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib', 'architecture': 'arm64e', 'machoUuid': '6EE5A2F5-FD5B-3E70-89AD-B95619151E6A'}]}}.
+      at Gemma4TorchRuntimeReductionProvider.execute (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/src/gemma4-torch-runtime-reduction-provider.js:69:23)
+      at executeGemma4RuntimeReduction (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/src/gemma4-runtime-reduction-provider.js:53:32)
+      at TestContext.<anonymous> (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/test/gemma4-runtime-reduction-trace-coverage.test.js:285:26)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+
+test at dist/test/gemma4-runtime-reduction-trace-coverage.test.js:318:1
+✖ Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms (2806.582792ms)
+  Error: vision_layer_0_attention_scores: helper PyTorch encerrou com código 1: Traceback (most recent call last):
+    File "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-gemma4-runtime-reduction-zkZaqk/embedded-runtime-reduction.py", line 585, in <module>
+      main()
+      ~~~~^^
+    File "/var/folders/j4/dx_nrn3d6sxclvnsw52kxkfh0000gn/T/llm-inner-gemma4-runtime-reduction-zkZaqk/embedded-runtime-reduction.py", line 547, in main
+      raise ValueError(
+      ...<2 lines>...
+      )
+  ValueError: Runtime reduction environment identity diverges from the pinned contract: expected {'pythonImplementation': 'CPython', 'pythonVersion': '3.14.3', 'operatingSystem': 'macOS', 'operatingSystemVersion': '26.5.2', 'operatingSystemBuild': '25F84', 'kernelRelease': '25.5.0', 'machineModel': 'Mac15,10', 'cpuBrand': 'Apple M3 Max', 'torchBuildConfigSha256': '606e3853213dea3faabc6d58b66ed7e419ee4452a6d53c2b27495a2ecc4e07a7', 'runtimeDependencyIdentity': {'schemaVersion': 1, 'files': [{'role': 'cpython-runtime', 'locator': 'sys.base_prefix/Python', 'bytes': 5438400, 'sha256': 'e5728c35bdc26dee85e45b3fb94780afc1c9f97ced6b0af64d54e4eab3422e0a'}, {'role': 'torch-python-extension', 'locator': 'torch._C.__file__', 'bytes': 50232, 'sha256': 'c48ade47e58bf4d28f4f41bd59b5be4b37e4931b36a1a90c44e9d8f5cb6ee434'}, {'role': 'torch-python-library', 'locator': 'torch.package/lib/libtorch_python.dylib', 'bytes': 29929032, 'sha256': 'cb0f00560a29f0ff82cc125013c4fe5dfd544fba9cc728aa922efa56cd047557'}, {'role': 'torch-cpu-kernel-library', 'locator': 'torch.package/lib/libtorch_cpu.dylib', 'bytes': 248507328, 'sha256': '791f549846676c37c778a6bb043b6fafae54d3d32112a782a388be4ba6e6d52f'}, {'role': 'torch-tensor-runtime-library', 'locator': 'torch.package/lib/libc10.dylib', 'bytes': 1072704, 'sha256': '935940fedf52ad9d3aa40f1570ec4e6529b6be7d860bf0daaced344927d7e657'}, {'role': 'torch-core-library', 'locator': 'torch.package/lib/libtorch.dylib', 'bytes': 16752, 'sha256': '4eab0bfaef1b14044359cefebb0030f1dcc5ad5f757d514a2aa7fff6dd08b032'}, {'role': 'torch-shared-memory-library', 'locator': 'torch.package/lib/libshm.dylib', 'bytes': 64016, 'sha256': '43e8d43211fdbc270a2a5a6d580ed0344f74f5f15cf34f8abe5da6f958323dfe'}, {'role': 'openmp-runtime-library', 'locator': 'torch.package/lib/libomp.dylib', 'bytes': 856096, 'sha256': '6256bee09e93c28d71c65711cc69224d69994c6965648b628b70a22772fe98d4'}, {'role': 'torch-global-dependencies-library', 'locator': 'torch.package/lib/libtorch_global_deps.dylib', 'bytes': 16760, 'sha256': '63504e19a4f955eb4abe956a3f90578e343b033be75f26aa168aa4991db437fd'}], 'pythonSourceTrees': [{'role': 'cpython-standard-library', 'locator': 'os.__file__/..', 'includeSuffixes': ['.py', '.pyi'], 'excludePathParts': ['__pycache__', 'site-packages'], 'canonicalLeafEncoding': 'relative-posix-path\\0byte-count\\0sha256-hex\\n', 'files': 1848, 'bytes': 35754693, 'sha256': '3179ebdc3d1f5bbb1f3612d64fd0feb137af43688523c8c6eb0ff12eb9b4254d'}, {'role': 'torch-python-package', 'locator': 'torch.__file__/..', 'includeSuffixes': ['.py', '.pyi'], 'excludePathParts': ['__pycache__'], 'canonicalLeafEncoding': 'relative-posix-path\\0byte-count\\0sha256-hex\\n', 'files': 2230, 'bytes': 46148427, 'sha256': '31caad9097d0c18d1ea1067589d973544965f4e91d27f223c865608ffbc9c8e7'}], 'sharedCacheImages': [{'role': 'accelerate-blas', 'installName': '/System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib', 'architecture': 'arm64e', 'machoUuid': 'F078C775-D8DC-3C4D-879F-A9BB228DBE06'}]}}; received {'pythonImplementation': 'CPython', 'pythonVersion': '3.14.7', 'operatingSystem': 'macOS', 'operatingSystemVersion': '26.7.1', 'operatingSystemBuild': '25G241', 'kernelRelease': '25.6.0', 'machineModel': 'Mac15,10', 'cpuBrand': 'Apple M3 Max', 'torchBuildConfigSha256': '606e3853213dea3faabc6d58b66ed7e419ee4452a6d53c2b27495a2ecc4e07a7', 'runtimeDependencyIdentity': {'schemaVersion': 1, 'files': [{'role': 'cpython-runtime', 'locator': 'sys.base_prefix/Python', 'bytes': 5452528, 'sha256': 'b112695af23f5e46d84a7c4ef6057603b70b94aacc32e9d548808c2875759d47'}, {'role': 'torch-python-extension', 'locator': 'torch._C.__file__', 'bytes': 50232, 'sha256': 'c48ade47e58bf4d28f4f41bd59b5be4b37e4931b36a1a90c44e9d8f5cb6ee434'}, {'role': 'torch-python-library', 'locator': 'torch.package/lib/libtorch_python.dylib', 'bytes': 29929032, 'sha256': 'cb0f00560a29f0ff82cc125013c4fe5dfd544fba9cc728aa922efa56cd047557'}, {'role': 'torch-cpu-kernel-library', 'locator': 'torch.package/lib/libtorch_cpu.dylib', 'bytes': 248507328, 'sha256': '791f549846676c37c778a6bb043b6fafae54d3d32112a782a388be4ba6e6d52f'}, {'role': 'torch-tensor-runtime-library', 'locator': 'torch.package/lib/libc10.dylib', 'bytes': 1072704, 'sha256': '935940fedf52ad9d3aa40f1570ec4e6529b6be7d860bf0daaced344927d7e657'}, {'role': 'torch-core-library', 'locator': 'torch.package/lib/libtorch.dylib', 'bytes': 16752, 'sha256': '4eab0bfaef1b14044359cefebb0030f1dcc5ad5f757d514a2aa7fff6dd08b032'}, {'role': 'torch-shared-memory-library', 'locator': 'torch.package/lib/libshm.dylib', 'bytes': 64016, 'sha256': '43e8d43211fdbc270a2a5a6d580ed0344f74f5f15cf34f8abe5da6f958323dfe'}, {'role': 'openmp-runtime-library', 'locator': 'torch.package/lib/libomp.dylib', 'bytes': 856096, 'sha256': '6256bee09e93c28d71c65711cc69224d69994c6965648b628b70a22772fe98d4'}, {'role': 'torch-global-dependencies-library', 'locator': 'torch.package/lib/libtorch_global_deps.dylib', 'bytes': 16760, 'sha256': '63504e19a4f955eb4abe956a3f90578e343b033be75f26aa168aa4991db437fd'}], 'pythonSourceTrees': [{'role': 'cpython-standard-library', 'locator': 'os.__file__/..', 'includeSuffixes': ['.py', '.pyi'], 'excludePathParts': ['__pycache__', 'site-packages'], 'canonicalLeafEncoding': 'relative-posix-path\\0byte-count\\0sha256-hex\\n', 'files': 1871, 'bytes': 36536718, 'sha256': '35fc679d6305c4c002219ebc9b0a7e62c4cecac6a3bdbdfcb3cec67d4b5166e6'}, {'role': 'torch-python-package', 'locator': 'torch.__file__/..', 'includeSuffixes': ['.py', '.pyi'], 'excludePathParts': ['__pycache__'], 'canonicalLeafEncoding': 'relative-posix-path\\0byte-count\\0sha256-hex\\n', 'files': 2230, 'bytes': 46148427, 'sha256': '31caad9097d0c18d1ea1067589d973544965f4e91d27f223c865608ffbc9c8e7'}], 'sharedCacheImages': [{'role': 'accelerate-blas', 'installName': '/System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib', 'architecture': 'arm64e', 'machoUuid': '6EE5A2F5-FD5B-3E70-89AD-B95619151E6A'}]}}.
+      at Gemma4TorchRuntimeReductionProvider.execute (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/src/gemma4-torch-runtime-reduction-provider.js:69:23)
+      at executeGemma4RuntimeReduction (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/src/gemma4-runtime-reduction-provider.js:53:32)
+      at TestContext.<anonymous> (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/test/gemma4-runtime-reduction-trace-coverage.test.js:342:24)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+
+test at dist/test/literal-scalar-substitution-example.test.js:5:1
+✖ scalar-substitution example contains concrete learned values and reproduces its F32 result (1.281ms)
+  Error: ENOENT: no such file or directory, open '/Users/caleul/Documents/Work/Projects/llm-inner/docs/examples/literal-scalar-substitution.example.json'
+      at async open (node:internal/fs/promises:637:25)
+      at async readFile (node:internal/fs/promises:1269:14)
+      at async TestContext.<anonymous> (file:///Users/caleul/Documents/Work/Projects/llm-inner/dist/test/literal-scalar-substitution-example.test.js:6:33)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: '/Users/caleul/Documents/Work/Projects/llm-inner/docs/examples/literal-scalar-substitution.example.json'
+  }
+
+test at scripts/agent-task-contract.test.mjs:19:1
+✖ keeps the real agent-visible task free of controller context (8.748583ms)
+  Error: ENOENT: no such file or directory, open '/Users/caleul/Documents/Work/Projects/llm-inner/.agent-loop/prompts/master-prompt.md'
+      at async open (node:internal/fs/promises:637:25)
+      at async readFile (node:internal/fs/promises:1269:14)
+      at async Promise.all (index 0)
+      at async TestContext.<anonymous> (file:///Users/caleul/Documents/Work/Projects/llm-inner/scripts/agent-task-contract.test.mjs:20:42)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    errno: -2,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: '/Users/caleul/Documents/Work/Projects/llm-inner/.agent-loop/prompts/master-prompt.md'
+  }

@@ -67,10 +67,11 @@ test('Correlated RMS bounds eliminate proved constant components before expandin
 test('Scoped exact algebra factors closed producers while preserving native payloads and IEEE barriers',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_exact_factor_test.py'],{timeout:120_000,maxBuffer:1024*1024});
-    assert.match(stderr,/Ran 6 tests/);
+    assert.match(stderr,/Ran 7 tests/);
     assert.match(stderr,/OK/);
     assert.match(stdout,/Exact producer factoring: cases=92166 mismatches=0/);
     assert.match(stdout,/Linear signed-zero factoring: cases=122888 mismatches=0/);
+    assert.match(stdout,/Positive-zero multivariable factor: cases=552996 mismatches=0/);
     if(process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT) assert.match(stdout,/Complete composition growth regression: characters=\d+->\d+; finalArtifactEmitted=false/);
   });
 test('Finite F32 cells and compile-time constants preserve native boundaries and signed zeros',

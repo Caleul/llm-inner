@@ -15,6 +15,34 @@ from direct_sympy_strings import Domain,StringCompiler,syntax
 
 
 class ExactFactorTests(unittest.TestCase):
+    def test_multivariable_factoring_restores_proved_positive_zero_in_native_expression(self):
+        session,_=self.session();session.no_negative_zero_values.clear()
+        other=session.key(syntax('CompileValue1()'))
+        session.completed[other]=FiniteSource(-1,1,-24);session.half_values.add(other)
+        a,b='CompileValue0()','CompileValue1()'
+        sources=[f'3.0*({a}+{b})+7.0*({a}+{b})+0.0',
+            f'3.0*({a}-{b})+7.0*({a}-{b})+0.0']
+        results=[]
+        for text in sources:
+            result=simplify_arithmetic(text,session)
+            self.assertEqual(result.count(a),1);self.assertEqual(result.count(b),1)
+            self.assertLess(len(result),len(text));self.assertIn('0.0',result)
+            self.assertEqual(simplify_arithmetic(result,session),result)
+            results.append(result)
+        # Without the original +0 guarantee, do not impose one on a
+        # multivariable expression whose zero sign is not established.
+        for text in sources:self.assertEqual(factor_certified(text[:-4],session),text[:-4])
+        def emitted(text):return cpp(syntax(text.replace(a,'X1').replace(b,'X2')))
+        functions='\n'.join(f'double before{i}(double X1,double X2){{return {emitted(x)};}}\ndouble after{i}(double X1,double X2){{return {emitted(y)};}}'for i,(x,y)in enumerate(zip(sources,results)))
+        checks=''.join(f'mismatches+=word<uint64_t>(before{i}(x,y))!=word<uint64_t>(after{i}(x,y));cases++;'for i in range(len(results)))
+        with tempfile.TemporaryDirectory()as directory:
+            root=Path(directory);source=root/'zero-factor.cpp';binary=root/'zero-factor'
+            source.write_text('#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\n#include <cfenv>\n#include <initializer_list>\ntemplate<class T,class U>T word(U x){T y;std::memcpy(&y,&x,sizeof(y));return y;}\n'+functions+
+                '\nint main(){if(std::fesetround(FE_TONEAREST))return 2;unsigned cases=0,mismatches=0;for(unsigned bits=0;bits<65536;bits++){if((bits&0x7c00)==0x7c00)continue;double x=word<_Float16>(uint16_t(bits));if(x < -1 || x > 1)continue;for(double y:{-1.0,-0.5,-0x1p-24,-0.0,0.0,0x1p-24,0.5,1.0,-x}){'+checks+'}}std::printf("Positive-zero multivariable factor: cases=%u mismatches=%u\\n",cases,mismatches);return mismatches?1:0;}')
+            subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],check=True,capture_output=True,text=True)
+            run=subprocess.run([str(binary)],check=True,capture_output=True,text=True)
+            self.assertIn('cases=552996 mismatches=0',run.stdout);print(run.stdout,end='')
+
     @unittest.skipUnless(os.environ.get('LLM_INNER_DIRECT_JSON_CHECKPOINT'),'Checkpoint fixture required')
     def test_full_coordinate_compiler_growth_does_not_regress_after_factoring(self):
         from direct_sympy_checkpoint import CheckpointStrings

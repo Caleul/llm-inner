@@ -99,6 +99,14 @@ def factor_certified(expression,session):
     # kernels and grow their closed output. This pass addresses duplication:
     # require fewer producer occurrences, not merely shorter resident text.
     if occurrences(candidate)>=copies:return expression
+    if original.excludes_negative_zero and not replacement.excludes_negative_zero:
+        # Both arithmetic islands are already proved exact and finite.
+        # The original can only produce +0 at a real zero. Restore that
+        # sign explicitly when CAS drops the reduction's +0 seed; every
+        # nonzero value stays unchanged. No extra branch or leaf copy.
+        candidate=ast.BinOp(left=candidate,op=ast.Add(),right=ast.Constant(value=0.0))
+        replacement=certificate(candidate,domains,'f64')
+        if replacement is None or not replacement.excludes_negative_zero:return expression
     if not (original.excludes_negative_zero and replacement.excludes_negative_zero):
         if not linear_zero_signs_agree(compact,candidate,leaves):return expression
 
