@@ -3561,5 +3561,85 @@
     },
     "fullVariableLengthCoordinate": "Prior session observation: 654 dependency events, one prepared dimension of four, condition candidate budget exhausted, no artifact; remote session subsequently lost",
     "GPU": "A100 rejected; T4 Service Unavailable; CPU Colab fallback, no new CUDA claim"
+  },
+  "directSympyRust2GiBValidation": {
+    "date": "2026-10-05",
+    "evidenceDirectory": "docs/evidence/direct-sympy-rust-2g",
+    "output": "four last-position logits, lengths 1..8, Rust derived from closed mathematical strings",
+    "expressionConditionLimitBytes": 2147483648,
+    "remoteRAMBytes": 13605830656,
+    "architectureAggregateRAMLimitBytes": 8589934592,
+    "nativeTarget": "PyTorch 2.12.1/cpu-arm64-eager",
+    "componentTests": {
+      "producerBounds": {
+        "pass": 3,
+        "fail": 0
+      },
+      "rustEmission": {
+        "pass": 5,
+        "fail": 0,
+        "toyBitComparisons": 160,
+        "expandedHalfBitComparisons": 11
+      },
+      "regression": {
+        "pass": 49,
+        "fail": 0,
+        "skipped": 1,
+        "resumedNativeBitComparisons": 30722
+      },
+      "runnerAndRustReexecution": {
+        "pass": 7,
+        "fail": 0
+      }
+    },
+    "compilation": {
+      "completedProducers": 18,
+      "seconds": 108.78538548400002,
+      "peakRSSBytes": 4411117568,
+      "stop": "accumulated expression/condition budget exceeded",
+      "finalArtifactsEmitted": 0,
+      "finalArtifactParity": false
+    },
+    "testSources": [
+      "helpers/direct_sympy_conversions_test.py",
+      "helpers/direct_sympy_rust_test.py",
+      "helpers/direct_sympy_architecture_run_test.py",
+      "helpers/direct_sympy_parallel_test.py",
+      "helpers/direct_sympy_strings_test.py",
+      "helpers/direct_sympy_savepoints_test.py"
+    ],
+    "architectureObserved": {
+      "length1": {
+        "operatorPreparations": 12,
+        "operatorPairMerges": 11,
+        "compositionLevels": 4,
+        "workingLogits": 4,
+        "workingBitComparisons": 48,
+        "workingMismatches": 0,
+        "compositionSeconds": 2.7302184089999173,
+        "lowering": "four 60-second deadline stops"
+      },
+      "length2": {
+        "operatorPreparations": 15,
+        "operatorPairMerges": 14,
+        "workingLogits": 0,
+        "stop": "aggregate RAM budget exceeded"
+      },
+      "length3": {
+        "operatorPreparations": 15,
+        "operatorPairMerges": 13,
+        "workingLogits": 0,
+        "stop": "deadline exceeded"
+      }
+    },
+    "checkpointOptionalReexecution": {
+      "pass": 1,
+      "fail": 0,
+      "seconds": 25.242470569000034,
+      "workingBitComparisons": 60,
+      "mismatches": 0,
+      "nativeRuntime": "Colab CPU PyTorch 2.11.0; diagnostic, not original final target",
+      "initialStop": "40-second deadline exceeded"
+    }
   }
 }

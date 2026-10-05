@@ -1,0 +1,19 @@
+{
+  "exitCode": 1,
+  "seconds": 112.42969715199979,
+  "command": [
+    "python",
+    "helpers/direct_sympy_checkpoint_run.py",
+    "/content/llm-inner-sympy-rust-2g/docs/evidence/direct-sympy-test-checkpoint",
+    "/content/llm-inner-sympy-rust-2g/incremental-2g-state",
+    "/content/llm-inner-sympy-rust-2g/incremental-2g-report.json",
+    "--dimension",
+    "0",
+    "--max-characters",
+    "2147483648",
+    "--max-seconds",
+    "300",
+    "--max-address-space-mib",
+    "8192"
+  ]
+}

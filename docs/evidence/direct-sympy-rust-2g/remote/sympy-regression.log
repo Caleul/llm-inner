@@ -1,0 +1,28 @@
+....s......................................E......
+======================================================================
+ERROR: test_continuous_and_resumed_rounding_strings_are_byte_identical (direct_sympy_savepoints_test.SavepointTests.test_continuous_and_resumed_rounding_strings_are_byte_identical)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/content/llm-inner-sympy-rust-2g/helpers/direct_sympy_savepoints_test.py", line 163, in test_continuous_and_resumed_rounding_strings_are_byte_identical
+    compiled=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
+  File "/usr/lib/python3.13/subprocess.py", line 555, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/subprocess.py", line 1040, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                        pass_fds, cwd, env,
+                        ^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+                        gid, gids, uid, umask,
+                        ^^^^^^^^^^^^^^^^^^^^^^
+                        start_new_session, process_group)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/subprocess.py", line 1992, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: 'clang++'
+
+----------------------------------------------------------------------
+Ran 50 tests in 12.157s
+
+FAILED (errors=1, skipped=1)

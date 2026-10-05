@@ -406,6 +406,15 @@ class ConversionSession:
             if old in self.converted_regions:self.converted_regions.add(new)
         return tree,original
 
+    def expression_bounds(self,expression):
+        """Query an immutable producer without recreating its complete AST.
+
+        Unknown literals/contexts still follow analyze_expression's ordinary
+        parser. Only proofs owned by this conversion session participate.
+        """
+        query,_=self.analyze_expression(expression)
+        return self.bounds(query)
+
     def restore_compact_literal(self,expression,node,regions,bounds,kind,positive_zero,closed,restored_keys,restored_purity,arm_bounds=()):
         """Recover exact structural identity from previously validated literals.
 

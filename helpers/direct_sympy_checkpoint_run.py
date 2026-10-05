@@ -49,7 +49,7 @@ def main():
     parser.add_argument('checkpoint');parser.add_argument('state');parser.add_argument('report')
     parser.add_argument('--resume',action='store_true')
     parser.add_argument('--dimension',type=int,default=2)
-    parser.add_argument('--max-characters',type=int,default=8*1024**3)
+    parser.add_argument('--max-characters',type=int,default=2*1024**3)
     parser.add_argument('--max-seconds',type=int,default=600)
     parser.add_argument('--max-address-space-mib',type=int,default=0,
                         help='Optional process virtual-memory cap, including imported libraries')

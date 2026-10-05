@@ -462,7 +462,10 @@ class CheckpointStrings:
         if certificate:
             vector_key,floor,metadata=certificate[0]
             vector=self.norm_vectors.setdefault(vector_key,{'width':self.width,'floor':floor,'components':{},'magnitudes':{},**metadata})
-            bound=self.conversions.bounds(syntax(result))
+            # The producer has already closed and registered this literal.
+            # Query its session-owned proof through a compiler-only envelope;
+            # reparsing the full substituted body here duplicated huge ASTs.
+            bound=self.conversions.expression_bounds(result)
             if bound is not None:
                 vector['components'][coordinate]=result
                 vector['magnitudes'][coordinate]=F(max(abs(bound.minimum),abs(bound.maximum)))
@@ -578,7 +581,7 @@ def main():
     parser=argparse.ArgumentParser(description="Compile one Llama working coordinate as mathematical strings with SymPy")
     parser.add_argument("checkpoint");parser.add_argument("output")
     parser.add_argument("--dimension",type=int,default=2)
-    parser.add_argument("--max-characters",type=int,default=1048576)
+    parser.add_argument("--max-characters",type=int,default=2*1024**3)
     parser.add_argument("--max-seconds",type=int,default=60)
     parser.add_argument("--reference-boundaries",action="store_true",help="Keep numerical primitives for reference-string validation only")
     parser.add_argument("--savepoint-directory")

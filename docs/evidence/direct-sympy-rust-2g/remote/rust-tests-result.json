@@ -1,0 +1,10 @@
+{
+  "exitCode": 0,
+  "seconds": 1.022192702999746,
+  "command": [
+    "python",
+    "-m",
+    "unittest",
+    "direct_sympy_rust_test"
+  ]
+}

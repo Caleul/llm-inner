@@ -1,0 +1,114 @@
+{
+  "coordinateComplete": false,
+  "parityVerified": false,
+  "resumeCompatible": false,
+  "restoredDependencies": 0,
+  "completedDependencies": 18,
+  "envelopes": [],
+  "budgets": {
+    "characters": 2147483648,
+    "seconds": 300,
+    "addressSpaceBytes": 8589934592
+  },
+  "stop": "Accumulated producer expression/condition budget exceeded: characters=2828365256 limit=2147483648",
+  "failurePhase": "compilation",
+  "failureFrames": [
+    {
+      "file": "direct_sympy_checkpoint_run.py",
+      "function": "main",
+      "line": 104
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "coordinate",
+      "line": 576
+    },
+    {
+      "file": "<equivalent producer envelope>",
+      "function": "producer",
+      "line": 6
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "<lambda>",
+      "line": 576
+    },
+    {
+      "file": "<equivalent consuming projection>",
+      "function": "linear",
+      "line": 21
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "<lambda>",
+      "line": 577
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "norm",
+      "line": 461
+    },
+    {
+      "file": "<equivalent producer envelope>",
+      "function": "producer",
+      "line": 6
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "build",
+      "line": 381
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "<lambda>",
+      "line": 577
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "hidden",
+      "line": 570
+    },
+    {
+      "file": "<equivalent producer envelope>",
+      "function": "producer",
+      "line": 28
+    }
+  ],
+  "stoppedExpansion": {
+    "producerCharacters": 1267275850,
+    "producers": 18,
+    "registeredRegionCharacters": 2828286852,
+    "lastSubstitution": [
+      [
+        "X999999997",
+        71,
+        668,
+        1,
+        733,
+        729,
+        "admitted"
+      ]
+    ],
+    "lastBudgetEnvelope": [
+      [
+        126,
+        122,
+        876913954,
+        2,
+        1,
+        true
+      ]
+    ],
+    "wordFactorPasses": 0,
+    "lastWordFactors": [],
+    "closedLiteralCharacters": 2979305091,
+    "addressSpaceBytes": 3741155328,
+    "residentBytes": 3342114816
+  },
+  "newDependencies": 18,
+  "lastDependency": "model.layers.0.gated:0",
+  "seconds": 108.78538548400002,
+  "peakRSSBytes": 4411117568,
+  "persistedDependencies": 18,
+  "lastPersistedDependency": "model.layers.0.gated:0"
+}

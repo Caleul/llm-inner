@@ -77,13 +77,15 @@ def unit(args):
             from direct_sympy_strings import Domain
             from fractions import Fraction as F
             import re
+            import traceback
             domains={f'X{i+1}':Domain(F(-65504),F(65504),-24,False) for i in range(plan.length*plan.width)}
             report['lowering']=[]
             for index,text in enumerate(outputs):
                 signal.alarm(args.lower_seconds)
                 entry={'position':plan.length-1,'coordinate':index,'complete':False}
+                session=ConversionSession(StringCompiler(max_characters=args.max_characters),domains,input_dtype='f16')
                 try:
-                    closed=ConversionSession(StringCompiler(max_characters=args.max_characters),domains,input_dtype='f16').close(text)
+                    closed=session.close(text)
                     pending=sorted(set(re.findall(r'\b(R16|R32|sqrt|Silu16|Exp32)\s*\(',closed)))
                     entry['pendingPrimitives']=pending
                     if not pending:
@@ -91,10 +93,20 @@ def unit(args):
                         # scalar evaluator/bit-parity gate is still required.
                         destination=root/f'position-{entry["position"]}-logit-{entry["coordinate"]}.candidate.expr'
                         write_expression(destination,closed);entry['candidate']=destination.name
+                        from direct_sympy_rust import emit_scalar
+                        emit_scalar(closed,plan.length*plan.width)
+                        entry['complete']=True
                     else:entry['stop']='Residual numerical primitives'
-                except (ValueError,TimeoutError,RecursionError) as error:entry['stop']=str(error)
+                except (ValueError,TimeoutError,RecursionError,MemoryError) as error:
+                    entry['stop']=str(error) or 'Numeric closure memory budget exhausted'
+                    entry['failureFrames']=[{'file':Path(frame.f_code.co_filename).name,'function':frame.f_code.co_name,'line':line}
+                        for frame,line in traceback.walk_tb(error.__traceback__)][-10:]
+                entry['numericClosure']={'closedOperations':session.closed,'factorSimplifyEvents':len(session.compiler.events),
+                    'completedLiteralCharacters':sum(map(len,session.closed_literals)),
+                    'registeredRegionCharacters':session.compiler._region_characters}
                 report['lowering'].append(entry)
                 write_json(root/'result.json',report)
+                del session
             signal.alarm(0)
     except (ValueError,TimeoutError,RecursionError) as error:report['stop']=str(error)
     finally:
@@ -108,7 +120,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('checkpoint');parser.add_argument('output')
     parser.add_argument('--workers',type=int,default=2);parser.add_argument('--memory-mib',type=int,default=4096)
-    parser.add_argument('--max-characters',type=int,default=512*1024**2)
+    parser.add_argument('--max-characters',type=int,default=2*1024**3)
     parser.add_argument('--seconds-per-length',type=int,default=60)
     parser.add_argument('--lengths',help='Comma-separated lengths; default every discovered length')
     parser.add_argument('--lower',action='store_true');parser.add_argument('--lower-seconds',type=int,default=15)
@@ -121,8 +133,9 @@ def main():
     lengths=list(range(1,config['max_position_embeddings']+1)) if not args.lengths else [int(v) for v in args.lengths.split(',')]
     if len(set(lengths))!=len(lengths) or any(not 1<=n<=config['max_position_embeddings'] for n in lengths):parser.error('Invalid discovered sequence lengths')
     root=Path(args.output);root.mkdir(parents=True,exist_ok=True)
-    reference=root/'reference.json'
-    subprocess.run([sys.executable,str(Path(__file__).with_name('capture_direct_json_reference.py')),args.checkpoint,str(reference),'--all-lengths'],check=True,capture_output=True)
+    reference=Path(args.reference).resolve() if args.reference else root/'reference.json'
+    if not args.reference:
+        subprocess.run([sys.executable,str(Path(__file__).with_name('capture_direct_json_reference.py')),args.checkpoint,str(reference),'--all-lengths'],check=True,capture_output=True)
     summary={'lengths':lengths,'vocab':config['vocab_size'],'outputScope':'last-position-only','results':[],'complete':False,'finalArtifactParity':False}
     for length in lengths:
         directory=root/f'length-{length}';directory.mkdir(exist_ok=True)
@@ -165,8 +178,22 @@ def main():
         print(json.dumps({key:result.get(key) for key in ('length','workingExpressionsEmitted','verifiedLogits','workingExpressionParity','stop','coordinatorStop','wallSeconds','peakObservedAggregateRSSBytes')}),flush=True)
     summary['workingExpressionsComplete']=all(r.get('workingExpressionsEmitted')==config['vocab_size'] and r.get('workingExpressionParity') for r in summary['results'])
     summary['complete']=all(r.get('finalArtifactEmitted') and r.get('finalArtifactParity') for r in summary['results'])
+    if args.lower and set(lengths)==set(range(1,config['max_position_embeddings']+1)):
+        rows=summary['results']
+        ready=all(len(r.get('lowering',[]))==config['vocab_size'] and all(e.get('complete') for e in r['lowering']) for r in rows)
+        if ready:
+            from direct_sympy_rust import write_rust_candidate,validate_rust_candidate
+            try:
+                bodies={r['length']:[(root/f'length-{r["length"]}'/e['candidate']).read_text().strip() for e in r['lowering']] for r in rows}
+                candidate=root/'next-token.candidate.rs'
+                summary['rustEmission']=write_rust_candidate(candidate,bodies,width=config['hidden_size'],vocab=config['vocab_size'],context=config['max_position_embeddings'],max_bytes=args.max_characters)
+                summary['rustParity']=validate_rust_candidate(candidate,json.loads(reference.read_text()),width=config['hidden_size'],vocab=config['vocab_size'],context=config['max_position_embeddings'])
+                candidate.replace(root/'next-token.rs')
+                summary.update(complete=True,finalArtifactParity=True,finalArtifact='next-token.rs')
+            except (ValueError,OSError,TimeoutError) as error:
+                summary['rustStop']=str(error)
     write_json(root/'summary.json',summary)
-    return int(any(r.get('stop') or r.get('coordinatorStop') or r.get('mismatches') for r in summary['results']))
+    return int(bool(args.lower and not summary['complete']) or any(r.get('stop') or r.get('coordinatorStop') or r.get('mismatches') for r in summary['results']))
 
 
 if __name__=='__main__':raise SystemExit(main())

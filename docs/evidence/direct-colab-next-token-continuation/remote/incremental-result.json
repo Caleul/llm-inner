@@ -1,0 +1,114 @@
+{
+  "coordinateComplete": false,
+  "parityVerified": false,
+  "resumeCompatible": false,
+  "restoredDependencies": 0,
+  "completedDependencies": 14,
+  "envelopes": [],
+  "budgets": {
+    "characters": 536870912,
+    "seconds": 120,
+    "addressSpaceBytes": 0
+  },
+  "stop": "Compilation wall-clock budget exceeded",
+  "failurePhase": "compilation",
+  "failureFrames": [
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "<lambda>",
+      "line": 565
+    },
+    {
+      "file": "<equivalent producer envelope>",
+      "function": "producer",
+      "line": 6
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "<lambda>",
+      "line": 565
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "gated",
+      "line": 475
+    },
+    {
+      "file": "<equivalent producer envelope>",
+      "function": "producer",
+      "line": 6
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "<lambda>",
+      "line": 476
+    },
+    {
+      "file": "<equivalent consuming projection>",
+      "function": "linear",
+      "line": 21
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "post",
+      "line": 559
+    },
+    {
+      "file": "direct_sympy_checkpoint.py",
+      "function": "norm",
+      "line": 465
+    },
+    {
+      "file": "direct_sympy_strings.py",
+      "function": "syntax",
+      "line": 65
+    },
+    {
+      "file": "ast.py",
+      "function": "walk",
+      "line": 394
+    },
+    {
+      "file": "direct_sympy_checkpoint_run.py",
+      "function": "timeout",
+      "line": 72
+    }
+  ],
+  "stoppedExpansion": {
+    "producerCharacters": 27208348,
+    "producers": 14,
+    "registeredRegionCharacters": 27129944,
+    "lastSubstitution": [
+      [
+        "X999999997",
+        63,
+        45,
+        0,
+        65,
+        63,
+        "admitted"
+      ]
+    ],
+    "lastBudgetEnvelope": [
+      [
+        67,
+        63,
+        4716303,
+        2,
+        1,
+        true
+      ]
+    ],
+    "wordFactorPasses": 0,
+    "lastWordFactors": [],
+    "closedLiteralCharacters": 28485234,
+    "addressSpaceBytes": 2286309376,
+    "residentBytes": 1915817984
+  },
+  "newDependencies": 14,
+  "lastDependency": "model.layers.0.post:1",
+  "seconds": 120.76167460399995,
+  "peakRSSBytes": 2076024832,
+  "persistedDependencies": 14,
+  "lastPersistedDependency": "model.layers.0.post:1"
+}

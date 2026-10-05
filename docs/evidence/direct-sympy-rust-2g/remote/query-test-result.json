@@ -1,0 +1,12 @@
+{
+  "exitCode": 0,
+  "seconds": 1.2244065069999124,
+  "command": [
+    "python",
+    "-m",
+    "unittest",
+    "direct_sympy_conversions_test.ConversionStringTests.test_completed_producer_bounds_avoid_reparse_and_reopen_unknown_contexts",
+    "direct_sympy_conversions_test.ConversionStringTests.test_readonly_queries_compose_literal_keys_without_reopening_closed_subtrees",
+    "direct_sympy_conversions_test.ConversionStringTests.test_closed_envelope_restores_exact_proofs_without_parsing_expanded_result"
+  ]
+}

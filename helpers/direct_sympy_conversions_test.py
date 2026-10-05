@@ -216,6 +216,25 @@ class ConversionStringTests(unittest.TestCase):
         for placeholder in ("CASNumericRegion","CASRegion","R16(","R32("):
             self.assertNotIn(placeholder,result)
 
+    def test_completed_producer_bounds_avoid_reparse_and_reopen_unknown_contexts(self):
+        domains={"X1":Domain(F(-1),F(1),-24,False)}
+        session=ConversionSession(StringCompiler(),domains,input_dtype="f16")
+        literal=session.close("R16(R32(X1+X1/2.0))")
+        expected=session.bounds(syntax(literal))
+        def guarded_parse(text):
+            if text==literal:raise AssertionError("Completed producer reparsed")
+            return syntax(text)
+        with patch("direct_sympy_conversions.syntax",side_effect=guarded_parse):
+            self.assertEqual(session.expression_bounds(literal),expected)
+        guarded="Piecewise((("+literal+"), X1 > 0), (0.0, True))"
+        with patch("direct_sympy_conversions.syntax",wraps=syntax) as parse:
+            session.expression_bounds(guarded)
+        self.assertIn(guarded,[call.args[0] for call in parse.call_args_list])
+        fresh=ConversionSession(StringCompiler(),domains,input_dtype="f16")
+        with patch("direct_sympy_conversions.syntax",wraps=syntax) as parse:
+            self.assertEqual(fresh.expression_bounds(literal),fresh.bounds(syntax(literal)))
+        self.assertIn(literal,[call.args[0] for call in parse.call_args_list])
+
     def test_readonly_queries_compose_literal_keys_without_reopening_closed_subtrees(self):
         domains={"X1":Domain(F(-1),F(1),-24,False),"X2":Domain(F(-8),F(8),-24,False)}
         compiler=StringCompiler();session=ConversionSession(compiler,domains,input_dtype="f16")
