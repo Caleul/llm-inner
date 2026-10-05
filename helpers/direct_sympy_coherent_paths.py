@@ -168,6 +168,22 @@ class CoherentPaths:
                     low,high=max(bound.minimum,local.minimum),min(bound.maximum,local.maximum)
                     if low>high:continue
                     bound=FiniteSource(low,high,min(bound.quantum,local.quantum) if bound.quantum is not None and local.quantum is not None else None,max(bound.minimum_magnitude,local.minimum_magnitude))
+                # Propagate the prefix through original ordered operations
+                # before distributing another decision. Closed word payloads
+                # can hide these dependencies; their numerical recipes are
+                # still available in strictly backward producer order.
+                recipe=getattr(self.registry,'definition_recipes',{}).get(alias)
+                if recipe is not None and all(int(m[1])<alias for m in ALIASES.finditer(recipe)):
+                    actual=numeric.bounds(syntax(recipe))
+                    if actual is not None:
+                        low,high=max(bound.minimum,actual.minimum),min(bound.maximum,actual.maximum)
+                        magnitude=max(bound.minimum_magnitude,actual.minimum_magnitude)
+                        if low<=high and magnitude<=max(abs(low),abs(high)):
+                            quantum=min(bound.quantum,actual.quantum) if bound.quantum is not None and actual.quantum is not None else None
+                            narrowed=FiniteSource(low,high,quantum,magnitude)
+                            if narrowed!=bound:
+                                self.stats['prefixRecipeRefinements']=self.stats.get('prefixRecipeRefinements',0)+1
+                            bound=narrowed
                 own=numeric.key(syntax(f'CompileValue{alias}()'));numeric.completed[own]=bound
                 if kind=='half':numeric.half_values.add(own)
                 if kind in ('half','f32'):numeric.f32_values.add(own)

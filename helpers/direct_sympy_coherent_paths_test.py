@@ -51,6 +51,46 @@ def evaluate(text,values,functions=None):
 
 
 class CoherentPathTests(unittest.TestCase):
+    def test_prefix_recipes_propagate_before_decision_without_assuming_its_truth(self):
+        registry=fixture(['X1','CompileValue0()*2.0','CompileValue1()+1.0'])
+        registry.definition_proofs=[(FiniteSource(-1,1,-24),'half',False,None),
+            (FiniteSource(-2,2,-24),'f32',False,None),(FiniteSource(-1,3,-24),'f32',False,None)]
+        registry.definition_recipes={0:'X1',1:'CompileValue0()*2.0',2:'CompileValue1()+1.0'}
+        plan=CoherentPaths(registry)
+        positive=plan.assume(syntax('X1>0.5'),True,())
+        predicate=syntax('CompileValue2() < 1.5')
+        self.assertIs(plan.condition_truth(predicate,positive),False)
+        self.assertIsNone(plan.condition_truth(predicate,()))
+        self.assertIsNone(plan.condition_truth(syntax('CompileValue2() < 2.5'),positive))
+        self.assertGreater(plan.stats['prefixRecipeRefinements'],0)
+        self.assertEqual(registry.definition_proofs[2][0].minimum,-1)
+        registry.definitions.append('Piecewise((Piecewise((5.0,CompileValue2()<1.5),(7.0,True)),X1>0.5),(3.0,True))')
+        with tempfile.TemporaryDirectory()as directory:
+            path=Path(directory)/'prefix.expr';plan=CoherentPaths(registry)
+            report=plan.write(path,'CompileValue3()',max_characters=65536)
+            self.assertEqual(report['paths'],2)
+            tree=ast.fix_missing_locations(ast.Expression(Lazy().visit(syntax(path.read_text()))))
+            actual=compile(tree,'<actual-prefix-artifact>','eval');cases=0
+            for bits in range(65536):
+                if bits&0x7c00==0x7c00:continue
+                x=struct.unpack('e',struct.pack('H',bits))[0]
+                if not -1<=x<=1:continue
+                before=(5. if x*2.0+1.0<1.5 else 7.) if x>0.5 else 3.
+                after=eval(actual,{'__builtins__':{}},{'X1':x,'X2':0.})
+                self.assertEqual(struct.pack('d',before),struct.pack('d',after));cases+=1
+            self.assertEqual(cases,30722)
+            print(f'Prefix recipe dispatch parity: cases={cases} mismatches=0')
+        # Unknown numerical semantics and forward/cyclic recipes cannot
+        # provide a certificate, even when the prefix itself is precise.
+        registry.definition_recipes[2]='unknown(CompileValue1())'
+        plan=CoherentPaths(registry)
+        positive=plan.assume(syntax('X1>0.5'),True,())
+        self.assertIsNone(plan.condition_truth(predicate,positive))
+        registry.definition_recipes[2]='CompileValue2()+1.0'
+        plan=CoherentPaths(registry)
+        positive=plan.assume(syntax('X1>0.5'),True,())
+        self.assertIsNone(plan.condition_truth(predicate,positive))
+
     def test_selected_pure_scalar_admits_next_constant_cell_without_reopening(self):
         registry=fixture(['Piecewise((1.0,X1>0.0),(2.0,True))'])
         source=ConversionSession(registry.model.compiler,registry.model.domains)

@@ -15018,5 +15018,395 @@
     "historicalNumericalResultsReused": false,
     "CUDAUsed": false,
     "parallelSpeedupMeasured": false
+  },
+  "prefixRecipeValidation": {
+    "compilerIdentity": {
+      "version": 1,
+      "dimension": 2,
+      "position": 0,
+      "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+      "sympy": "1.14.0",
+      "platform": "macOS-26.7.1-arm64-arm-64bit",
+      "byteOrder": "little",
+      "referenceBackend": {
+        "name": "torch CPU",
+        "version": "2.12.1",
+        "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+        "capability": "DEFAULT"
+      },
+      "checkpoint": {
+        "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+        "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+      },
+      "sources": {
+        "direct_sympy_arithmetic.py": "fd9779759345c7b381a01b54fee545218735eb8c26e4f6a8ffb560109431ff43",
+        "direct_sympy_checkpoint.py": "889ecefef40b7cbf1b87452e92decda5837ab9d01bc61affcb0274c045bac146",
+        "direct_sympy_coherent_paths.py": "954b97e032ba565103738d5564b46d35771c46f2df639617a11b229fde48d0f8",
+        "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+        "direct_sympy_conversions.py": "50847bb8ffc58153d7142867c5b5421f3f58b3869858176d2acd2b0ecdabcf4f",
+        "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+        "direct_sympy_layer_bounds.py": "c1a93f951ff5ad5af8510671e42ac8c05d73c246dfb2460bacd43cf0e3774dae",
+        "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+        "direct_sympy_partition_run.py": "9985ec29e19e73f59ab0691be88f8278966d64fe2daaaf5fab77135901a66482",
+        "direct_sympy_projection_constraints.py": "bcf9ed81383577aa2f095178f8cc678e77aa2ca2f7220a39e96b3fa1bd10d03a",
+        "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+        "direct_sympy_savepoints.py": "9a6938574aa06eeb044b5c5b7d07f798cf8ed80970d8c4a6ed188f88cf56305a",
+        "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+        "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+        "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+        "direct_sympy_sqrt.py": "71875ff81696163c1b7ddfe16906cdeec6a03ba2dc67ee0915b76ba8d966c948",
+        "direct_sympy_streaming_literals.py": "5a0046367e570549e5c804c0f5aa0737db2c506600c9ae19c72450ba0f38824e",
+        "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+        "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+        "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+        "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+      }
+    },
+    "expressionRepresentation": "SymPy mathematical strings",
+    "integrationTests": {
+      "tests": 34,
+      "pass": 34,
+      "fail": 0,
+      "skipped": 0
+    },
+    "coherentPathHelperTests": 15,
+    "wholeProjectSuite": {
+      "current": {
+        "tests": 628,
+        "pass": 570,
+        "fail": 15,
+        "skipped": 43
+      },
+      "sameFailingTestLocations": [
+        "dist/test/gemma4-real-calibration.test.js:15:1",
+        "dist/test/gemma4-real-calibration.test.js:27:1",
+        "dist/test/gemma4-real-calibration.test.js:43:1",
+        "dist/test/gemma4-real-calibration.test.js:52:1",
+        "dist/test/gemma4-real-calibration.test.js:67:1",
+        "dist/test/gemma4-real-calibration.test.js:81:1",
+        "dist/test/gemma4-real-calibration.test.js:94:1",
+        "dist/test/gemma4-real-calibration.test.js:111:1",
+        "dist/test/gemma4-real-calibration.test.js:127:1",
+        "dist/test/gemma4-real-calibration.test.js:180:1",
+        "dist/test/gemma4-real-calibration.test.js:196:1",
+        "dist/test/gemma4-runtime-reduction-trace-coverage.test.js:242:1",
+        "dist/test/gemma4-runtime-reduction-trace-coverage.test.js:318:1",
+        "dist/test/literal-scalar-substitution-example.test.js:5:1",
+        "scripts/agent-task-contract.test.mjs:19:1"
+      ],
+      "newFailingTestLocations": 0
+    },
+    "nativeNormCases": 888832,
+    "nativePropagationCases": 30722,
+    "prefixDispatchCases": 30722,
+    "bitMismatches": 0,
+    "regionalArtifact": {
+      "path": "/Users/caleul/Documents/Work/Projects/llm-inner/docs/evidence/direct-sympy-prefix-recipes/current.expr",
+      "characters": 326227,
+      "sha256": "1272e6da9db6a7dc80b56ea4dc689bb205626479f69e966cd4651a3fbfeb63a7",
+      "paths": 2,
+      "compilerAliases": 0,
+      "complete": true
+    },
+    "inputDomains": {
+      "X1": [
+        10240,
+        10496
+      ],
+      "X2": [
+        10240,
+        10496
+      ]
+    },
+    "regionalOutputCases": 66049,
+    "regionalOutputMismatches": 0,
+    "regionalOutputExhaustive": true,
+    "fullDomainDiagnostics": [
+      {
+        "budgetMiB": 32,
+        "stats": {
+          "splitContexts": 8,
+          "completedPaths": 3,
+          "contradictions": 0,
+          "selectorSelections": 114,
+          "CASPasses": 3138,
+          "numericArithmeticEliminated": 564,
+          "numericRecipeAttempts": 168,
+          "numericRecipeAdmissions": 89,
+          "numericRecipeBudgetStops": 0,
+          "coupledProjectionContradictions": 0,
+          "rmsBranchRefinements": 91,
+          "rmsConstantCells": 0,
+          "orderedGuardEliminations": 2,
+          "guardProofPasses": 19,
+          "guardProofBudgetStops": 0,
+          "numericGuardImplications": 64,
+          "prefixRecipeRefinements": 160,
+          "firstArm": {
+            "bodyCharacters": 2438851,
+            "guardCharacters": 1838558,
+            "decisions": 6
+          },
+          "lastArm": {
+            "bodyCharacters": 14023505,
+            "guardCharacters": 7935922,
+            "decisions": 6,
+            "dependencyGrowth": [
+              {
+                "definition": 1,
+                "storedCharacters": 17,
+                "expandedCharacters": 19
+              },
+              {
+                "definition": 2,
+                "storedCharacters": 195,
+                "expandedCharacters": 201
+              },
+              {
+                "definition": 4,
+                "storedCharacters": 195,
+                "expandedCharacters": 201
+              },
+              {
+                "definition": 6,
+                "storedCharacters": 315,
+                "expandedCharacters": 1061
+              },
+              {
+                "definition": 8,
+                "storedCharacters": 309,
+                "expandedCharacters": 1055
+              },
+              {
+                "definition": 10,
+                "storedCharacters": 405,
+                "expandedCharacters": 4579
+              },
+              {
+                "definition": 12,
+                "storedCharacters": 348,
+                "expandedCharacters": 4522
+              },
+              {
+                "definition": 15,
+                "storedCharacters": 17,
+                "expandedCharacters": 19
+              },
+              {
+                "definition": 16,
+                "storedCharacters": 596,
+                "expandedCharacters": 9336
+              },
+              {
+                "definition": 18,
+                "storedCharacters": 224,
+                "expandedCharacters": 9241
+              },
+              {
+                "definition": 22,
+                "storedCharacters": 918,
+                "expandedCharacters": 75100
+              },
+              {
+                "definition": 23,
+                "storedCharacters": 315,
+                "expandedCharacters": 37407
+              },
+              {
+                "definition": 25,
+                "storedCharacters": 401,
+                "expandedCharacters": 149968
+              },
+              {
+                "definition": 27,
+                "storedCharacters": 295,
+                "expandedCharacters": 304764
+              },
+              {
+                "definition": 29,
+                "storedCharacters": 293,
+                "expandedCharacters": 304705
+              },
+              {
+                "definition": 32,
+                "storedCharacters": 1403,
+                "expandedCharacters": 3048590
+              },
+              {
+                "definition": 33,
+                "storedCharacters": 116,
+                "expandedCharacters": 3353440
+              },
+              {
+                "definition": 35,
+                "storedCharacters": 484,
+                "expandedCharacters": 3658159
+              },
+              {
+                "definition": 37,
+                "storedCharacters": 369,
+                "expandedCharacters": 14023505
+              }
+            ]
+          }
+        },
+        "seconds": 13.421416750003118
+      },
+      {
+        "budgetMiB": 96,
+        "stats": {
+          "splitContexts": 14,
+          "completedPaths": 9,
+          "contradictions": 1,
+          "selectorSelections": 293,
+          "CASPasses": 7790,
+          "numericArithmeticEliminated": 1387,
+          "numericRecipeAttempts": 428,
+          "numericRecipeAdmissions": 223,
+          "numericRecipeBudgetStops": 0,
+          "coupledProjectionContradictions": 0,
+          "rmsBranchRefinements": 220,
+          "rmsConstantCells": 0,
+          "orderedGuardEliminations": 11,
+          "guardProofPasses": 59,
+          "guardProofBudgetStops": 0,
+          "numericGuardImplications": 154,
+          "prefixRecipeRefinements": 409,
+          "firstArm": {
+            "bodyCharacters": 2438851,
+            "guardCharacters": 1838558,
+            "decisions": 6
+          },
+          "lastArm": {
+            "bodyCharacters": 10599633,
+            "guardCharacters": 6000690,
+            "decisions": 6,
+            "dependencyGrowth": [
+              {
+                "definition": 1,
+                "storedCharacters": 17,
+                "expandedCharacters": 19
+              },
+              {
+                "definition": 2,
+                "storedCharacters": 195,
+                "expandedCharacters": 201
+              },
+              {
+                "definition": 4,
+                "storedCharacters": 195,
+                "expandedCharacters": 201
+              },
+              {
+                "definition": 6,
+                "storedCharacters": 315,
+                "expandedCharacters": 1061
+              },
+              {
+                "definition": 8,
+                "storedCharacters": 309,
+                "expandedCharacters": 1055
+              },
+              {
+                "definition": 10,
+                "storedCharacters": 405,
+                "expandedCharacters": 4579
+              },
+              {
+                "definition": 12,
+                "storedCharacters": 348,
+                "expandedCharacters": 4522
+              },
+              {
+                "definition": 15,
+                "storedCharacters": 17,
+                "expandedCharacters": 19
+              },
+              {
+                "definition": 16,
+                "storedCharacters": 116,
+                "expandedCharacters": 4684
+              },
+              {
+                "definition": 18,
+                "storedCharacters": 224,
+                "expandedCharacters": 9241
+              },
+              {
+                "definition": 22,
+                "storedCharacters": 918,
+                "expandedCharacters": 56492
+              },
+              {
+                "definition": 23,
+                "storedCharacters": 315,
+                "expandedCharacters": 28103
+              },
+              {
+                "definition": 25,
+                "storedCharacters": 401,
+                "expandedCharacters": 112752
+              },
+              {
+                "definition": 27,
+                "storedCharacters": 295,
+                "expandedCharacters": 230332
+              },
+              {
+                "definition": 29,
+                "storedCharacters": 293,
+                "expandedCharacters": 230273
+              },
+              {
+                "definition": 32,
+                "storedCharacters": 1403,
+                "expandedCharacters": 2304270
+              },
+              {
+                "definition": 33,
+                "storedCharacters": 116,
+                "expandedCharacters": 2534688
+              },
+              {
+                "definition": 35,
+                "storedCharacters": 484,
+                "expandedCharacters": 2764975
+              },
+              {
+                "definition": 37,
+                "storedCharacters": 369,
+                "expandedCharacters": 10599633
+              }
+            ]
+          }
+        },
+        "seconds": 29.870563250035048
+      }
+    ],
+    "prior96MiBCompletedPaths": 8,
+    "current96MiBCompletedPaths": 9,
+    "fullDomainAttempt": {
+      "seconds": 33.12352566601476,
+      "workerSeconds": 34.05101520899916,
+      "workerPeakRSSBytes": 276676608,
+      "stop": "Flat artifact budget exceeded; no complete result"
+    },
+    "regionalBenchmark": {
+      "baselineCommit": "d90b7fc",
+      "baselineSeconds": 5.113848374981899,
+      "currentSeconds": 5.156329916033428,
+      "baselinePeakRSSBytes": 327516160,
+      "currentPeakRSSBytes": 327909376,
+      "samples": 1,
+      "sameCompletedPaths": 2,
+      "speedupEstablished": false
+    },
+    "fullCoordinateArtifactEmitted": false,
+    "fullCoordinateParity": false,
+    "multipleTokenParity": false,
+    "fullVectorParity": false,
+    "historicalNumericalResultsReused": false,
+    "CUDAUsed": false,
+    "parallelSpeedupMeasured": false
   }
 }
