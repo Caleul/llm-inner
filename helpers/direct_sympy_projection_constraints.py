@@ -36,6 +36,125 @@ def norm_error_bound(width,epsilon):
     return sqrt_outward(F(width),True)*(loss-1+loss*F(1,2**11)+F(1,2**25))
 
 
+def rms_branch_bounds(registry,assumptions):
+    """Refine actual Half RMS components from their own tiny-value guard.
+
+    For the original rounded mean m <= K*T/n+(1+u)*eps, a guard
+    x_i^2 < c*m bounds the real RMS component by sqrt(c*K). Its source
+    magnitude also bounds T from below. In two dimensions this bounds
+    the other component, sometimes inside a single Half storage cell.
+    On the complementary guard, m >= (1-u)^(n+3)*(T/n+eps)
+    supplies a lower component bound. Neither the rounded mean nor the
+    numerical RMS operations are replaced.
+    """
+    from direct_sympy_conversions import FiniteSource
+    result={};context=registry.model.compiler.context(registry.model.domains)
+    def same(a,b):return ast.dump(a)==ast.dump(b)
+    def coefficient(node):
+        if (isinstance(node,ast.BinOp) and isinstance(node.op,ast.Pow)
+            and isinstance(node.left,ast.Constant) and type(node.left.value)is int and node.left.value==2
+            and isinstance(node.right,ast.UnaryOp) and isinstance(node.right.op,ast.USub)
+            and isinstance(node.right.operand,ast.Constant) and type(node.right.operand.value)is int
+            and 28<=node.right.operand.value<=64):return F(1,2**node.right.operand.value)
+        return None
+    for vector in getattr(registry.model,'norm_vectors',{}).values():
+        n=vector['width'];sources=vector.get('sources',());bounds=vector.get('sourceBounds',())
+        if (n!=2 or len(sources)!=n or len(bounds)!=n or len(vector['components'])!=n
+            or vector.get('context')!=context or 'mean' not in vector
+            or any(g not in (-1,1) for g in vector.get('gamma',())) or len(vector.get('gamma',()))!=n):continue
+        if any(b is None or not all(math.isfinite(x) for x in (b.minimum,b.maximum)) or max(abs(b.minimum),abs(b.maximum))>65504 for b in bounds):continue
+        eps=vector['epsilon'];u=F(1,2**23);K=(1+u)**(n+3)
+        if eps<=0:continue
+        loss=(1+u)**3/((1-u)**3*sqrt_outward(1-n*u,False))
+        mean=syntax(vector['mean']);inputs=[syntax(s) for s in sources]
+        minimum=lambda b:F(max(b.minimum_magnitude,b.minimum if b.minimum>0 else -b.maximum if b.maximum<0 else 0))
+        for predicate,truth in assumptions:
+            if not isinstance(predicate,ast.Compare) or len(predicate.ops)!=1 or len(predicate.comparators)!=1:continue
+            if not isinstance(predicate.ops[0],(ast.Lt,ast.GtE)):continue
+            tiny_branch=bool(truth) if isinstance(predicate.ops[0],ast.Lt) else not truth
+            left,right=predicate.left,predicate.comparators[0]
+            if not isinstance(right,ast.BinOp) or not isinstance(right.op,ast.Mult):continue
+            c=coefficient(right.right) if same(right.left,mean) else coefficient(right.left) if same(right.right,mean) else None
+            if c is None:continue
+            for i,source in enumerate(inputs):
+                square=isinstance(left,ast.BinOp) and ((isinstance(left.op,ast.Pow) and same(left.left,source)
+                    and isinstance(left.right,ast.Constant) and left.right.value==2)
+                    or (isinstance(left.op,ast.Mult) and same(left.left,source) and same(left.right,source)))
+                if not square:continue
+                total=max(sum((minimum(b)**2 for b in bounds),F(0)),n*(minimum(bounds[i])**2/c-(1+u)*eps)/K)
+                tiny=c*K
+                other=max(F(0),n*total/(total+n*eps)-tiny)
+                for j,b in enumerate(bounds):
+                    if not tiny_branch and j!=i:continue
+                    low=(F(0) if j==i else sqrt_outward(other,False)/loss) if tiny_branch else sqrt_outward(c*(1-u)**(n+3),False)/loss
+                    high=sqrt_outward(tiny if tiny_branch and j==i else F(n),True)*loss
+                    lo=float(low);hi=float(high)
+                    if F(lo)>low:lo=math.nextafter(lo,-math.inf)
+                    if F(hi)<high:hi=math.nextafter(hi,math.inf)
+                    lo=struct.unpack('e',struct.pack('e',lo))[0];hi=struct.unpack('e',struct.pack('e',hi))[0]
+                    pair=(lo,hi) if b.minimum>0 else (-hi,-lo) if b.maximum<0 else (-hi,hi)
+                    g=vector['gamma'][j];a,z=sorted(float(g)*x for x in pair)
+                    component=vector['components'][j];match=re.fullmatch(r'CompileValue([0-9]+)\(\)',component)
+                    if match is None:continue
+                    alias=int(match[1])
+                    proofs=getattr(registry,'definition_proofs',())
+                    if alias<len(proofs) and proofs[alias][0] is not None:
+                        original=proofs[alias][0]
+                        a,z=max(a,original.minimum),min(z,original.maximum)
+                        if a==original.minimum and z==original.maximum and lo<=original.minimum_magnitude:continue
+                    previous=result.get(alias)
+                    if previous is not None:a,z=max(a,previous.minimum),min(z,previous.maximum)
+                    if a>z:continue  # Contradictions are handled separately; retain unsupported paths.
+                    result[alias]=FiniteSource(a,z,-24,lo)
+    return result
+
+
+
+def projection_branch_bounds(registry, refined, *, max_products=2**20):
+    """Propagate branch enclosures through actual whole-producer projections.
+
+    Read weights on demand and reuse the original ordered-reduction bound.
+    Frames are published in dependency order; no runtime arithmetic changes.
+    A singleton nonzero Half cell can eliminate its full dependency tree.
+    """
+    from direct_sympy_conversions import FiniteSource
+    from direct_sympy_layer_bounds import dot_interval
+    result=dict(refined)
+    if not result:return result
+    model=registry.model;session=getattr(model,'conversions',None)
+    if session is None:return result
+    context=model.compiler.context(model.domains);spent=0
+    for producer,frame in getattr(model,'linear_frames',{}).items():
+        alias=registry.names.get(producer,'');match=re.fullmatch(r'CompileValue([0-9]+)\(\)',alias)
+        if match is None or frame['context']!=context:continue
+        operands=frame['operands']
+        if spent+len(operands)>max_products:break
+        spent+=len(operands);intervals=[];supported=True
+        for text in operands:
+            if text is None:intervals.append((0.0,0.0));continue
+            node=syntax(text)
+            if session.value_kind(node)!='half':supported=False;break
+            bound=session.bounds(node)
+            own=re.fullmatch(r'CompileValue([0-9]+)\(\)',text)
+            local=result.get(int(own[1])) if own else None
+            if bound is None:bound=local
+            elif local is not None:
+                low,high=max(bound.minimum,local.minimum),min(bound.maximum,local.maximum)
+                if low>high:supported=False;break
+                bound=FiniteSource(low,high,-24,0)
+            if bound is None:supported=False;break
+            intervals.append((bound.minimum,bound.maximum))
+        if not supported:continue
+        enclosed=dot_interval(model,frame['name'],frame['row'],intervals)
+        if enclosed is None:continue
+        low,high=enclosed;index=int(match[1]);previous=result.get(index)
+        if previous is not None:low,high=max(low,previous.minimum),min(high,previous.maximum)
+        if low>high:continue
+        # Signed zero singleton identity is deliberately not asserted here.
+        result[index]=FiniteSource(low,high,-24,min(abs(low),abs(high)) if low*high>0 else 0)
+    return result
+
+
 def inverse(matrix):
     """Exact small-system elimination; singular systems provide no exclusion."""
     n=len(matrix)

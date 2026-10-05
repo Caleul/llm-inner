@@ -304,10 +304,26 @@ test('Directed attention bounds retain both projection roundings and prove resid
     assert.match(stdout,/Directed residual proof: pairs=62924800 intervalViolations=0 cellViolations=0/);
   });
 
+test('RMS subnormal branch proofs retain shared means and original Half storage cells',
+  {skip:!python},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_rms_branch_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 2 tests/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/RMS subnormal branch cells: pairs=462422016 selected=44294796 violations=0/);
+  });
+
 test('Source changes retain only audited partition geometry and recompile numerical evidence',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_partition_replan_test.py'],{timeout:120_000,maxBuffer:1024*1024});
     assert.match(stderr,/Ran 2 tests/);
     assert.match(stderr,/OK/);
     assert.match(stdout,/Geometry replan: numericalResultsReused=false lost=0 overlaps=0/);
+  });
+
+test('Branch-local projection cells propagate constants in original dependency order without replacing residual sums',
+  {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_branch_projection_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 3 tests/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/Branch projection cells: pairs=462422016 selected=22147398 violations=0/);
   });

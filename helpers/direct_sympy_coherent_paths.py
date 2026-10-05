@@ -63,8 +63,8 @@ class CoherentPaths:
         self.trees=tuple(registry.audit(text) for text in self.originals)
         LiteralView(registry,self.originals)
         self.max_paths=max_paths;self.max_search_nodes=max_search_nodes
-        self.predicates={}
-        self.stats={'splitContexts':0,'completedPaths':0,'contradictions':0,'selectorSelections':0,'CASPasses':0,'numericArithmeticEliminated':0,'numericRecipeAttempts':0,'numericRecipeAdmissions':0,'numericRecipeBudgetStops':0,'coupledProjectionContradictions':0}
+        self.predicates={};self.rms_bounds_cache={}
+        self.stats={'splitContexts':0,'completedPaths':0,'contradictions':0,'selectorSelections':0,'CASPasses':0,'numericArithmeticEliminated':0,'numericRecipeAttempts':0,'numericRecipeAdmissions':0,'numericRecipeBudgetStops':0,'coupledProjectionContradictions':0,'rmsBranchRefinements':0,'rmsConstantCells':0}
 
     @staticmethod
     def alias(node):
@@ -110,13 +110,15 @@ class CoherentPaths:
         return result
 
     def next_decision(self,root,facts):
-        memo={};visited=0
+        memo={};visited=0;bounds=self.rms_bounds(facts)
         def find(node):
             nonlocal visited
             visited+=1
             if visited>self.max_search_nodes:raise ValueError('Decision search budget exceeded; no complete result')
             alias=self.alias(node)
             if alias is not None:
+                own=bounds.get(alias)
+                if own is not None and own.minimum==own.maximum and own.minimum!=0:return None
                 if alias not in memo:memo[alias]=find(self.trees[alias])
                 return memo[alias]
             logical=self.facts.logical(node)
@@ -145,8 +147,16 @@ class CoherentPaths:
             return None
         return find(root)
 
+    def rms_bounds(self,facts):
+        from direct_sympy_projection_constraints import rms_branch_bounds,projection_branch_bounds
+        key=(facts,len(self.predicates))
+        if key not in self.rms_bounds_cache:
+            assumptions=[(p,truth) for p in self.predicates.values() if (truth:=self.facts.truth(p,facts)) is not None]
+            self.rms_bounds_cache[key]=projection_branch_bounds(self.registry,rms_branch_bounds(self.registry,assumptions))
+        return self.rms_bounds_cache[key]
+
     def literal(self,root,facts,domains):
-        texts=list(self.originals);memo=set();before=len(self.compiler.events)
+        texts=list(self.originals);memo=set();before=len(self.compiler.events);rms_bounds=self.rms_bounds(facts)
         # Candidate costs must expand the selected definitions of this
         # path, rather than the original definitions of other branches.
         cost_view=object.__new__(LiteralView)
@@ -178,6 +188,18 @@ class CoherentPaths:
             if alias>=len(proofs):return
             bound,kind,positive_zero,arm_bounds=proofs[alias]
             if bound is None:return
+            selected=syntax(texts[alias])
+            if isinstance(selected,ast.Constant) or isinstance(selected,ast.UnaryOp) and isinstance(selected.op,ast.USub) and isinstance(selected.operand,ast.Constant):
+                actual=numeric.bounds(selected)
+                if actual is not None:
+                    low,high=max(bound.minimum,actual.minimum),min(bound.maximum,actual.maximum)
+                    if low>high:raise UnreachableNumericPath('Selected constant contradicts its stored enclosure')
+                    bound=FiniteSource(low,high,bound.quantum,max(bound.minimum_magnitude,actual.minimum_magnitude))
+            if alias in rms_bounds:
+                local=rms_bounds[alias];low,high=max(bound.minimum,local.minimum),min(bound.maximum,local.maximum)
+                if low>high:raise UnreachableNumericPath('RMS guard contradicts the stored component enclosure')
+                bound=FiniteSource(low,high,bound.quantum,max(bound.minimum_magnitude,local.minimum_magnitude))
+                self.stats['rmsBranchRefinements']+=1
             if arm_bounds:
                 arms=frontier(self.originals[alias],pure_functions=['CompileValue'+str(i) for i in range(alias)])
                 if arms is not None and len(arms)==len(arm_bounds):
@@ -247,7 +269,9 @@ class CoherentPaths:
             alias=self.alias(node)
             if alias is not None:
                 if alias not in memo:
-                    selected=select(self.trees[alias])
+                    own=rms_bounds.get(alias)
+                    if own is not None and own.minimum==own.maximum and own.minimum!=0:self.stats['rmsConstantCells']+=1
+                    selected=ast.Constant(value=own.minimum) if own is not None and own.minimum==own.maximum and own.minimum!=0 else select(self.trees[alias])
                     texts[alias]=stabilize_selected('('+ast.unparse(selected)+')')
                     texts[alias]=reclose_recipe(alias,texts[alias])
                     words.register_completed_region(texts[alias],domains,word_closed=True)

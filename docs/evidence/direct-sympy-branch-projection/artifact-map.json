@@ -1,0 +1,17 @@
+[
+  {
+    "domains": {
+      "X1": [
+        -18432,
+        -10240
+      ],
+      "X2": [
+        10240,
+        18432
+      ]
+    },
+    "file": "../direct-sympy-directed-residual/mixed.expr",
+    "sha256": "dcf749ca35f9dc0b4f5a560a6a169c89a71cdc6f79ffec203ffd30ad2b833f89",
+    "characters": 10269774
+  }
+]

@@ -145,6 +145,8 @@ class CheckpointStrings:
         self.layer_bound_cache={}
         self.norm_bound_cache={}
         self.norm_vectors={}
+        self.linear_frames={}
+        self._projection_capture=[]
         self.constant_projections=0
         self.elided_updates=[]
         self.early_half_products=0
@@ -204,7 +206,13 @@ class CheckpointStrings:
     def producer(self,key,build):
         if key in self.memo:return self.memo[key]
         before=len(self.compiler.events)
-        expression=build()
+        frames=[]
+        self._projection_capture.append(frames)
+        try:expression=build()
+        finally:self._projection_capture.pop()
+        projection=next(({k:v for k,v in frame.items() if k!='text'}
+            for frame in frames if frame['text']==expression),None)
+        frames.clear()
         result=self.compiler.stabilize("("+expression+")",self.domains)
         if self.conversions is not None:
             result=self.conversions.close(result)
@@ -221,6 +229,10 @@ class CheckpointStrings:
                 result=synchronized
         self.compiler.register_completed_region(result,self.domains,word_closed=self.conversions is not None)
         self.memo[key]=result
+        # Attach only a projection that constitutes this entire producer.
+        # A projection embedded in a residual sum is not that sum.
+        if projection is not None:
+            self.linear_frames[key]=projection
         self.events.append((key,len(expression),len(result),len(self.compiler.events)-before))
         if self.on_completed is not None:self.on_completed(self)
         return result
@@ -249,16 +261,21 @@ class CheckpointStrings:
                 if enclosed is not None and struct.pack('e',enclosed[0])==struct.pack('e',enclosed[1]):
                     self.constant_projections+=1
                     return repr(enclosed[0])
-        terms=[]
+        terms=[];operands=[]
         for column in range(shape[1]):
             coefficient=self.weight(name,row,column)
             # +0 lane accumulation makes a signed zero product irrelevant.
             # Read the weight before asking for an irrelevant producer.
-            if float(coefficient)==0:terms.append("0.0")
+            if float(coefficient)==0:
+                terms.append("0.0");operands.append(None)
             else:
-                operand=input_value(column)
+                operand=input_value(column);operands.append(operand)
                 terms.append(operand if float(coefficient)==1 else self.op("*",operand,coefficient))
-        return self.reduction(terms)
+        result=self.reduction(terms)
+        if self._projection_capture:
+            self._projection_capture[-1].append({"text":result,"name":name,"row":row,
+                "operands":tuple(operands),"context":self.compiler.context(self.domains)})
+        return result
 
     def rms_sum(self,input_value):
         width=self.width
@@ -347,7 +364,7 @@ class CheckpointStrings:
                 floor=norm_squared_floor(source_bounds,epsilon_value)
                 if floor:
                     minimum=lambda s:F(max(s.minimum_magnitude,s.minimum if s.minimum>0 else -s.maximum if s.maximum<0 else 0))
-                    metadata={'sources':tuple(input_expressions),'epsilon':F(epsilon_value),
+                    metadata={'sources':tuple(input_expressions),'sourceBounds':tuple(source_bounds),'epsilon':F(epsilon_value),
                         'context':self.compiler.context(self.domains),
                         'sourceNormFloor':sum((minimum(s)**2 for s in source_bounds),F(0)),
                         'inputMagnitudes':{i:F(max(abs(s.minimum),abs(s.maximum))) for i,s in enumerate(source_bounds)},
@@ -383,6 +400,7 @@ class CheckpointStrings:
                 self.conversions.f32_values.add(magnitude_key)
                 self.conversions.no_negative_zero_values.add(magnitude_key)
                 root="R32("+magnitude+" * "+("1.0" if self.width==1 else "0.7071067811865476")+")"
+            if certificate:certificate[0][2]['mean']=mean
             inverse=self.producer(key+":inverse",lambda:self.op("/","1.0",root))
             product=self.op("*",input_value(coordinate),inverse)
             normalized="R16("+product+")"
