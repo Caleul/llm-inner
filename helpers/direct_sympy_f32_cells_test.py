@@ -10,7 +10,7 @@ import tempfile
 import unittest
 
 from direct_sympy_arithmetic import simplify_arithmetic
-from direct_sympy_conversions import ConversionSession
+from direct_sympy_conversions import ConversionSession,FiniteSource
 from direct_sympy_conversions_test import cpp
 from direct_sympy_strings import Domain,StringCompiler,syntax
 from direct_sympy_words import reduce_call,simplify_words
@@ -25,6 +25,56 @@ def session(low,high,delta,typed=True):
 
 
 class F32CellTests(unittest.TestCase):
+    def test_unit_grid_scale_preserves_order_and_native_signed_zero_payloads(self):
+        forms=[]
+        coefficients=[-0.0,0.0,-1.5,-1.0,-.5,.5,1.,1.5,999.9999389648438,-999.9999389648438,
+            65504.,-65504.,2**-149,-2**-149,2**-1074,-2**-1074,float.fromhex('0x1.fffffep127'),float.fromhex('0x1.fffffffffffffp1023')]
+        for exponent in (-1074,-149,-24,-14,-1,0,5,15,100,1023):
+            unit=2.0**exponent
+            s=ConversionSession(StringCompiler(),{'X1':Domain(F(-unit),F(unit),exponent,False)})
+            for c in coefficients:
+                for text in (f'R16(R32(X1*({c!r})))',f'R32(R16((X1*({c!r}))/3.0))'):
+                    result=s.unit_grid_rounding_scale(syntax(text))
+                    if result is None:continue
+                    after=ast.unparse(result);self.assertNotIn('R16',after);self.assertNotIn('R32',after)
+                    self.assertEqual(after.count('X1'),1)
+                    actual=simplify_arithmetic(text,s)
+                    self.assertNotIn('R16',actual);self.assertNotIn('R32',actual)
+                    self.assertEqual(simplify_arithmetic(actual,s),actual)
+                    forms.append((unit,text,actual))
+        self.assertGreater(len(forms),100)
+        s=ConversionSession(StringCompiler(),{'X1':Domain(F(-2),F(2),0,False)})
+        for text in ('R16(X1*1.5)','R16(X1*X1)','R16(1.0/X1)','R16(X1+1.0)','R16(unknown(X1)*1.5)'):
+            self.assertIsNone(s.unit_grid_rounding_scale(syntax(text)))
+        alias,coefficient=syntax('CompileValue0()'),syntax('CompileValue1()')
+        source,constant=s.key(alias),s.key(coefficient)
+        s.completed[source]=FiniteSource(-1,1,-24);s.half_values.add(source)
+        s.completed[constant]=FiniteSource(999.9999389648438,999.9999389648438,-14)
+        s.pure_numeric_regions.update((source,constant))
+        expression=syntax('R16(R32(CompileValue0()*CompileValue1()))')
+        self.assertIsNone(s.unit_grid_rounding_scale(expression))
+        with s.branch_context(s.domains,{source:FiniteSource(-2**-24,2**-24,-24)},()):
+            result=s.unit_grid_rounding_scale(expression)
+            self.assertEqual(ast.unparse(result),'1000.0 * CompileValue0()')
+        self.assertIsNone(s.unit_grid_rounding_scale(expression))
+        # Numerical bounds alone cannot authorize discarding an unknown call.
+        s.pure_numeric_regions.remove(constant)
+        with s.branch_context(s.domains,{source:FiniteSource(-2**-24,2**-24,-24)},()):
+            self.assertIsNone(s.unit_grid_rounding_scale(expression))
+        def reference(node):
+            if isinstance(node,ast.Call):return 'double('+('float' if node.func.id=='R32' else '_Float16')+'('+reference(node.args[0])+'))'
+            if isinstance(node,ast.BinOp):return '('+reference(node.left)+('*' if isinstance(node.op,ast.Mult) else '/')+reference(node.right)+')'
+            if isinstance(node,ast.UnaryOp):return '(-double('+reference(node.operand)+'))'
+            return cpp(node)
+        functions='\n'.join(f'double before{i}(double X1){{return {reference(syntax(a))};}}\ndouble after{i}(double X1){{return {cpp(syntax(b))};}}'for i,(_,a,b)in enumerate(forms))
+        checks=''.join(f'for(double x:{{{u.hex()},-{u.hex()},0.0,-0.0}}){{cases++;mismatches+=word<uint64_t>(before{i}(x))!=word<uint64_t>(after{i}(x));}}'for i,(u,_,_)in enumerate(forms))
+        with tempfile.TemporaryDirectory()as directory:
+            root=Path(directory);source=root/'unit.cpp';binary=root/'unit'
+            source.write_text('#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\n#include <cfenv>\n#include <initializer_list>\ntemplate<class T,class U>T word(U x){T y;std::memcpy(&y,&x,sizeof(y));return y;}\n'+functions+'\nint main(){if(std::fesetround(FE_TONEAREST))return 2;unsigned cases=0,mismatches=0;'+checks+'std::printf("Unit-grid scale native parity: cases=%u mismatches=%u\\n",cases,mismatches);return mismatches?1:0;}')
+            subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],check=True,capture_output=True,text=True)
+            run=subprocess.run([str(binary)],check=True,capture_output=True,text=True)
+            self.assertIn(f'cases={len(forms)*4} mismatches=0',run.stdout);print(run.stdout,end='')
+
     def test_proved_grid_removes_only_exact_f32_casts(self):
         s=ConversionSession(StringCompiler(),{'X1':Domain(F(-1),F(1),-8),
             'X2':Domain(F(-1),F(1),-8)})

@@ -16214,5 +16214,426 @@
     "historicalNumericalResultsReused": false,
     "CUDAUsed": false,
     "parallelSpeedupMeasured": false
+  },
+  "unitGridScaleValidation": {
+    "compilerIdentity": {
+      "version": 1,
+      "dimension": 2,
+      "position": 0,
+      "python": "3.10.13 (main, Feb 25 2024, 03:37:36) [Clang 17.0.6 ]",
+      "sympy": "1.14.0",
+      "platform": "macOS-26.7.1-arm64-arm-64bit",
+      "byteOrder": "little",
+      "referenceBackend": {
+        "name": "torch CPU",
+        "version": "2.12.1",
+        "gitVersion": "7269437d655783a26cba32aa88195b741ff496aa",
+        "capability": "DEFAULT"
+      },
+      "checkpoint": {
+        "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+        "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+      },
+      "sources": {
+        "direct_sympy_arithmetic.py": "a87292754614c1d5367e5f193a6ea1db055d6247f940cf42667391774c0339c7",
+        "direct_sympy_checkpoint.py": "889ecefef40b7cbf1b87452e92decda5837ab9d01bc61affcb0274c045bac146",
+        "direct_sympy_coherent_paths.py": "e096f0ea180cac22dd68b919ca9870c7c63ae1ef8805c01fe567b2f7a022915a",
+        "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+        "direct_sympy_conversions.py": "e98ce013ae07338e05045e3e135915b5da7489df0e951c5238c55663c0d9a778",
+        "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+        "direct_sympy_layer_bounds.py": "c1a93f951ff5ad5af8510671e42ac8c05d73c246dfb2460bacd43cf0e3774dae",
+        "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+        "direct_sympy_partition_run.py": "9985ec29e19e73f59ab0691be88f8278966d64fe2daaaf5fab77135901a66482",
+        "direct_sympy_projection_constraints.py": "bcf9ed81383577aa2f095178f8cc678e77aa2ca2f7220a39e96b3fa1bd10d03a",
+        "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+        "direct_sympy_savepoints.py": "9a6938574aa06eeb044b5c5b7d07f798cf8ed80970d8c4a6ed188f88cf56305a",
+        "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+        "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+        "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+        "direct_sympy_sqrt.py": "71875ff81696163c1b7ddfe16906cdeec6a03ba2dc67ee0915b76ba8d966c948",
+        "direct_sympy_streaming_literals.py": "5a0046367e570549e5c804c0f5aa0737db2c506600c9ae19c72450ba0f38824e",
+        "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+        "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+        "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+        "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+      }
+    },
+    "expressionRepresentation": "SymPy mathematical strings",
+    "integrationTests": {
+      "tests": 34,
+      "pass": 34,
+      "fail": 0,
+      "skipped": 0
+    },
+    "coherentPathHelperTests": 16,
+    "wholeProjectSuite": {
+      "current": {
+        "tests": 628,
+        "pass": 570,
+        "fail": 15,
+        "skipped": 43
+      },
+      "sameFailingTestLocations": [
+        "dist/test/gemma4-real-calibration.test.js:15:1",
+        "dist/test/gemma4-real-calibration.test.js:27:1",
+        "dist/test/gemma4-real-calibration.test.js:43:1",
+        "dist/test/gemma4-real-calibration.test.js:52:1",
+        "dist/test/gemma4-real-calibration.test.js:67:1",
+        "dist/test/gemma4-real-calibration.test.js:81:1",
+        "dist/test/gemma4-real-calibration.test.js:94:1",
+        "dist/test/gemma4-real-calibration.test.js:111:1",
+        "dist/test/gemma4-real-calibration.test.js:127:1",
+        "dist/test/gemma4-real-calibration.test.js:180:1",
+        "dist/test/gemma4-real-calibration.test.js:196:1",
+        "dist/test/gemma4-runtime-reduction-trace-coverage.test.js:242:1",
+        "dist/test/gemma4-runtime-reduction-trace-coverage.test.js:318:1",
+        "dist/test/literal-scalar-substitution-example.test.js:5:1",
+        "scripts/agent-task-contract.test.mjs:19:1"
+      ],
+      "newFailingTestLocations": 0
+    },
+    "nativeNormCases": 888832,
+    "nativePropagationCases": 30722,
+    "prefixDispatchCases": 30722,
+    "intersectedFactorCases": 30722,
+    "unitScaleHelperTests": 5,
+    "unitScaleNativeCases": 1080,
+    "bitMismatches": 0,
+    "regionalArtifact": {
+      "path": "/Users/caleul/Documents/Work/Projects/llm-inner/docs/evidence/direct-sympy-unit-grid-scale/current.expr",
+      "characters": 326227,
+      "sha256": "1272e6da9db6a7dc80b56ea4dc689bb205626479f69e966cd4651a3fbfeb63a7",
+      "paths": 2,
+      "compilerAliases": 0,
+      "complete": true
+    },
+    "inputDomains": {
+      "X1": [
+        10240,
+        10496
+      ],
+      "X2": [
+        10240,
+        10496
+      ]
+    },
+    "regionalOutputCases": 66049,
+    "regionalOutputMismatches": 0,
+    "regionalOutputExhaustive": true,
+    "fullDomainDiagnostics": [
+      {
+        "budgetMiB": 32,
+        "stats": {
+          "splitContexts": 23,
+          "completedPaths": 13,
+          "contradictions": 2,
+          "selectorSelections": 430,
+          "CASPasses": 10672,
+          "numericArithmeticEliminated": 1873,
+          "numericRecipeAttempts": 630,
+          "numericRecipeAdmissions": 400,
+          "numericRecipeBudgetStops": 0,
+          "coupledProjectionContradictions": 0,
+          "rmsBranchRefinements": 323,
+          "rmsConstantCells": 0,
+          "orderedGuardEliminations": 18,
+          "guardProofPasses": 90,
+          "guardProofBudgetStops": 0,
+          "numericGuardImplications": 197,
+          "prefixRecipeRefinements": 548,
+          "firstArm": {
+            "bodyCharacters": 217133,
+            "guardCharacters": 329374,
+            "decisions": 6
+          },
+          "lastArm": {
+            "bodyCharacters": 6772583,
+            "guardCharacters": 10735897,
+            "decisions": 10,
+            "dependencyGrowth": [
+              {
+                "definition": 1,
+                "storedCharacters": 2967,
+                "expandedCharacters": 2969
+              },
+              {
+                "definition": 2,
+                "storedCharacters": 195,
+                "expandedCharacters": 3151
+              },
+              {
+                "definition": 4,
+                "storedCharacters": 101,
+                "expandedCharacters": 3057
+              },
+              {
+                "definition": 6,
+                "storedCharacters": 359,
+                "expandedCharacters": 12717
+              },
+              {
+                "definition": 8,
+                "storedCharacters": 353,
+                "expandedCharacters": 12711
+              },
+              {
+                "definition": 10,
+                "storedCharacters": 405,
+                "expandedCharacters": 51203
+              },
+              {
+                "definition": 12,
+                "storedCharacters": 409,
+                "expandedCharacters": 51207
+              },
+              {
+                "definition": 16,
+                "storedCharacters": 25,
+                "expandedCharacters": 51214
+              },
+              {
+                "definition": 18,
+                "storedCharacters": 25,
+                "expandedCharacters": 51218
+              },
+              {
+                "definition": 22,
+                "storedCharacters": 918,
+                "expandedCharacters": 410520
+              },
+              {
+                "definition": 23,
+                "storedCharacters": 315,
+                "expandedCharacters": 205117
+              },
+              {
+                "definition": 25,
+                "storedCharacters": 401,
+                "expandedCharacters": 820808
+              },
+              {
+                "definition": 27,
+                "storedCharacters": 295,
+                "expandedCharacters": 1693068
+              },
+              {
+                "definition": 29,
+                "storedCharacters": 293,
+                "expandedCharacters": 1693070
+              },
+              {
+                "definition": 33,
+                "storedCharacters": 25,
+                "expandedCharacters": 1693079
+              },
+              {
+                "definition": 35,
+                "storedCharacters": 25,
+                "expandedCharacters": 1693081
+              },
+              {
+                "definition": 37,
+                "storedCharacters": 325,
+                "expandedCharacters": 6772583
+              }
+            ]
+          }
+        },
+        "seconds": 34.36935904197162
+      },
+      {
+        "budgetMiB": 96,
+        "stats": {
+          "splitContexts": 23,
+          "completedPaths": 14,
+          "contradictions": 2,
+          "selectorSelections": 446,
+          "CASPasses": 11127,
+          "numericArithmeticEliminated": 1940,
+          "numericRecipeAttempts": 653,
+          "numericRecipeAdmissions": 409,
+          "numericRecipeBudgetStops": 0,
+          "coupledProjectionContradictions": 0,
+          "rmsBranchRefinements": 336,
+          "rmsConstantCells": 0,
+          "orderedGuardEliminations": 19,
+          "guardProofPasses": 100,
+          "guardProofBudgetStops": 0,
+          "numericGuardImplications": 201,
+          "prefixRecipeRefinements": 560,
+          "firstArm": {
+            "bodyCharacters": 217133,
+            "guardCharacters": 329374,
+            "decisions": 6
+          },
+          "lastArm": {
+            "bodyCharacters": 77886949,
+            "guardCharacters": 5656562,
+            "decisions": 9,
+            "dependencyGrowth": [
+              {
+                "definition": 1,
+                "storedCharacters": 2967,
+                "expandedCharacters": 2969
+              },
+              {
+                "definition": 2,
+                "storedCharacters": 195,
+                "expandedCharacters": 3151
+              },
+              {
+                "definition": 4,
+                "storedCharacters": 101,
+                "expandedCharacters": 3057
+              },
+              {
+                "definition": 6,
+                "storedCharacters": 359,
+                "expandedCharacters": 12717
+              },
+              {
+                "definition": 8,
+                "storedCharacters": 353,
+                "expandedCharacters": 12711
+              },
+              {
+                "definition": 10,
+                "storedCharacters": 405,
+                "expandedCharacters": 51203
+              },
+              {
+                "definition": 12,
+                "storedCharacters": 409,
+                "expandedCharacters": 51207
+              },
+              {
+                "definition": 16,
+                "storedCharacters": 25,
+                "expandedCharacters": 51214
+              },
+              {
+                "definition": 18,
+                "storedCharacters": 25,
+                "expandedCharacters": 51218
+              },
+              {
+                "definition": 22,
+                "storedCharacters": 918,
+                "expandedCharacters": 410520
+              },
+              {
+                "definition": 23,
+                "storedCharacters": 315,
+                "expandedCharacters": 205117
+              },
+              {
+                "definition": 25,
+                "storedCharacters": 401,
+                "expandedCharacters": 820808
+              },
+              {
+                "definition": 27,
+                "storedCharacters": 295,
+                "expandedCharacters": 1693068
+              },
+              {
+                "definition": 29,
+                "storedCharacters": 293,
+                "expandedCharacters": 1693070
+              },
+              {
+                "definition": 32,
+                "storedCharacters": 1403,
+                "expandedCharacters": 16931935
+              },
+              {
+                "definition": 33,
+                "storedCharacters": 486,
+                "expandedCharacters": 20318230
+              },
+              {
+                "definition": 35,
+                "storedCharacters": 116,
+                "expandedCharacters": 18625091
+              },
+              {
+                "definition": 37,
+                "storedCharacters": 369,
+                "expandedCharacters": 77886949
+              }
+            ]
+          }
+        },
+        "seconds": 36.60857958300039
+      }
+    ],
+    "prior32MiBCompletedPaths": 3,
+    "current32MiBCompletedPaths": 13,
+    "prior96MiBCompletedPaths": 11,
+    "current96MiBCompletedPaths": 14,
+    "firstPathBefore": {
+      "bodyCharacters": 2061331,
+      "guardCharacters": 1554142,
+      "decisions": 6
+    },
+    "firstPathAfter": {
+      "bodyCharacters": 217133,
+      "guardCharacters": 329374,
+      "decisions": 6
+    },
+    "firstPathBodyReductionFraction": 0.8946636905960275,
+    "fullDomainAttempt": {
+      "seconds": 42.19475091597997,
+      "workerSeconds": 43.66761379200034,
+      "workerPeakRSSBytes": 283475968,
+      "stop": "Flat artifact budget exceeded; no complete result"
+    },
+    "regionalBenchmark": {
+      "baselineCommit": "79d1437",
+      "baselineSeconds": 8.117115833971184,
+      "currentSeconds": 5.748201792011969,
+      "baselinePeakRSSBytes": 328515584,
+      "currentPeakRSSBytes": 336887808,
+      "samples": 1,
+      "sameCompletedPaths": 2,
+      "speedupEstablished": false
+    },
+    "nearZeroArtifact": {
+      "path": "/Users/caleul/Documents/Work/Projects/llm-inner/docs/evidence/direct-sympy-unit-grid-scale/near-zero.expr",
+      "characters": 24337,
+      "sha256": "b9bc9fd380043c62e03fd7d37430a832d57caeea1566d7be556f61ce95e2531d",
+      "paths": 2,
+      "compilerAliases": 0,
+      "complete": true
+    },
+    "nearZeroOutputCases": 16,
+    "nearZeroBitMismatches": 0,
+    "nearZeroExhaustive": true,
+    "nearZeroInputDomains": {
+      "X1": [
+        -1,
+        1
+      ],
+      "X2": [
+        -1,
+        1
+      ]
+    },
+    "nearZeroBaselineArtifact": {
+      "path": "/Users/caleul/Documents/Work/Projects/llm-inner/docs/evidence/direct-sympy-unit-grid-scale/near-zero-baseline.expr",
+      "characters": 58417,
+      "sha256": "121c054dd241c5248f3bf3975572770926778c1c9abf13ead0d480d35935d3cf",
+      "paths": 2,
+      "compilerAliases": 0,
+      "complete": true
+    },
+    "nearZeroReductionFraction": 0.5833918208740606,
+    "fullCoordinateArtifactEmitted": false,
+    "fullCoordinateParity": false,
+    "multipleTokenParity": false,
+    "fullVectorParity": false,
+    "historicalNumericalResultsReused": false,
+    "CUDAUsed": false,
+    "parallelSpeedupMeasured": false
   }
 }

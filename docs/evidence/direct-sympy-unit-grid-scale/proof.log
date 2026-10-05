@@ -1,0 +1,9 @@
+.....
+----------------------------------------------------------------------
+Ran 5 tests in 2.349s
+
+OK
+F32 cell native parity: cases=268216 mismatches=0
+Constant cast parity: cases=69634 mismatches=0
+F32 grid native parity: cases=263173 mismatches=0
+Unit-grid scale native parity: cases=1080 mismatches=0

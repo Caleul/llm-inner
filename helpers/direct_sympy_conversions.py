@@ -625,6 +625,58 @@ class ConversionSession:
         self.rms_guards[keys.get(raw,self.key(raw))]=guard
         return True
 
+    def unit_grid_rounding_scale(self,node):
+        """Reduce an ordered homogeneous cast over one certified dyadic unit.
+
+        A value on grid 2**q inside [-2**q,2**q] has only +/-unit and
+        signed-zero values. Multiplication, constant division and casts
+        retain their original order. Four payload checks certify the final
+        scale, never a table of model outputs or an expanded runtime tree.
+        """
+        if not isinstance(node,ast.Call) or node.func.id not in ('R16','R32') or len(node.args)!=1:return None
+        from direct_sympy_synchronize import GUARD_PURE
+        if any(isinstance(child,ast.Call) and child.func.id not in GUARD_PURE and self.key(child) not in self.pure_numeric_regions for child in ast.walk(node)):return None
+        variable=[];unit=[]
+        def finite(value):
+            if not math.isfinite(value):raise ValueError('Nonfinite unit-scale operation')
+            return value
+        def plan(child):
+            constant=self.constant(child)
+            if constant is not None:
+                value=finite(constant);return 0,lambda x:value
+            if isinstance(child,ast.Call) and child.func.id in ('R16','R32') and len(child.args)==1:
+                count,evaluate=plan(child.args[0]);fmt='e' if child.func.id=='R16' else 'f'
+                return count,lambda x:finite(struct.unpack(fmt,struct.pack(fmt,evaluate(x)))[0])
+            if isinstance(child,ast.UnaryOp) and isinstance(child.op,(ast.UAdd,ast.USub)):
+                count,evaluate=plan(child.operand)
+                return count,lambda x:finite(-evaluate(x) if isinstance(child.op,ast.USub) else evaluate(x))
+            if isinstance(child,ast.BinOp) and isinstance(child.op,(ast.Mult,ast.Div)):
+                a,left=plan(child.left);b,right=plan(child.right)
+                if a+b>1 or isinstance(child.op,ast.Div) and (b or right(0.0)==0):raise ValueError('Nonlinear unit-scale operation')
+                return a+b,lambda x:finite(left(x)*right(x) if isinstance(child.op,ast.Mult) else left(x)/right(x))
+            if not isinstance(child,(ast.Name,ast.Call)):raise ValueError('Unsupported unit-scale leaf')
+            if isinstance(child,ast.Call) and self.key(child) not in self.pure_numeric_regions:raise ValueError('Unknown producer purity')
+            bound=self.bounds(child)
+            if bound is None:raise ValueError('Unknown unit-scale bound')
+            # A nonzero singleton has one floating payload. Zero bounds
+            # alone do not establish its sign and remain a varying leaf.
+            if bound.minimum==bound.maximum and bound.minimum!=0:
+                return 0,lambda x:bound.minimum
+            if bound.quantum is None:raise ValueError('Unknown unit-scale grid')
+            step=finite(math.ldexp(1.0,bound.quantum))
+            if max(abs(bound.minimum),abs(bound.maximum))>step:raise ValueError('More than one unit')
+            if variable:raise ValueError('Multiple varying unit-scale leaves')
+            variable.append(child);unit.append(step)
+            return 1,lambda x:x
+        try:
+            count,evaluate=plan(node)
+            if count!=1:return None
+            coefficient=finite(evaluate(unit[0])/unit[0])
+            for value in (unit[0],-unit[0],0.0,-0.0):
+                if struct.pack('d',finite(coefficient*value))!=struct.pack('d',evaluate(value)):return None
+        except (ValueError,OverflowError,ZeroDivisionError):return None
+        return ast.BinOp(left=ast.Constant(value=coefficient),op=ast.Mult(),right=variable[0])
+
     def constant_rounding_cell(self,node):
         """Prove a whole finite producer belongs to one IEEE rounding cell.
 

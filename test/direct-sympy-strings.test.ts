@@ -77,10 +77,11 @@ test('Scoped exact algebra factors closed producers while preserving native payl
 test('Finite F32 cells and compile-time constants preserve native boundaries and signed zeros',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_f32_cells_test.py'],{timeout:120_000,maxBuffer:1024*1024});
-    assert.match(stderr,/Ran 4 tests/);
+    assert.match(stderr,/Ran 5 tests/);
     assert.match(stderr,/OK/);
     assert.match(stdout,/F32 cell native parity: cases=268216 mismatches=0/);
     assert.match(stdout,/Constant cast parity: cases=69634 mismatches=0/);
+    assert.match(stdout,/Unit-grid scale native parity: cases=\d+ mismatches=0/);
   });
 test('Proved unsigned masks remove redundant operations without changing overflow or numeric contexts',
   {skip:!python},async()=>{
