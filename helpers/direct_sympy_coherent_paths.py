@@ -37,6 +37,16 @@ class UnreachableNumericPath(ValueError):
     """Certified numerical bounds exclude this branch context."""
 
 
+def intersection_quantum(a,b):
+    """Intersect guarantees of multiples of 2**q for the SAME value.
+
+    The coarser grid is contained in the finer one. Unknown precision
+    does not erase an independent known guarantee. This is deliberately
+    different from adding two operands, where the finer grid is needed.
+    """
+    return b if a is None else a if b is None else max(a,b)
+
+
 @dataclass(frozen=True)
 class Guard:
     view:LiteralView
@@ -167,7 +177,7 @@ class CoherentPaths:
                 if local is not None:
                     low,high=max(bound.minimum,local.minimum),min(bound.maximum,local.maximum)
                     if low>high:continue
-                    bound=FiniteSource(low,high,min(bound.quantum,local.quantum) if bound.quantum is not None and local.quantum is not None else None,max(bound.minimum_magnitude,local.minimum_magnitude))
+                    bound=FiniteSource(low,high,intersection_quantum(bound.quantum,local.quantum),max(bound.minimum_magnitude,local.minimum_magnitude))
                 # Propagate the prefix through original ordered operations
                 # before distributing another decision. Closed word payloads
                 # can hide these dependencies; their numerical recipes are
@@ -179,7 +189,7 @@ class CoherentPaths:
                         low,high=max(bound.minimum,actual.minimum),min(bound.maximum,actual.maximum)
                         magnitude=max(bound.minimum_magnitude,actual.minimum_magnitude)
                         if low<=high and magnitude<=max(abs(low),abs(high)):
-                            quantum=min(bound.quantum,actual.quantum) if bound.quantum is not None and actual.quantum is not None else None
+                            quantum=intersection_quantum(bound.quantum,actual.quantum)
                             narrowed=FiniteSource(low,high,quantum,magnitude)
                             if narrowed!=bound:
                                 self.stats['prefixRecipeRefinements']=self.stats.get('prefixRecipeRefinements',0)+1
@@ -308,7 +318,7 @@ class CoherentPaths:
                 else:
                     from direct_sympy_conversions import FiniteSource
                     low,high=max(previous.minimum,bound.minimum),min(previous.maximum,bound.maximum)
-                    if low<=high:refined[name]=FiniteSource(low,high,min(previous.quantum,bound.quantum),max(previous.minimum_magnitude,bound.minimum_magnitude))
+                    if low<=high:refined[name]=FiniteSource(low,high,intersection_quantum(previous.quantum,bound.quantum),max(previous.minimum_magnitude,bound.minimum_magnitude))
             self.rms_bounds_cache[key]=projection_branch_bounds(self.registry,refined)
         return self.rms_bounds_cache[key]
 
@@ -358,7 +368,7 @@ class CoherentPaths:
             if local is not None:
                 low,high=max(bound.minimum,local.minimum),min(bound.maximum,local.maximum)
                 if low>high:raise UnreachableNumericPath('Selected recipe contradicts its stored enclosure')
-                bound=FiniteSource(low,high,min(bound.quantum,local.quantum),max(bound.minimum_magnitude,local.minimum_magnitude))
+                bound=FiniteSource(low,high,intersection_quantum(bound.quantum,local.quantum),max(bound.minimum_magnitude,local.minimum_magnitude))
             selected=syntax(texts[alias])
             if isinstance(selected,ast.Constant) or isinstance(selected,ast.UnaryOp) and isinstance(selected.op,ast.USub) and isinstance(selected.operand,ast.Constant):
                 actual=numeric.bounds(selected)

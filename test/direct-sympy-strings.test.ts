@@ -91,7 +91,7 @@ test('Proved unsigned masks remove redundant operations without changing overflo
 test('Stabilized branches share decisions, preserve lazy guards and emit flat input-only expressions',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_coherent_paths_test.py'],{timeout:120_000,maxBuffer:1024*1024});
-    assert.match(stderr,/Ran 15 tests/);
+    assert.match(stderr,/Ran 16 tests/);
     assert.match(stdout,/Selected numeric propagation parity: cases=30722 mismatches=0/);
     assert.match(stderr,/OK/);
     if(process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT) assert.match(stdout,/Flat checkpoint normalization: cases=888832 mismatches=0/);

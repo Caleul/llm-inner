@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from direct_sympy_coherent_paths import CoherentPaths,UnreachableNumericPath,OrderedGuardPruner,Guard,PathArm,LiteralView
+from direct_sympy_coherent_paths import CoherentPaths,UnreachableNumericPath,OrderedGuardPruner,Guard,PathArm,LiteralView,intersection_quantum
 from direct_sympy_conversions import FiniteSource,ConversionSession
 from direct_sympy_conversions_test import cpp
 from direct_sympy_checkpoint import CheckpointStrings
@@ -51,6 +51,39 @@ def evaluate(text,values,functions=None):
 
 
 class CoherentPathTests(unittest.TestCase):
+    def test_intersected_precision_admits_exact_factor_without_changing_addition_grid(self):
+        from direct_sympy_arithmetic import factor_certified
+        self.assertEqual(intersection_quantum(-149,-23),-23)
+        self.assertEqual(intersection_quantum(None,-23),-23)
+        self.assertEqual(intersection_quantum(-23,None),-23)
+        self.assertIsNone(intersection_quantum(None,None))
+        registry=fixture(['X1','X1*2.0'])
+        registry.definition_proofs=[(FiniteSource(-1,1,-24),'half',False,None),
+            (FiniteSource(-2,2,-149),'f32',False,None)]
+        registry.definition_recipes={0:'X1',1:'R32(CompileValue0()*2.0)'}
+        plan=CoherentPaths(registry)
+        self.assertIs(plan.condition_truth(syntax('CompileValue1()>2.0'),()),False)
+        numeric=plan.guard_bounds_cache[((),len(plan.predicates))]
+        alias=syntax('CompileValue1()')
+        self.assertEqual(numeric.bounds(alias).quantum,-23)
+        # Summation is not intersection: preserve the independent, finer
+        # input lattice when adding another operand of different precision.
+        self.assertEqual(numeric.bounds(syntax('CompileValue1()+X1')).quantum,-24)
+        before='3.0*CompileValue1()+7.0*CompileValue1()'
+        after=factor_certified(before,numeric)
+        self.assertEqual(after.count('CompileValue1()'),1)
+        replaced=[text.replace('CompileValue1()','(X1*2.0)')for text in (before,after)]
+        codes=[compile(ast.Expression(syntax(text)),'<exact-factor-grid>','eval')for text in replaced]
+        cases=0
+        for bits in range(65536):
+            if bits&0x7c00==0x7c00:continue
+            x=struct.unpack('e',struct.pack('H',bits))[0]
+            if not -1<=x<=1:continue
+            values=[eval(code,{'__builtins__':{}},{'X1':x})for code in codes]
+            self.assertEqual(struct.pack('d',values[0]),struct.pack('d',values[1]));cases+=1
+        self.assertEqual(cases,30722)
+        print(f'Intersected grid factor parity: cases={cases} mismatches=0')
+
     def test_prefix_recipes_propagate_before_decision_without_assuming_its_truth(self):
         registry=fixture(['X1','CompileValue0()*2.0','CompileValue1()+1.0'])
         registry.definition_proofs=[(FiniteSource(-1,1,-24),'half',False,None),
