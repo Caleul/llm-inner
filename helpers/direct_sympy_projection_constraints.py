@@ -452,3 +452,51 @@ def impossible_projections(registry,guards,*,max_systems=32,max_links=32):
             upper=[sum((abs(c)*row[1] for c,row in zip(line,selected)),F(0)) for line in inv]
             if sum((x*x for x in upper),F(0))<vector['floor']:return True
     return False
+
+
+def rms_output_source_bounds(registry,proofs):
+    """Invert a small whole-vector RMS norm using its original error bound.
+
+    If stored outputs have Euclidean norm <=H, the real RMS norm is <=H+E.
+    With K=(H+E)^2<n and T=sum(input_i^2), n*T/(T+n*eps)<=K implies
+    T<=n*eps*K/(n-K). Only exact +/-1 gamma and certified finite Half
+    sources are admitted. These are prefix-local enclosures, not numerical
+    replacements for RMS or its mean. Zero signs remain unconstrained.
+    """
+    from direct_sympy_conversions import FiniteSource
+    result={};model=registry.model;context=model.compiler.context(model.domains)
+    def scalar(text):
+        match=re.fullmatch(r'CompileValue([0-9]+)\(\)',text)
+        return int(match[1])if match else text if text in model.domains else None
+    for vector in getattr(model,'norm_vectors',{}).values():
+        n=vector.get('width',0);sources=vector.get('sources',());stored=vector.get('sourceBounds',())
+        components=vector.get('components',{});gamma=vector.get('gamma',());error=vector.get('roundingError')
+        eps=vector.get('epsilon',0)
+        if (not n or len(sources)!=n or len(stored)!=n or len(components)!=n or len(gamma)!=n
+            or vector.get('context')!=context or eps<=0 or error is None or error<0
+            or any(g not in (-1,1)for g in gamma)
+            or any(b is None or max(abs(b.minimum),abs(b.maximum))>65504 for b in stored)):continue
+        caps=[];keys=[]
+        for i in range(n):
+            key=scalar(components[i]);b=proofs.get(key)
+            if b is None:break
+            caps.append(F(max(abs(b.minimum),abs(b.maximum))))
+            own=scalar(sources[i])
+            if own is None or own not in proofs:break
+            keys.append(own)
+        if len(caps)!=n or len(keys)!=n:continue
+        upper=sqrt_outward(sum((c*c for c in caps),F(0)),True)+F(error)
+        k=upper*upper
+        if k>=n:continue
+        cap=sqrt_outward(n*F(eps)*k/(n-k),True)
+        endpoint=float(cap)
+        if F(endpoint)<cap:endpoint=math.nextafter(endpoint,math.inf)
+        for key in keys:
+            b=proofs[key];previous=result.get(key)
+            low,high=-endpoint,endpoint
+            if previous is not None:low,high=max(low,previous.minimum),min(high,previous.maximum)
+            # Return the independent constraint, including empty intersections
+            # with an old source gap. The caller detects those contradictions
+            # and clips to the exact source grid without erasing zero signs.
+            result[key]=FiniteSource(low,high,b.quantum)
+    return result

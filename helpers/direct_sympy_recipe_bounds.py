@@ -163,6 +163,10 @@ def propagate_recipe_bounds(registry,refined,stats=None,*,assumptions=(),max_pas
                 backward(condition.left.args[0].args[0],bound)
         for key,tree in sorted(nodes.items(),reverse=True):
             if key in proofs:backward(tree,proofs[key])
+        from direct_sympy_projection_constraints import rms_output_source_bounds
+        for key,bound in rms_output_source_bounds(registry,proofs).items():
+            before=proofs.get(key);narrow(key,bound)
+            if proofs.get(key)!=before:stats['backwardRMSVectorRefinements']=stats.get('backwardRMSVectorRefinements',0)+1
         if contradiction:return None
         if not changed:return {key:bound for key,bound in proofs.items()if bound!=
             (FiniteSource(float(model.domains[key].minimum),float(model.domains[key].maximum),model.domains[key].quantum)

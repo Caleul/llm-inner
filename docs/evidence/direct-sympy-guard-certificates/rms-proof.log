@@ -1,0 +1,6 @@
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.318s
+
+OK
+Backward RMS vector bound: cases=37773316 selected=552300 violations=0

@@ -285,6 +285,14 @@ test('Budgeted coordinate continuation persists actual producers and rejects inc
   });
 
 
+test('Whole-vector RMS output caps restrict sources with original rounded normalization semantics',
+  {skip:!python},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_rms_preimage_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 1 test/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/Backward RMS vector bound: cases=37773316 selected=552300 violations=0/);
+  });
+
 test('Mean conversion uses one source only after excluding double-rounding midpoint neighborhoods',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_mean_rounding_test.py'],{timeout:120_000,maxBuffer:1024*1024});
