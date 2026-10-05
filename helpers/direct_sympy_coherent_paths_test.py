@@ -260,6 +260,39 @@ class CoherentPathTests(unittest.TestCase):
                     x=struct.unpack('e',struct.pack('H',magnitude|sign))[0]
                     self.assertEqual(struct.pack('d',evaluate(text,{'X1':x,'X2':0.0})),struct.pack('d',x))
 
+    def test_prospective_recipe_contradiction_removes_guard_before_expansion(self):
+        unit=2**-24
+        threshold=struct.unpack('Q',struct.pack('d',unit/2))[0]
+        a=f'U64And(Bits64(CompileValue0()),9223372036854775807)<{threshold}'
+        b=f'U64And(Bits64(CompileValue1()),9223372036854775807)<{threshold}'
+        predicate=syntax(f'And({a},{b})')
+        registry=fixture(['X1',f'X1+{unit}',f'Piecewise((9.0,And({a},{b})),(X1,True))'])
+        registry.model.domains={name:Domain(F(-unit),F(unit),-24,False)for name in ('X1','X2')}
+        registry.context=registry.model.compiler.context(registry.model.domains)
+        registry.definition_proofs=[(FiniteSource(-unit,unit,-24),'half',False,None),
+            (FiniteSource(0,2*unit,-24),'half',True,None),(None,None,False,None)]
+        registry.definition_recipes={0:'X1',1:f'R16(CompileValue0()+{unit})'}
+        plan=CoherentPaths(registry)
+        self.assertIsNone(plan.condition_truth(predicate,()))
+        with tempfile.TemporaryDirectory()as directory:
+            path=Path(directory)/'prospective.expr';original=plan.literal
+            def freeze(node,facts,domains):
+                self.assertNotEqual(ast.dump(node),ast.dump(predicate),'Expanded a proved impossible decision')
+                return original(node,facts,domains)
+            # Exercise a compound dispatch as one prospective decision. The
+            # contradiction itself uses the real typed recipe fixed point.
+            search=plan.next_decision
+            def decision(node,facts):
+                return predicate if not facts else search(node,facts)
+            with patch.object(plan,'literal',side_effect=freeze),patch.object(plan,'next_decision',side_effect=decision):
+                report=plan.write(path,'CompileValue2()',max_characters=65536)
+            self.assertEqual(report['paths'],1)
+            self.assertGreater(plan.stats.get('prospectiveGuardEliminations',0),0)
+            text=path.read_text()
+            for x in (-unit,-0.0,0.0,unit):
+                for y in (-unit,-0.0,0.0,unit):
+                    self.assertEqual(struct.pack('d',evaluate(text,{'X1':x,'X2':y})),struct.pack('d',x))
+
     def test_certified_empty_numeric_branch_is_pruned_but_other_errors_remain_fatal(self):
         mask=0x7fffffffffffffff
         threshold=struct.unpack('>Q',struct.pack('>d',2.0))[0]

@@ -645,6 +645,22 @@ class CoherentPaths:
                     self.stats['contradictions']+=1;continue
                 self.stats['completedPaths']+=1
                 yield PathArm(view,body,guards);continue
+            # Prove prospective outcomes before paying for a frozen guard.
+            # An impossible outcome lets the remaining assumption enter the
+            # prefix without emitting dispatch. With two possible outcomes,
+            # neither candidate's narrower bounds may simplify this guard.
+            candidates=[]
+            for truth in (False,True):
+                own=self.assume(decision,truth,facts)
+                if own is None or self.domains(own) is None:continue
+                try:self.rms_bounds(own)
+                except UnreachableNumericPath:continue
+                candidates.append((truth,own))
+            if not candidates:
+                self.stats['contradictions']+=1;continue
+            if len(candidates)==1:
+                self.stats['prospectiveGuardEliminations']=self.stats.get('prospectiveGuardEliminations',0)+1
+                pending.append((candidates[0][1],guards));continue
             # Freeze this guard BEFORE assuming its own truth or a later
             # predicate. Later arm-local identities must not alter dispatch.
             try:view,condition=self.literal(decision,facts,domains)
@@ -664,9 +680,7 @@ class CoherentPaths:
                     pending.append((own,guards))
                 continue
             self.stats['splitContexts']+=1
-            for truth in (False,True):
-                own=self.assume(decision,truth,facts)
-                if own is None:self.stats['contradictions']+=1;continue
+            for truth,own in candidates:
                 pending.append((own,guards+(Guard(view,condition,truth),)))
 
     def write(self,path,expression,*,max_characters,compressed=False):

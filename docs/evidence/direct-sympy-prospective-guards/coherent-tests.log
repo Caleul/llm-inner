@@ -1,0 +1,10 @@
+......................
+----------------------------------------------------------------------
+Ran 22 tests in 3.389s
+
+OK
+Flat checkpoint normalization: cases=888832 mismatches=0
+Frozen square identity parity: cases=30722 mismatches=0
+Intersected grid factor parity: cases=30722 mismatches=0
+Prefix recipe dispatch parity: cases=30722 mismatches=0
+Selected numeric propagation parity: cases=30722 mismatches=0

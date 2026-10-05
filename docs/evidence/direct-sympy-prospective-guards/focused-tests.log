@@ -1,0 +1,46 @@
+✔ Signed normal-binade conversions contain one source occurrence and preserve native IEEE boundaries (3028.139042ms)
+✔ Certified constant projections avoid dead producers and preserve signed Half outcomes (2839.423417ms)
+✔ Tight Half update bounds preserve ordered F32 reductions and eliminate dependencies with proof (5682.748584ms)
+✔ Memory-admitted parallel regions preserve full geometry, ordered numerical bodies and native parity (29179.663958ms)
+✔ Fresh broad-region covers refine only pending intersections and preserve exact source compatibility (5358.32425ms)
+✔ Native parity corpus covers mixed signed zeros without exponential growth in high dimensions (2916.036167ms)
+✔ Correlated RMS bounds eliminate proved constant components before expanding mean and inverse (2411.487ms)
+✔ Scoped exact algebra factors closed producers while preserving native payloads and IEEE barriers (12505.825625ms)
+✔ Finite F32 cells and compile-time constants preserve native boundaries and signed zeros (3297.710584ms)
+✔ Proved unsigned masks remove redundant operations without changing overflow or numeric contexts (743.950875ms)
+✔ Stabilized branches share decisions, preserve lazy guards and emit flat input-only expressions (3487.918125ms)
+✔ Compiler-only literal sharing uses expanded costs and emits bit-exact input-only expressions (9974.757459ms)
+✔ SymPy factors typed word polynomials modulo 2^64 without reassociating floating operations (751.657833ms)
+✔ Parallel SymPy blocks preserve ordered F32 folds, branch contexts and memory admission (4563.371208ms)
+✔ Equivalent scan backend preserves Unicode regex results and byte-identical saved compiler states (2548.958041ms)
+✔ SymPy savepoints preserve completed rounding frontiers and reject incompatible or corrupt state (2237.811542ms)
+✔ SymPy string substitution factors and simplifies each step with isolated IEEE branch proofs (657.875125ms)
+✔ SymPy checkpoint working string is re-read and matches a freshly captured coordinate reference (6120.92425ms)
+✔ SymPy elementary conversion strings preserve native IEEE cells and composed boundaries (14770.802667ms)
+✔ Bounded SiLU arithmetic lowering matches every certified Half scalar and vector input (5058.693625ms)
+✔ Positive F32 square-root word lowering preserves all mantissas, parities and subnormals (2978.552875ms)
+✔ IEEE sign projections preserve signed zero and reduce completed down-conversion strings (10332.388458ms)
+✔ Half interval precision removes redundant F32 rounding with native emitted-expression parity (1671.834083ms)
+✔ Disjoint input partitions preserve complete Half coverage and emitted coordinate parity within each certified region (16986.81225ms)
+✔ Proved signed-zero updates preserve formats, branch isolation and native payloads (2293.35475ms)
+✔ Constant IEEE cells eliminate whole producers and propagate compound branch contexts (2043.263042ms)
+✔ Identical emitted coordinate bodies coalesce without losing coverage, signed zeros or lazy guards (1458.982333ms)
+✔ Budgeted coordinate continuation persists actual producers and rejects incompatible saved dimensions (17204.88225ms)
+✔ Whole-vector RMS output caps restrict sources with original rounded normalization semantics (1273.00525ms)
+✔ Mean conversion uses one source only after excluding double-rounding midpoint neighborhoods (1433.23525ms)
+✔ Residual arithmetic preserves central magnitude exclusions through storage and squares (1118.789458ms)
+✔ Bidirectional recipe constraints retain rounding cells and original residual storage (1118.011208ms)
+✔ Coupled projection exclusions preserve rounded reductions across every central Half pair (1367.105125ms)
+✔ Cross-normalization path exclusions include every original rounding and reject foreign contexts (3506.713375ms)
+✔ Directed attention bounds retain both projection roundings and prove residual cells for every mixed Half pair (3556.532917ms)
+✔ RMS subnormal branch proofs retain shared means and original Half storage cells (3063.62325ms)
+✔ Source changes retain only audited partition geometry and recompile numerical evidence (1012.721125ms)
+✔ Branch-local projection cells propagate constants in original dependency order without replacing residual sums (1768.986625ms)
+ℹ tests 38
+ℹ suites 0
+ℹ pass 38
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 192620.342042
