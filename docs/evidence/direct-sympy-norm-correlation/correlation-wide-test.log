@@ -1,0 +1,13 @@
+....E.
+======================================================================
+ERROR: test_original_rounded_norm_distance_and_cross_exclusions_on_all_central_signs (__main__.NormCorrelationTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/helpers/direct_sympy_norm_correlation_test.py", line 85, in test_original_rounded_norm_distance_and_cross_exclusions_on_all_central_signs
+    m.coordinate(2);a,b=list(m.norm_vectors.values());distance=norm_distance(registry,a,b)
+ValueError: too many values to unpack (expected 2)
+
+----------------------------------------------------------------------
+Ran 6 tests in 3.330s
+
+FAILED (errors=1)

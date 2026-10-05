@@ -1,0 +1,5 @@
+{"domain": {"X1": [-16384, -10240], "X2": [10241, 15360]}, "added": 0, "covered": 0, "characters": null, "sha256": null, "stop": "Flat artifact budget exceeded; no complete result", "nativeCases": null, "mismatches": null}
+Traceback (most recent call last):
+  File "/Users/caleul/Documents/Work/Projects/llm-inner/docs/evidence/direct-sympy-norm-correlation/recompile.py", line 42, in <module>
+    raise ValueError('Fresh cover failed: '+result['stop'])
+ValueError: Fresh cover failed: Flat artifact budget exceeded; no complete result

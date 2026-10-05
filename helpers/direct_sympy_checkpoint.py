@@ -343,9 +343,17 @@ class CheckpointStrings:
                         source_bounds=[];break
                     source_bounds.append(own)
             if source_bounds and self.width<=8 and all(float(self.weight(name,i)) in (-1,1) for i in range(self.width)):
-                from direct_sympy_projection_constraints import norm_squared_floor
+                from direct_sympy_projection_constraints import norm_squared_floor,norm_error_bound
                 floor=norm_squared_floor(source_bounds,epsilon_value)
-                if floor:certificate.append(((self.compiler.context(self.domains),name,tuple(input_expressions)),floor))
+                if floor:
+                    minimum=lambda s:F(max(s.minimum_magnitude,s.minimum if s.minimum>0 else -s.maximum if s.maximum<0 else 0))
+                    metadata={'sources':tuple(input_expressions),'epsilon':F(epsilon_value),
+                        'context':self.compiler.context(self.domains),
+                        'sourceNormFloor':sum((minimum(s)**2 for s in source_bounds),F(0)),
+                        'inputMagnitudes':{i:F(max(abs(s.minimum),abs(s.maximum))) for i,s in enumerate(source_bounds)},
+                        'gamma':tuple(F(float(self.weight(name,i))) for i in range(self.width)),
+                        'roundingError':norm_error_bound(self.width,epsilon_value)}
+                    certificate.append(((self.compiler.context(self.domains),name,tuple(input_expressions)),floor,metadata))
             components=rms_component_enclosures(source_bounds,coordinate,epsilon_value) if source_bounds else None
             if components is not None:
                 low,high=components[1][0]
@@ -408,8 +416,8 @@ class CheckpointStrings:
             return "R16("+self.op("*",normalized,self.weight(name,coordinate))+")"
         result=self.producer(key+":"+str(coordinate),build)
         if certificate:
-            vector_key,floor=certificate[0]
-            vector=self.norm_vectors.setdefault(vector_key,{'width':self.width,'floor':floor,'components':{},'magnitudes':{}})
+            vector_key,floor,metadata=certificate[0]
+            vector=self.norm_vectors.setdefault(vector_key,{'width':self.width,'floor':floor,'components':{},'magnitudes':{},**metadata})
             bound=self.conversions.bounds(syntax(result))
             if bound is not None:
                 vector['components'][coordinate]=result

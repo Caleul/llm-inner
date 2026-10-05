@@ -287,6 +287,14 @@ test('Coupled projection exclusions preserve rounded reductions across every cen
     assert.match(stdout,/Coupled projection proof: pairs=20980737 normViolations=0 exclusionViolations=0/);
   });
 
+test('Cross-normalization path exclusions include every original rounding and reject foreign contexts',
+  {skip:!python || !process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT},async()=>{
+    const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_norm_correlation_test.py'],{timeout:120_000,maxBuffer:1024*1024});
+    assert.match(stderr,/Ran 6 tests/);
+    assert.match(stderr,/OK/);
+    assert.match(stdout,/Cross norm proof: pairs=83922948 distanceViolations=0 exclusionViolations=0/);
+  });
+
 test('Source changes retain only audited partition geometry and recompile numerical evidence',
   {skip:!python},async()=>{
     const {stdout,stderr}=await promisify(execFile)(python!,['helpers/direct_sympy_partition_replan_test.py'],{timeout:120_000,maxBuffer:1024*1024});
