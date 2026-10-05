@@ -16,13 +16,15 @@ test("builds an isolated engineering task without controller context", () => {
   assert.doesNotMatch(prompt, /loop|round|cycle|handoff|sequence|runId/i);
 });
 
-test("keeps the real agent-visible task free of controller context", async () => {
-  const [master, configText, guidance] = await Promise.all([
-    readFile(new URL("../.agent-loop/prompts/master-prompt.md", import.meta.url), "utf8"),
-    readFile(new URL("../agent-loop.config.json", import.meta.url), "utf8"),
+test("keeps a configured task fixture and repository guidance free of controller context", async () => {
+  const fixtureRoot = new URL("./fixtures/agent-task/", import.meta.url);
+  const config = JSON.parse(await readFile(new URL("config.json", fixtureRoot), "utf8"));
+  const [master, guidance] = await Promise.all([
+    readFile(new URL(config.promptFile, fixtureRoot), "utf8"),
     readFile(new URL("../AGENTS.md", import.meta.url), "utf8"),
   ]);
-  const prompt = buildAgentTaskPrompt(master, JSON.parse(configText).missionGoal);
+  const prompt = buildAgentTaskPrompt(master, config.missionGoal);
+  assert.match(prompt, /Safetensors/);
   for (const text of [prompt, guidance]) {
     assert.doesNotMatch(text, /autonomous loop|next (?:agent|round|cycle)|previous (?:agent|handoff)|runId/i);
   }

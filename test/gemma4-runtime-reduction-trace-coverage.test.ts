@@ -1,3 +1,4 @@
+import { fixtureProgram, fixtureAudioProgram, sampleTensor, tensorValues } from "./support/gemma4-runtime-reduction-fixture.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -16,8 +17,6 @@ import {
   type Gemma4RuntimeReductionProvider,
   type Gemma4RuntimeReductionRequest,
 } from "../src/gemma4-runtime-reduction-provider.js";
-import type { Gemma4VisionProgram } from "../src/gemma4-vision.js";
-import type { Gemma4AudioProgram } from "../src/gemma4-audio.js";
 import type { DifferentialOperationSample } from "../src/types.js";
 import {
   GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256,
@@ -342,14 +341,7 @@ test("Gemma 4 runtime-reduction replay commits every receipt in artifact-declare
   );
 });
 
-test("Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter", async () => {
-  const request = {
-    scope: "vision" as const,
-    operationId: "vision_layer_0_attention_scores",
-    operation: "attention-score-matmul" as const,
-    program: fixtureProgram(),
-    operands: [sampleTensor([1, 1, 2, 2]), sampleTensor([1, 1, 2, 2])] as const,
-  };
+test("Gemma 4 runtime-reduction launch isolates its environment and rejects tampered contracts", async () => {
   const replayContract = gemma4AuthoritativeExecutionContract(
     await loadGemma4RuntimeReductionAdapterProgram(),
   ).unresolvedNativeReduction.executableReplay;
@@ -378,117 +370,7 @@ test("Gemma 4 runtime-reduction provider executes the integrity-bound embedded a
       inheritance: "parent",
     } as unknown as typeof replayContract.runtimeProcessEnvironment,
   }), /não é um mapa fechado/);
-  const previousOmpThreads = process.env.OMP_NUM_THREADS;
-  const previousTf32Override = process.env.TORCH_ALLOW_TF32_CUBLAS_OVERRIDE;
-  const previousVeclibThreads = process.env.VECLIB_MAXIMUM_THREADS;
-  const previousDyldLibraries = process.env.DYLD_INSERT_LIBRARIES;
-  process.env.OMP_NUM_THREADS = "1";
-  process.env.TORCH_ALLOW_TF32_CUBLAS_OVERRIDE = "1";
-  process.env.VECLIB_MAXIMUM_THREADS = "1";
-  process.env.DYLD_INSERT_LIBRARIES = "/invalid/parent-only.dylib";
-  try {
-    assert.deepEqual(executeGemma4RuntimeReduction(provider, request, [1, 1, 2, 2]), sampleTensor([1, 1, 2, 2]));
-  } finally {
-    if (previousOmpThreads === undefined) delete process.env.OMP_NUM_THREADS;
-    else process.env.OMP_NUM_THREADS = previousOmpThreads;
-    if (previousTf32Override === undefined) delete process.env.TORCH_ALLOW_TF32_CUBLAS_OVERRIDE;
-    else process.env.TORCH_ALLOW_TF32_CUBLAS_OVERRIDE = previousTf32Override;
-    if (previousVeclibThreads === undefined) delete process.env.VECLIB_MAXIMUM_THREADS;
-    else process.env.VECLIB_MAXIMUM_THREADS = previousVeclibThreads;
-    if (previousDyldLibraries === undefined) delete process.env.DYLD_INSERT_LIBRARIES;
-    else process.env.DYLD_INSERT_LIBRARIES = previousDyldLibraries;
-  }
-  assert.equal(provider.executions.length, 1);
-  assert.equal(provider.executions[0]!.adapterProgramSha256, GEMMA4_RUNTIME_REDUCTION_ADAPTER_SHA256);
-  assert.equal(provider.executions[0]!.executionProtocolSha256,
-    gemma4RuntimeReductionExecutionProtocolSha256(replayContract.executionProtocol));
-  assert.deepEqual(provider.executions[0]!.runtimeAttestation.runtimeProcessEnvironment,
-    GEMMA4_RUNTIME_REDUCTION_PROCESS_ENVIRONMENT);
-  assert.deepEqual(provider.executions[0]!.runtimeAttestation.runtimeEnvironmentIdentity,
-    GEMMA4_RUNTIME_REDUCTION_ENVIRONMENT_IDENTITY);
-  assert.deepEqual(provider.executions[0]!.runtimeAttestation.runtimeExecutionState,
-    GEMMA4_RUNTIME_REDUCTION_EXECUTION_STATE);
-  assert.equal(provider.executions[0]!.runtimeAttestation.runtimeExecutionState.float32MatmulPrecision, "highest");
-  assert.deepEqual(provider.executions[0]!.runtimeAttestation.runtimeExecutionState.subnormalProbe, {
-    encoding: "ieee-f32-little-endian",
-    inputBits: 1,
-    multipliedByOneBits: 1,
-  });
 });
-
-test("Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms", async () => {
-  const replayContract = gemma4AuthoritativeExecutionContract(
-    await loadGemma4RuntimeReductionAdapterProgram(),
-  ).unresolvedNativeReduction.executableReplay;
-  const provider = new Gemma4TorchRuntimeReductionProvider("venv/bin/python", replayContract);
-  const vision = fixtureProgram();
-  vision.assignments.push({
-    id: "vision_layer_0_attention",
-    operation: "attention-value-matmul",
-    inputs: ["attention_weights", "value"],
-    output: "vision_layer_0_attention",
-    dtypePolicy: { inputDtype: "BF16", computeDtype: "pytorch-native-batched-matmul", accumulationDtype: "runtime-defined", outputDtype: "BF16" },
-  });
-  const audio = fixtureAudioProgram();
-  const matrix = tensorValues([1, 1, 2, 2], [1, 2, 3, 4]);
-  const other = tensorValues([1, 1, 2, 2], [5, 6, 7, 8]);
-  const identity = tensorValues([1, 1, 1, 2, 2], [1, 0, 0, 1]);
-  const sequence = tensorValues([1, 2, 2], [5, 6, 7, 8]);
-  const cases: Array<{ request: Gemma4RuntimeReductionRequest; shape: number[]; values: number[] }> = [
-    { request: { scope: "vision", operationId: "vision_layer_0_attention_scores", operation: "attention-score-matmul", program: vision, operands: [matrix, other] }, shape: [1, 1, 2, 2], values: [17, 23, 39, 53] },
-    { request: { scope: "vision", operationId: "vision_layer_0_attention", operation: "attention-value-matmul", program: vision, operands: [matrix, other] }, shape: [1, 2, 2], values: [19, 22, 43, 50] },
-    { request: { scope: "audio", operationId: "audio_content", operation: "chunked-attention-content-matmul", program: audio, operands: [tensorValues([1, 2, 2], [1, 2, 3, 4]), sequence] }, shape: [1, 1, 1, 2, 2], values: [17, 23, 39, 53] },
-    { request: { scope: "audio", operationId: "audio_position", operation: "relative-attention-position-matmul", program: audio, operands: [tensorValues([1, 2, 2], [1, 2, 3, 4]), tensorValues([1, 3, 2], [1, 0, 0, 1, 1, 1])] }, shape: [1, 1, 1, 2, 3], values: [1, 2, 3, 3, 4, 7] },
-    { request: { scope: "audio", operationId: "audio_value", operation: "chunked-relative-attention-values", program: audio, operands: [identity, sequence] }, shape: [1, 2, 2], values: [5, 6, 7, 8] },
-  ];
-  for (const entry of cases) {
-    const result = executeGemma4RuntimeReduction(provider, entry.request, entry.shape);
-    assert.deepEqual([...result.values], entry.values);
-  }
-  assert.deepEqual(provider.executions.map((entry) => entry.invocationProgramId), gemma4RuntimeReductionInvocationPrograms().map((program) => program.id));
-  assert.ok(provider.executions.every((entry) => /^[a-f0-9]{64}$/.test(entry.invocationProgramSha256)));
-});
-
-function fixtureProgram(): Gemma4VisionProgram {
-  return {
-    kind: "gemma4-vision-features",
-    sourceFormat: "safetensors",
-    tower: { attentionHeads: 1, headDim: 2 } as Gemma4VisionProgram["tower"],
-    textHiddenSize: 2,
-    rmsNormEpsilon: 1e-6,
-    runtimeDtype: "BF16",
-    assignments: [
-      { id: "vision_layer_0_q_rope", operation: "multidimensional-rope", inputs: ["q"], output: "vision_layer_0_q_rotated" },
-      { id: "vision_layer_0_k_rope", operation: "multidimensional-rope", inputs: ["k"], output: "vision_layer_0_k_rotated" },
-      {
-        id: "vision_layer_0_attention_scores",
-        operation: "attention-score-matmul",
-        inputs: ["vision_layer_0_q_rotated", "vision_layer_0_k_rotated"],
-        output: "vision_layer_0_attention_scores",
-        dtypePolicy: { inputDtype: "BF16", computeDtype: "pytorch-native-batched-matmul", accumulationDtype: "runtime-defined", outputDtype: "BF16" },
-      },
-    ],
-    output: "image_features",
-  };
-}
-
-function fixtureAudioProgram(): Gemma4AudioProgram {
-  const dtypePolicy = { inputDtype: "F32", computeDtype: "pytorch-cpu-f32-matmul", accumulationDtype: "runtime-defined", outputDtype: "F32" } as const;
-  return {
-    kind: "gemma4-audio-features",
-    sourceFormat: "safetensors",
-    tower: { attentionHeads: 1, headDim: 2, attentionChunkSize: 2, attentionContextLeft: 1, attentionContextRight: 0 } as Gemma4AudioProgram["tower"],
-    textHiddenSize: 2,
-    runtimeDtype: "BF16",
-    attentionMaskContract: "transformers-eager-additive-mask-logical-not-v1",
-    assignments: [
-      { id: "audio_content", operation: "chunked-attention-content-matmul", inputs: ["q", "k"], output: "content", dtypePolicy },
-      { id: "audio_position", operation: "relative-attention-position-matmul", inputs: ["q", "relative"], output: "position", dtypePolicy },
-      { id: "audio_value", operation: "chunked-relative-attention-values", inputs: ["weights", "v"], output: "value", dtypePolicy },
-    ],
-    output: "audio_features",
-  } as Gemma4AudioProgram;
-}
 
 function fixtureOperations(): DifferentialOperationSample[] {
   return [
@@ -500,14 +382,6 @@ function fixtureOperations(): DifferentialOperationSample[] {
 
 function sample(operationId: string, output: string, shape: number[]): DifferentialOperationSample {
   return { operationId, output, tensor: sampleTensor(shape) };
-}
-
-function sampleTensor(shape: number[], value = 0) {
-  return { shape, values: new Float32Array(shape.reduce((total, dimension) => total * dimension, 1)).fill(value) };
-}
-
-function tensorValues(shape: number[], values: number[]) {
-  return { shape, values: Float32Array.from(values) };
 }
 
 function execution(request: Gemma4RuntimeReductionRequest, output: ReturnType<typeof sampleTensor>): Gemma4RuntimeReductionExecution {

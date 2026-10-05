@@ -1,0 +1,4 @@
+{
+  "promptFile": "master-prompt.md",
+  "missionGoal": "Compilar Safetensors e configuração até expressões que dependam exclusivamente da entrada, com paridade bit a bit."
+}

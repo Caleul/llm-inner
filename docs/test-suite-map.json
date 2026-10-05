@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-05",
+  "baselineCommit": "2eece04a3f03ffce8024506e0e4d71792a5580e4",
+  "purpose": "Separate self-contained regression tests, historical benchmark evidence, and pinned native integrations without weakening numerical or integrity contracts.",
+  "suites": {
+    "default": {
+      "command": "npm test",
+      "selection": [
+        "dist/test/*.test.js",
+        "scripts/*.test.mjs"
+      ],
+      "requirements": [
+        "npm dependencies",
+        "TypeScript build",
+        "existing optional Python/Rust integration prerequisites remain explicit in their tests"
+      ],
+      "includes": [
+        "portable Gemma calibration logic",
+        "portable Gemma runtime integrity and transport contracts",
+        "compiled scalar artifact substitution",
+        "agent task composition with tracked fixtures"
+      ],
+      "excludes": [
+        "historical benchmark evidence requiring artifacts/ snapshots",
+        "native Gemma replay requiring the full pinned environment"
+      ]
+    },
+    "historical": {
+      "command": "npm run test:historical",
+      "source": "test/historical/gemma4-calibration-evidence.test.ts",
+      "tests": [
+        "evidência do default de oito threads vincula corpus e tokens autoritativos",
+        "evidência rejeita prefill exato eager quando ele preserva tokens mas piora todas as classes de latência",
+        "evidência do corte de prefill terminal preserva corpus e correção de raiz",
+        "evidência promove antecipação do prefixo exato somente em sessão com cache",
+        "evidência promove o maior prefixo exato entre sessões sem alterar logits",
+        "evidência promove contexto sensível exato sem replay do decoder",
+        "evidência adia prefill exato sem cache e preserva antecipação do contexto exato",
+        "evidência promove cabeça BF16 integral e rejeita prefill agrupado divergente",
+        "evidência promove cache de decisão exata e rejeita fronteira Q8 0-18",
+        "evidência promove a fronteira Q8 0-19 com menos fallbacks e paridade integral",
+        "evidência rejeita fronteiras Q8 esparsas que reduzem fallbacks mas pioram o híbrido",
+        "evidência rejeita Q8 na projeção down quando velocidade e verificação deixam de coexistir",
+        "evidência rejeita grupos Q8 que divergem ou ampliam o fallback"
+      ],
+      "requirements": [
+        "Original benchmark artifacts and their referenced inputs under artifacts/",
+        "Historical source files matching each recorded SHA256, or a replay of the benchmark in its original environment"
+      ],
+      "unavailableHere": {
+        "missingArtifactFailures": 8,
+        "changedHistoricalSourceHashFailures": 3
+      },
+      "policy": "Run only when auditing those historical experiments. Missing files and mismatched hashes still fail; hashes were not refreshed to hide stale evidence."
+    },
+    "gemmaNativeIntegration": {
+      "command": "npm run test:integration:gemma",
+      "source": "test/integration/gemma4-runtime-reduction-native.test.ts",
+      "tests": [
+        "Gemma 4 runtime-reduction provider executes the integrity-bound embedded adapter",
+        "Gemma 4 embedded adapter executes every serialized invocation program without hidden class transforms"
+      ],
+      "requirements": [
+        "venv/bin/python",
+        "Exact environment identity and execution state pinned in src/gemma4-authoritative-runtime.ts, including macOS, Python, PyTorch, libraries and numerical settings"
+      ],
+      "unavailableHere": "Pinned Python 3.14.3/macOS 26.5.2 differs from current Python 3.14.7/macOS 26.7.1.",
+      "policy": "Reject incompatible environments before computation. No tolerance or identity checks were relaxed."
+    },
+    "tools": {
+      "command": "npm run test:tools",
+      "selection": [
+        "scripts/*.test.mjs"
+      ],
+      "requirements": [
+        "Node.js",
+        "scripts/fixtures/agent-task/config.json",
+        "scripts/fixtures/agent-task/master-prompt.md",
+        "AGENTS.md"
+      ],
+      "policy": "Fixture test proves task composition and repository guidance hygiene. It does not attest an installed controller or create agent-loop.config.json."
+    }
+  },
+  "resolvedFailures": [
+    {
+      "previousTest": "scalar-substitution example contains concrete learned values and reproduces its F32 result",
+      "source": "test/literal-scalar-substitution-example.test.ts",
+      "replacement": "Generate, serialize, read and audit two input-only scalar expressions through the existing incremental lowerer.",
+      "reference": "Independent ordered Math.fround calculation with concrete learned coefficients.",
+      "inputPairs": 392,
+      "outputBitComparisons": 784,
+      "coverage": [
+        "mixed signs",
+        "both zero signs",
+        "Half subnormals",
+        "Half normal boundary",
+        "finite Half extrema",
+        "deterministic varied finite pairs"
+      ],
+      "scope": "Two-layer scalar fixture, not complete Llama coordinate/vector or variable-length parity."
+    },
+    {
+      "previousTest": "keeps the real agent-visible task free of controller context",
+      "source": "scripts/agent-task-contract.test.mjs",
+      "replacement": "Read a tracked task fixture using config.promptFile and validate the composed objective and repository guidance."
+    }
+  ],
+  "retainedPortableContractTest": {
+    "source": "test/gemma4-runtime-reduction-trace-coverage.test.ts",
+    "name": "Gemma 4 runtime-reduction launch isolates its environment and rejects tampered contracts"
+  },
+  "validation": {
+    "status": "Completed test-suite reorganization; historical/native prerequisites remain unavailable.",
+    "typecheckPassed": true,
+    "compilerModifiedByThisTask": false,
+    "numericalOrIntegrityChecksRelaxed": false,
+    "historicalAssertionsPreservedByteForByte": true,
+    "default": {
+      "tests": 618,
+      "pass": 571,
+      "fail": 0,
+      "skipped": 47,
+      "durationMs": 171307.013333,
+      "observedLogSHA256": "433376b739d523faab43102b46af3ef04bb03ed0659d42573104c6e0d58ee8f6"
+    },
+    "historical": {
+      "tests": 13,
+      "pass": 2,
+      "fail": 11,
+      "skipped": 0,
+      "durationMs": 202.329666,
+      "observedLogSHA256": "62384502250965db2b142a51a9d927b339bbc0df70f528c781314a4030e1ff15"
+    },
+    "gemmaNativeIntegration": {
+      "tests": 2,
+      "pass": 0,
+      "fail": 2,
+      "skipped": 0,
+      "durationMs": 11304.945542,
+      "observedLogSHA256": "1d504a1109a26221f3ff901a86a2930c9a892d724ed89e4d41708b38211df4da"
+    },
+    "tools": {
+      "tests": 20,
+      "pass": 20,
+      "fail": 0,
+      "skipped": 0,
+      "durationMs": 104.071667,
+      "observedLogSHA256": "42373ff31f0e86060bf622eed251c2886b2ba1944532225717be440e61e49ea4"
+    },
+    "interpretation": "Counts are an observed snapshot, not a hardcoded acceptance rule for future compiler validation. Default success does not claim historical/native integrations pass or complete Llama parity."
+  }
+}
