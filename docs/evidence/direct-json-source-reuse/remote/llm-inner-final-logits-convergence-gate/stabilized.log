@@ -1,0 +1,3 @@
+Substitution growth log: stabilized.jsonl.growth.33496.jsonl
+Prepared 1/1: position=0, dimension=0, expressionBytes=1896904887992027903, conditionRounds=3, promotions=2, conditionConverged=true, conditionStop=fixed-point
+JSON output budget exceeded before expression emission

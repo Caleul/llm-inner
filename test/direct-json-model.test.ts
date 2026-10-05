@@ -20,6 +20,10 @@ import {writeDirectJsonModel} from '../src/direct-json-compile.js';
 import {certifyJsonHalfDifferenceExp,foldJsonExpPolynomial} from '../src/direct-json-exp.js';
 import {foldDeclaredCpuF32Exponential} from '../src/direct-rust-numeric.js';
 const python=process.env.LLM_INNER_DIRECT_PYTHON,checkpoint=process.env.LLM_INNER_DIRECT_JSON_CHECKPOINT;
+async function targetSnapshot(){
+  const path=process.env.LLM_INNER_DIRECT_JSON_SNAPSHOT;
+  return path?JSON.parse(await readFile(path,'utf8')):undefined;
+}
 
 test('JSON half-difference exponential certificate agrees with live PyTorch throughout the containing F32 lattice',
   {skip:!python||!checkpoint},async()=>{
@@ -45,13 +49,16 @@ test('JSON half-difference exponential certificate agrees with live PyTorch thro
   }finally{await builder?.close();await rm(dir,{recursive:true,force:true});}
 });
 
-test('JSON compiler pipeline reports prepared coordinates without publishing an over-budget checkpoint vector',
+test('JSON compiler pipeline reports a stabilized coordinate without publishing an over-budget checkpoint artifact',
   {skip:!python||!checkpoint},async()=>{
   const dir=await mkdtemp(join(tmpdir(),'direct-json-compiler-')),path=join(dir,'model.jsonl');
   let prepared=0;
   try{
-    await assert.rejects(writeDirectJsonModel(checkpoint!,python!,path,{maxBytes:4096,onPrepared:unit=>{
+    await assert.rejects(writeDirectJsonModel(checkpoint!,python!,path,{
+      coordinate:{position:0,dimension:0},discoverySnapshot:await targetSnapshot(),maxConditionRounds:64,
+      maxBytes:4096,onPrepared:unit=>{
       prepared=unit.preparedUnits;assert.ok(unit.totalUnits>0);
+      assert.equal(unit.cofactor.converged,true);
       assert.ok(unit.measure.serializedBytes>4096n);
     }}),/before expression emission/);
     assert.equal(prepared,1);
@@ -59,6 +66,22 @@ test('JSON compiler pipeline reports prepared coordinates without publishing an 
     const status=JSON.parse(await readFile(path+'.status.json','utf8'));
     assert.equal(status.units,0);assert.equal(status.finalParity,false);
     assert.equal(status.rejectedCoordinate.position,0);assert.equal(status.rejectedCoordinate.dimension,0);
+  }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+test('JSON compiler refuses emission when shared conditions have not reached their fixed point',
+  {skip:!python||!checkpoint},async()=>{
+  const dir=await mkdtemp(join(tmpdir(),'direct-json-unstable-')),path=join(dir,'model.jsonl');
+  let prepared=0;
+  try{
+    await assert.rejects(writeDirectJsonModel(checkpoint!,python!,path,{
+      coordinate:{position:0,dimension:0},discoverySnapshot:await targetSnapshot(),maxConditionRounds:1,
+      onPrepared:unit=>{prepared++;assert.equal(unit.cofactor.converged,false);}
+    }),/Shared-condition simplification is unfinished/);
+    assert.equal(prepared,1);await assert.rejects(readFile(path),{code:'ENOENT'});
+    const status=JSON.parse(await readFile(path+'.status.json','utf8'));
+    assert.equal(status.units,0);assert.equal(status.finalParity,false);
+    assert.match(status.reason,/Shared-condition simplification is unfinished/);
   }finally{await rm(dir,{recursive:true,force:true});}
 });
 

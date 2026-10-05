@@ -198,5 +198,53 @@
     },
     "purpose": "Actual CLI, compatible snapshot, closed first coordinate and atomic budget rejection; not final artifact parity"
   },
-  "remaining": "Literal checkpoint JSON emission, re-read artifact parity and full next-token vector integration; compiler sharing is not an artifact"
+  "remaining": "Literal checkpoint JSON emission, re-read artifact parity and full next-token vector integration; compiler sharing is not an artifact",
+  "convergenceAdmission": {
+    "CLI": {
+      "results": [
+        {
+          "case": "unfinished",
+          "passed": true,
+          "exitCode": 1,
+          "seconds": 13.44687438100027,
+          "status": {
+            "status": "pending",
+            "units": 0,
+            "bytes": 1376,
+            "finalParity": false,
+            "reason": "Shared-condition simplification is unfinished: round-budget"
+          }
+        },
+        {
+          "case": "stabilized",
+          "passed": true,
+          "exitCode": 1,
+          "seconds": 50.69233866800005,
+          "status": {
+            "status": "pending",
+            "units": 0,
+            "bytes": 1376,
+            "finalParity": false,
+            "rejectedCoordinate": {
+              "position": 0,
+              "dimension": 0,
+              "predictedBytes": "1896904887992027903",
+              "predictedOccurrences": "83139807767657363"
+            },
+            "reason": "JSON output budget exceeded before expression emission"
+          }
+        }
+      ],
+      "passed": true
+    },
+    "nativeRegression": {
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skip": 0,
+      "exitCode": 0,
+      "seconds": 23.08825250999962,
+      "purpose": "Committed native checkpoint regression, compatible snapshot, converged/unfinished admission"
+    }
+  }
 }

@@ -111,6 +111,15 @@ O emissor do vetor aplica 512 MiB ao arquivo acumulado, incluindo condições
 e expressões; ele não corta caminhos nem publica vetores incompletos.
 O smoke da CLI usa deliberadamente 1 MiB para exercitar essa rejeição.
 
+O emissor também exige `cofactor.converged`: limite de rodadas/candidatos
+não equivale a estabilização. Os dois testes de admissão do checkpoint
+passaram no Colab usando `LLM_INNER_DIRECT_JSON_SNAPSHOT`: o caso com uma
+rodada é recusado antes da emissão; o caso estabilizado chega à verificação
+de bytes e continua sem publicar artefato acima do orçamento. Os logs em
+`remote/llm-inner-final-logits-convergence-gate/` preservam ambos os estados.
+O teste via CLI ultrapassou o prazo de resposta do transporte; o resultado
+persistido foi relido e confirmou os dois gates, sem repetir a execução.
+
 As regressões, tempos, picos de RAM e progresso efetivo estão discriminados
 em `validation.json` e nos logs integrais. A seleção JSON teve 103 passes,
 zero falhas e cinco skips de integrações dependentes de ambiente. O teste

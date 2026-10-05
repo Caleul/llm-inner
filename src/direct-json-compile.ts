@@ -62,6 +62,7 @@ export async function writeDirectJsonModel(directory:string,python:string,path:s
         const measure=measureJsonExpression(closed,options.maxUniqueNodes??100_000);
         options.onPrepared?.({position,dimension,preparedUnits:++preparedUnits,
           totalUnits:options.coordinate?1:nextToken?header.outputWidth:header.context*header.outputWidth,construction:construction!,cofactor,measure});
+        if(!cofactor.converged)throw new Error(`Shared-condition simplification is unfinished: ${cofactor.stopReason}`);
         yield {position,dimension,expression:closed};
       }
     }

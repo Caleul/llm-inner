@@ -1,0 +1,3 @@
+Substitution growth log: unfinished.jsonl.growth.33430.jsonl
+Prepared 1/1: position=0, dimension=0, expressionBytes=2015455576208567625, conditionRounds=1, promotions=1, conditionConverged=false, conditionStop=round-budget
+Shared-condition simplification is unfinished: round-budget
