@@ -1,0 +1,24 @@
+{
+  "attempts": [
+    {
+      "operation": "67956d5c-00ee-45dd-9454-5466fc0847b0",
+      "highMemory": true,
+      "result": "Colab Service Unavailable",
+      "readbackSessions": 0
+    },
+    {
+      "operation": "b0bf2702-85b6-4c70-8df3-6330a405704e",
+      "highMemory": false,
+      "result": "Session READY"
+    }
+  ],
+  "session": "llm-inner-a100-512-20261005",
+  "observed": {
+    "gpu": "NVIDIA A100-SXM4-40GB",
+    "vramMiB": 40960,
+    "cpuCount": 12,
+    "ramTotalBytes": 89629196288,
+    "ramAvailableBytes": 87913291776,
+    "driver": "580.82.07"
+  }
+}

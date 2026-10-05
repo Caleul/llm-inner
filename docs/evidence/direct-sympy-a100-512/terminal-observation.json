@@ -1,0 +1,582 @@
+{
+  "launch": {
+    "state": "DISPATCHED",
+    "preparationPID": 1952,
+    "archiveSHA256": "f6560b0a7661dee201e2f57265bb3df10c622d77d7489995921bcc510ba9d0a1",
+    "observedPIDExists": true,
+    "processState": "Z",
+    "observedRunning": false
+  },
+  "preparation": {
+    "state": "DISPATCHED",
+    "requestedGPU": "A100",
+    "archiveSHA256": "f6560b0a7661dee201e2f57265bb3df10c622d77d7489995921bcc510ba9d0a1",
+    "startedAt": 1791205018.9360404,
+    "resources": {
+      "cpuCount": 12,
+      "ramTotalBytes": 89629196288,
+      "ramAvailableBytes": 87449976832,
+      "torch": "2.11.0+cu130",
+      "sympy": "1.14.0",
+      "cuda": "13.0",
+      "cudaAvailable": true,
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "gpuVRAMBytes": 42405855232
+    },
+    "controllerPID": 3563,
+    "controllerCommand": [
+      "/usr/bin/python3",
+      "helpers/direct_sympy_logits_run.py",
+      "/content/llm-inner-a100-512-20261005/docs/evidence/direct-sympy-test-checkpoint",
+      "/content/llm-inner-a100-512-20261005/logits-results",
+      "--require-gpu",
+      "A100",
+      "--expression-bytes",
+      "536870912",
+      "--workers",
+      "4"
+    ],
+    "observedPIDExists": false,
+    "observedRunning": false
+  },
+  "run": {
+    "artifactBudgetSHA256": "1f05236c49828134d2c7bce880df7f9c3859e848813d0a7f595694c43bdd62ea",
+    "controllerSHA256": "d5c31bf91d5dd72d6c8e7c68d7503cb834e066c2186afafbf685d381d9504200",
+    "cudaNumericsExitCode": 0,
+    "expressionAndConditionBudgetBytes": 536870912,
+    "firstCoordinateValidated": false,
+    "fullVectorParity": false,
+    "hardware": {
+      "cpuCount": 12,
+      "cuda": "13.0",
+      "cudaAvailable": true,
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "gpuVRAMBytes": 42405855232,
+      "ramAvailableBytes": 87446540288,
+      "ramTotalBytes": 89629196288,
+      "torch": "2.11.0+cu130"
+    },
+    "maxWorkersLive": 1,
+    "memoryBudgetBytes": 69957232230,
+    "multipleTokenParity": false,
+    "peakObservedRSSBytes": 1616392192,
+    "runs": [
+      {
+        "artifactPublished": false,
+        "compilerIdentity": {
+          "byteOrder": "little",
+          "checkpoint": {
+            "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+            "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+          },
+          "dimension": 2,
+          "platform": "Linux-6.6.122+-x86_64-with-glibc2.39",
+          "position": 0,
+          "python": "3.13.15 (main, Aug  6 2026, 11:06:22) [GCC 13.3.0]",
+          "referenceBackend": {
+            "capability": "AVX512",
+            "gitVersion": "70d99e998b4955e0049d13a98d77ae1b14db1f45",
+            "name": "torch CPU",
+            "version": "2.11.0+cu130"
+          },
+          "sources": {
+            "direct_sympy_arithmetic.py": "b67816f4954a9ef6877bc0b549044c3f2bf6878451f5b4a94fa13f0237072f6d",
+            "direct_sympy_checkpoint.py": "889ecefef40b7cbf1b87452e92decda5837ab9d01bc61affcb0274c045bac146",
+            "direct_sympy_coherent_paths.py": "ee86567bcee1a2946181945bac186a7d40aafbe143206e921c0fa39b08092abb",
+            "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+            "direct_sympy_conversions.py": "77ac9f3e14c873f2ac4c53e082db78f03596f6b985ee6286f39fc5bb83b167c2",
+            "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+            "direct_sympy_layer_bounds.py": "c1a93f951ff5ad5af8510671e42ac8c05d73c246dfb2460bacd43cf0e3774dae",
+            "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+            "direct_sympy_partition_run.py": "9985ec29e19e73f59ab0691be88f8278966d64fe2daaaf5fab77135901a66482",
+            "direct_sympy_projection_constraints.py": "568fb807619f566c8da2a1df85407455cde84164e1f9fd2ccca3fd69ee88189f",
+            "direct_sympy_recipe_bounds.py": "c75607053ee144fd76d591530dba9a06d28634a6bdc96978b0894ecac76621ae",
+            "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+            "direct_sympy_savepoints.py": "064a2a6ae267ac4338ae6bb102a5ddb2272869d63f0ff857a1d0116313de4cb7",
+            "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+            "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+            "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+            "direct_sympy_sqrt.py": "54d1504b9d9389d4e061b19894e6322ccf9f8434997c4fe1687f7e2a8b9f9b8a",
+            "direct_sympy_streaming_literals.py": "7310a1dd1a7ee97bcab7f792859a67cf02ea075e2e72c546b92231687ae0c9d6",
+            "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+            "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+            "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+            "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+          },
+          "sympy": "1.14.0",
+          "version": 1
+        },
+        "complete": false,
+        "dimension": 2,
+        "parityVerified": false,
+        "producersCompleted": 25,
+        "seconds": 288.31852173000004,
+        "stats": {
+          "CASPasses": 26439,
+          "backwardRMSVectorRefinements": 345,
+          "backwardRoundingSteps": 90400,
+          "completedPaths": 26,
+          "contradictions": 10,
+          "coupledProjectionContradictions": 0,
+          "guardProofBudgetStops": 0,
+          "guardProofPasses": 243,
+          "lastArm": {
+            "bodyCharacters": 117367675,
+            "decisions": 13,
+            "dependencyGrowth": [
+              {
+                "definition": 1,
+                "expandedCharacters": 1560,
+                "storedCharacters": 1558
+              },
+              {
+                "definition": 2,
+                "expandedCharacters": 1698,
+                "storedCharacters": 151
+              },
+              {
+                "definition": 4,
+                "expandedCharacters": 1648,
+                "storedCharacters": 101
+              },
+              {
+                "definition": 8,
+                "expandedCharacters": 3484,
+                "storedCharacters": 166
+              },
+              {
+                "definition": 11,
+                "expandedCharacters": 3481,
+                "storedCharacters": 163
+              },
+              {
+                "definition": 12,
+                "expandedCharacters": 14261,
+                "storedCharacters": 391
+              },
+              {
+                "definition": 14,
+                "expandedCharacters": 14265,
+                "storedCharacters": 395
+              },
+              {
+                "definition": 17,
+                "expandedCharacters": 144170,
+                "storedCharacters": 1698
+              },
+              {
+                "definition": 18,
+                "expandedCharacters": 158517,
+                "storedCharacters": 116
+              },
+              {
+                "definition": 20,
+                "expandedCharacters": 158521,
+                "storedCharacters": 116
+              },
+              {
+                "definition": 24,
+                "expandedCharacters": 634526,
+                "storedCharacters": 512
+              },
+              {
+                "definition": 25,
+                "expandedCharacters": 317168,
+                "storedCharacters": 160
+              },
+              {
+                "definition": 27,
+                "expandedCharacters": 1326391,
+                "storedCharacters": 733
+              },
+              {
+                "definition": 29,
+                "expandedCharacters": 2667292,
+                "storedCharacters": 295
+              },
+              {
+                "definition": 31,
+                "expandedCharacters": 2667294,
+                "storedCharacters": 293
+              },
+              {
+                "definition": 34,
+                "expandedCharacters": 26674470,
+                "storedCharacters": 1698
+              },
+              {
+                "definition": 35,
+                "expandedCharacters": 29341848,
+                "storedCharacters": 116
+              },
+              {
+                "definition": 37,
+                "expandedCharacters": 29341850,
+                "storedCharacters": 116
+              },
+              {
+                "definition": 39,
+                "expandedCharacters": 117367675,
+                "storedCharacters": 341
+              }
+            ],
+            "guardCharacters": 76385582
+          },
+          "numericArithmeticEliminated": 6490,
+          "numericGuardImplications": 343,
+          "numericRecipeAdmissions": 590,
+          "numericRecipeAttempts": 1319,
+          "numericRecipeBudgetStops": 0,
+          "orderedGuardEliminations": 76,
+          "prefixRecipeRefinements": 32,
+          "prospectiveGuardEliminations": 36,
+          "recipeConstraintPasses": 972,
+          "recipeConstraintRefinements": 15860,
+          "rmsBranchRefinements": 1311,
+          "rmsConstantCells": 31,
+          "rmsProjectionSignAdmissions": 154,
+          "selectedRecipeIdentities": 36,
+          "selectedSignMaskEliminations": 15,
+          "selectorSelections": 948,
+          "splitContexts": 41
+        },
+        "stop": "Flat artifact budget exceeded; no complete result",
+        "weightReads": 1984
+      }
+    ],
+    "state": "INCOMPLETE",
+    "stop": "First complete coordinate was not admitted; remaining logits not dispatched",
+    "vectorEmitted": false,
+    "workerReservationBytes": 9395240960,
+    "workersRequested": 4
+  },
+  "coordinateProgress": {
+    "logit-2.progress.json": {
+      "claimedCharacters": 494439382,
+      "dimension": 2,
+      "elapsedSeconds": 259.01789612100004,
+      "stats": {
+        "CASPasses": 23884,
+        "backwardRMSVectorRefinements": 304,
+        "backwardRoundingSteps": 80534,
+        "completedPaths": 25,
+        "contradictions": 7,
+        "coupledProjectionContradictions": 0,
+        "guardProofBudgetStops": 0,
+        "guardProofPasses": 228,
+        "lastArm": {
+          "bodyCharacters": 84063231,
+          "decisions": 12,
+          "dependencyGrowth": [
+            {
+              "definition": 1,
+              "expandedCharacters": 1560,
+              "storedCharacters": 1558
+            },
+            {
+              "definition": 2,
+              "expandedCharacters": 1698,
+              "storedCharacters": 151
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 1648,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 8,
+              "expandedCharacters": 3484,
+              "storedCharacters": 166
+            },
+            {
+              "definition": 11,
+              "expandedCharacters": 3481,
+              "storedCharacters": 163
+            },
+            {
+              "definition": 12,
+              "expandedCharacters": 14261,
+              "storedCharacters": 391
+            },
+            {
+              "definition": 14,
+              "expandedCharacters": 14265,
+              "storedCharacters": 395
+            },
+            {
+              "definition": 17,
+              "expandedCharacters": 144170,
+              "storedCharacters": 1698
+            },
+            {
+              "definition": 18,
+              "expandedCharacters": 158517,
+              "storedCharacters": 116
+            },
+            {
+              "definition": 20,
+              "expandedCharacters": 158521,
+              "storedCharacters": 116
+            },
+            {
+              "definition": 24,
+              "expandedCharacters": 634526,
+              "storedCharacters": 512
+            },
+            {
+              "definition": 25,
+              "expandedCharacters": 634345,
+              "storedCharacters": 331
+            },
+            {
+              "definition": 27,
+              "expandedCharacters": 1903226,
+              "storedCharacters": 373
+            },
+            {
+              "definition": 29,
+              "expandedCharacters": 3820901,
+              "storedCharacters": 234
+            },
+            {
+              "definition": 31,
+              "expandedCharacters": 3820903,
+              "storedCharacters": 232
+            },
+            {
+              "definition": 34,
+              "expandedCharacters": 38210560,
+              "storedCharacters": 1698
+            },
+            {
+              "definition": 35,
+              "expandedCharacters": 42031547,
+              "storedCharacters": 116
+            },
+            {
+              "definition": 37,
+              "expandedCharacters": 42031549,
+              "storedCharacters": 116
+            },
+            {
+              "definition": 39,
+              "expandedCharacters": 84063231,
+              "storedCharacters": 165
+            }
+          ],
+          "guardCharacters": 24940604
+        },
+        "numericArithmeticEliminated": 5934,
+        "numericGuardImplications": 341,
+        "numericRecipeAdmissions": 544,
+        "numericRecipeAttempts": 1186,
+        "numericRecipeBudgetStops": 0,
+        "orderedGuardEliminations": 74,
+        "prefixRecipeRefinements": 12,
+        "prospectiveGuardEliminations": 36,
+        "recipeConstraintPasses": 868,
+        "recipeConstraintRefinements": 14115,
+        "rmsBranchRefinements": 1178,
+        "rmsConstantCells": 31,
+        "rmsProjectionSignAdmissions": 125,
+        "selectedRecipeIdentities": 36,
+        "selectedSignMaskEliminations": 11,
+        "selectorSelections": 844,
+        "splitContexts": 37
+      }
+    }
+  },
+  "logTails": {
+    "llm-inner-a100-512-20261005.preparation-launch.log": "/content/direct_sympy_colab_logits_prepare.py:19: DeprecationWarning: Python 3.14 will, by default, filter extracted tar archives and reject files or modify their metadata. Use the filter argument to control this behavior.\n  stream.extractall(root)\n{\"state\": \"DISPATCHED\", \"requestedGPU\": \"A100\", \"archiveSHA256\": \"f6560b0a7661dee201e2f57265bb3df10c622d77d7489995921bcc510ba9d0a1\", \"startedAt\": 1791205018.9360404, \"resources\": {\"cpuCount\": 12, \"ramTotalBytes\": 89629196288, \"ramAvailableBytes\": 87449976832, \"torch\": \"2.11.0+cu130\", \"sympy\": \"1.14.0\", \"cuda\": \"13.0\", \"cudaAvailable\": true, \"gpu\": \"NVIDIA A100-SXM4-40GB\", \"gpuVRAMBytes\": 42405855232}, \"controllerPID\": 3563, \"controllerCommand\": [\"/usr/bin/python3\", \"helpers/direct_sympy_logits_run.py\", \"/content/llm-inner-a100-512-20261005/docs/evidence/direct-sympy-test-checkpoint\", \"/content/llm-inner-a100-512-20261005/logits-results\", \"--require-gpu\", \"A100\", \"--expression-bytes\", \"536870912\", \"--workers\", \"4\"]}\n",
+    "coherent_paths-tests.log": "......................\n----------------------------------------------------------------------\nRan 22 tests in 7.200s\n\nOK\nFlat checkpoint normalization: cases=888832 mismatches=0\nFrozen square identity parity: cases=30722 mismatches=0\nIntersected grid factor parity: cases=30722 mismatches=0\nPrefix recipe dispatch parity: cases=30722 mismatches=0\nSelected numeric propagation parity: cases=30722 mismatches=0\n",
+    "artifact_budget-tests.log": "...\n----------------------------------------------------------------------\nRan 3 tests in 6.666s\n\nOK\nShared budget checkpoint normalization: identicalEmittedBytes=true\n",
+    "projection_sign-tests.log": "..\n----------------------------------------------------------------------\nRan 2 tests in 30.172s\n\nOK\nRMS projection sign parity: cases=37838852 selected=36904348 mismatches=0\nSelected checkpoint projection parity: cases=135184 accepted=117379 mismatches=0\nSelected projection replacement: admittedCharacters=107 fallbackCharacters=8836 emittedCharacters=62059\n",
+    "dependency-setup.log": "tting up python3-yaml (6.0.1-2build2) ...\r\nSetting up python3-pygments (2.17.2+dfsg-1) ...\r\nSetting up libz3-4:amd64 (4.8.12-3.1build1) ...\r\nSetting up libpfm4:amd64 (4.13.0+git32-g0d4ed0e-1ubuntu0.1) ...\r\nSetting up libclang-common-18-dev:amd64 (1:18.1.3-1ubuntu1) ...\r\nSetting up libgc1:amd64 (1:8.2.6-1build1) ...\r\nSetting up libc6-i386 (2.39-0ubuntu8.9) ...\r\nSetting up libllvm18:amd64 (1:18.1.3-1ubuntu1) ...\r\nSetting up libclang1-18 (1:18.1.3-1ubuntu1) ...\r\nSetting up libz3-dev:amd64 (4.8.12-3.1build1) ...\r\nSetting up libobjc4:amd64 (14.2.0-4ubuntu2~24.04.1) ...\r\nSetting up llvm-18-tools (1:18.1.3-1ubuntu1) ...\r\nSetting up lib32gcc-s1 (14.2.0-4ubuntu2~24.04.1) ...\r\nSetting up lib32stdc++6 (14.2.0-4ubuntu2~24.04.1) ...\r\nSetting up llvm-18-linker-tools (1:18.1.3-1ubuntu1) ...\r\nSetting up llvm-18-runtime (1:18.1.3-1ubuntu1) ...\r\nSetting up libclang-cpp18 (1:18.1.3-1ubuntu1) ...\r\nSetting up libclang-rt-18-dev:amd64 (1:18.1.3-1ubuntu1) ...\r\nSetting up libobjc-13-dev:amd64 (13.3.0-6ubuntu2~24.04.1) ...\r\nSetting up clang-18 (1:18.1.3-1ubuntu1) ...\r\nSetting up clang (1:18.0-59~exp2) ...\r\nSetting up llvm-18 (1:18.1.3-1ubuntu1) ...\r\nSetting up llvm-18-dev (1:18.1.3-1ubuntu1) ...\r\nProcessing triggers for systemd (255.4-1ubuntu8.17) ...\r\nProcessing triggers for man-db (2.12.0-4build2) ...\r\nProcessing triggers for libc-bin (2.39-0ubuntu8.9) ...\r\n/sbin/ldconfig.real: /usr/local/lib/libhwloc.so.15 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libur_adapter_level_zero.so.0 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libtbbmalloc.so.2 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libur_adapter_level_zero_v2.so.0 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libtbbbind_2_5.so.3 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libur_loader.so.0 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libumf.so.1 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libtcm_debug.so.1 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libtbb.so.12 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libtbbmalloc_proxy.so.2 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libtbbbind.so.3 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libur_adapter_opencl.so.0 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libtcm.so.1 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libtbbbind_2_0.so.3 is not a symbolic link\r\n\r\n",
+    "controller.log": "",
+    "cuda-numerics.log": "{\n  \"device\": \"NVIDIA A100-SXM4-40GB\",\n  \"torch\": \"2.11.0+cu130\",\n  \"cuda\": \"13.0\",\n  \"cpuThreads\": 1,\n  \"halfProducts\": {\n    \"cases\": 888832,\n    \"mismatches\": 0,\n    \"medianCpuSeconds\": 0.002057991000015136,\n    \"medianCudaSeconds\": 7.875100004639535e-05,\n    \"medianCudaWithTransfersSeconds\": 0.0024886840000135635,\n    \"samples\": 15,\n    \"warmup\": 3\n  },\n  \"silu\": {\n    \"cases\": 19458,\n    \"mismatches\": 0,\n    \"domain\": [\n      -0.0234375,\n      0.0234375\n    ],\n    \"cudaAdmitted\": true\n  },\n  \"quadraticThreshold\": {\n    \"cases\": 19458,\n    \"cpuMismatches\": 0,\n    \"cudaMismatches\": 0,\n    \"squareBitMismatches\": 0,\n    \"cudaAdmitted\": true\n  },\n  \"cudaPeakAllocatedBytes\": 11682816\n}\n"
+  },
+  "coordinateResults": {
+    "logit-2.json": {
+      "artifactPublished": false,
+      "compilerIdentity": {
+        "byteOrder": "little",
+        "checkpoint": {
+          "config.json": "443bf924cab100b8c6c985ff71a67da6cb95031338f0dfb3041f030dc2eff969",
+          "model.safetensors": "e205167140dc7888168394fc1fe0e4914f5ab92d4ca095b65b2dd7b93e89d1eb"
+        },
+        "dimension": 2,
+        "platform": "Linux-6.6.122+-x86_64-with-glibc2.39",
+        "position": 0,
+        "python": "3.13.15 (main, Aug  6 2026, 11:06:22) [GCC 13.3.0]",
+        "referenceBackend": {
+          "capability": "AVX512",
+          "gitVersion": "70d99e998b4955e0049d13a98d77ae1b14db1f45",
+          "name": "torch CPU",
+          "version": "2.11.0+cu130"
+        },
+        "sources": {
+          "direct_sympy_arithmetic.py": "b67816f4954a9ef6877bc0b549044c3f2bf6878451f5b4a94fa13f0237072f6d",
+          "direct_sympy_checkpoint.py": "889ecefef40b7cbf1b87452e92decda5837ab9d01bc61affcb0274c045bac146",
+          "direct_sympy_coherent_paths.py": "ee86567bcee1a2946181945bac186a7d40aafbe143206e921c0fa39b08092abb",
+          "direct_sympy_conditions.py": "f4ab7a8e8052531e2dcc07876680705fae83635b675526cb8bf1e67978f18e58",
+          "direct_sympy_conversions.py": "77ac9f3e14c873f2ac4c53e082db78f03596f6b985ee6286f39fc5bb83b167c2",
+          "direct_sympy_input_partitions.py": "21449edd26a0d43ad4a2c5b5e841c5e9d8e7de6afb6ac138a9eef88374558797",
+          "direct_sympy_layer_bounds.py": "c1a93f951ff5ad5af8510671e42ac8c05d73c246dfb2460bacd43cf0e3774dae",
+          "direct_sympy_parallel.py": "c7b745b51f1f4c910aae43ee5f3ca1bb3d913b0f298d10cfa2a44f9b34a55423",
+          "direct_sympy_partition_run.py": "9985ec29e19e73f59ab0691be88f8278966d64fe2daaaf5fab77135901a66482",
+          "direct_sympy_projection_constraints.py": "568fb807619f566c8da2a1df85407455cde84164e1f9fd2ccca3fd69ee88189f",
+          "direct_sympy_recipe_bounds.py": "c75607053ee144fd76d591530dba9a06d28634a6bdc96978b0894ecac76621ae",
+          "direct_sympy_rms_guard.py": "1204d3bcb5082514db6041d6fc58c533a21d53c4272198acfd9d2f3dd366d6ee",
+          "direct_sympy_savepoints.py": "064a2a6ae267ac4338ae6bb102a5ddb2272869d63f0ff857a1d0116313de4cb7",
+          "direct_sympy_signatures.py": "64d0781c79fbdb934d37bb014826c973da3e81b3a97517ae023effde49c548c5",
+          "direct_sympy_signs.py": "4633628ecfc17942beac069649c0e2f6f9d18521a6678bb0896a332058d3aa7a",
+          "direct_sympy_silu.py": "e623f38b5008356d8f6aa1615aabfa5a779f9dc7ea9d5b8183c5b17a78383fe3",
+          "direct_sympy_sqrt.py": "54d1504b9d9389d4e061b19894e6322ccf9f8434997c4fe1687f7e2a8b9f9b8a",
+          "direct_sympy_streaming_literals.py": "7310a1dd1a7ee97bcab7f792859a67cf02ea075e2e72c546b92231687ae0c9d6",
+          "direct_sympy_strings.py": "3eb7bcc9d09cb15e38765037b74850bebac67e260d379b0fa70739ea4885799f",
+          "direct_sympy_synchronize.py": "b906a36da07a2e738fb134adacb73a2a5271ef04534f73812781f337b8126f3d",
+          "direct_sympy_tandem.py": "20ea53b155e955beaa4f16150d83eade8bb25488622b6664e3829451abd7f615",
+          "direct_sympy_words.py": "cf43a662da864a35f20ba2c773ded14dd239096a09cd867636a6901577923a7c"
+        },
+        "sympy": "1.14.0",
+        "version": 1
+      },
+      "complete": false,
+      "dimension": 2,
+      "parityVerified": false,
+      "producersCompleted": 25,
+      "seconds": 288.31852173000004,
+      "stats": {
+        "CASPasses": 26439,
+        "backwardRMSVectorRefinements": 345,
+        "backwardRoundingSteps": 90400,
+        "completedPaths": 26,
+        "contradictions": 10,
+        "coupledProjectionContradictions": 0,
+        "guardProofBudgetStops": 0,
+        "guardProofPasses": 243,
+        "lastArm": {
+          "bodyCharacters": 117367675,
+          "decisions": 13,
+          "dependencyGrowth": [
+            {
+              "definition": 1,
+              "expandedCharacters": 1560,
+              "storedCharacters": 1558
+            },
+            {
+              "definition": 2,
+              "expandedCharacters": 1698,
+              "storedCharacters": 151
+            },
+            {
+              "definition": 4,
+              "expandedCharacters": 1648,
+              "storedCharacters": 101
+            },
+            {
+              "definition": 8,
+              "expandedCharacters": 3484,
+              "storedCharacters": 166
+            },
+            {
+              "definition": 11,
+              "expandedCharacters": 3481,
+              "storedCharacters": 163
+            },
+            {
+              "definition": 12,
+              "expandedCharacters": 14261,
+              "storedCharacters": 391
+            },
+            {
+              "definition": 14,
+              "expandedCharacters": 14265,
+              "storedCharacters": 395
+            },
+            {
+              "definition": 17,
+              "expandedCharacters": 144170,
+              "storedCharacters": 1698
+            },
+            {
+              "definition": 18,
+              "expandedCharacters": 158517,
+              "storedCharacters": 116
+            },
+            {
+              "definition": 20,
+              "expandedCharacters": 158521,
+              "storedCharacters": 116
+            },
+            {
+              "definition": 24,
+              "expandedCharacters": 634526,
+              "storedCharacters": 512
+            },
+            {
+              "definition": 25,
+              "expandedCharacters": 317168,
+              "storedCharacters": 160
+            },
+            {
+              "definition": 27,
+              "expandedCharacters": 1326391,
+              "storedCharacters": 733
+            },
+            {
+              "definition": 29,
+              "expandedCharacters": 2667292,
+              "storedCharacters": 295
+            },
+            {
+              "definition": 31,
+              "expandedCharacters": 2667294,
+              "storedCharacters": 293
+            },
+            {
+              "definition": 34,
+              "expandedCharacters": 26674470,
+              "storedCharacters": 1698
+            },
+            {
+              "definition": 35,
+              "expandedCharacters": 29341848,
+              "storedCharacters": 116
+            },
+            {
+              "definition": 37,
+              "expandedCharacters": 29341850,
+              "storedCharacters": 116
+            },
+            {
+              "definition": 39,
+              "expandedCharacters": 117367675,
+              "storedCharacters": 341
+            }
+          ],
+          "guardCharacters": 76385582
+        },
+        "numericArithmeticEliminated": 6490,
+        "numericGuardImplications": 343,
+        "numericRecipeAdmissions": 590,
+        "numericRecipeAttempts": 1319,
+        "numericRecipeBudgetStops": 0,
+        "orderedGuardEliminations": 76,
+        "prefixRecipeRefinements": 32,
+        "prospectiveGuardEliminations": 36,
+        "recipeConstraintPasses": 972,
+        "recipeConstraintRefinements": 15860,
+        "rmsBranchRefinements": 1311,
+        "rmsConstantCells": 31,
+        "rmsProjectionSignAdmissions": 154,
+        "selectedRecipeIdentities": 36,
+        "selectedSignMaskEliminations": 15,
+        "selectorSelections": 948,
+        "splitContexts": 41
+      },
+      "stop": "Flat artifact budget exceeded; no complete result",
+      "weightReads": 1984
+    }
+  }
+}

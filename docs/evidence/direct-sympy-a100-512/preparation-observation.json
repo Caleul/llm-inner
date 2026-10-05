@@ -1,0 +1,36 @@
+{
+  "launch": {
+    "state": "DISPATCHED",
+    "preparationPID": 1952,
+    "archiveSHA256": "f6560b0a7661dee201e2f57265bb3df10c622d77d7489995921bcc510ba9d0a1",
+    "observedPIDExists": true,
+    "processState": "S",
+    "observedRunning": true
+  },
+  "preparation": {
+    "state": "PREPARING",
+    "requestedGPU": "A100",
+    "archiveSHA256": "f6560b0a7661dee201e2f57265bb3df10c622d77d7489995921bcc510ba9d0a1",
+    "startedAt": 1791205018.9360404,
+    "resources": {
+      "cpuCount": 12,
+      "ramTotalBytes": 89629196288,
+      "ramAvailableBytes": 87449976832,
+      "torch": "2.11.0+cu130",
+      "sympy": "1.14.0",
+      "cuda": "13.0",
+      "cudaAvailable": true,
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "gpuVRAMBytes": 42405855232
+    }
+  },
+  "coordinateProgress": {},
+  "logTails": {
+    "llm-inner-a100-512-20261005.preparation-launch.log": "/content/direct_sympy_colab_logits_prepare.py:19: DeprecationWarning: Python 3.14 will, by default, filter extracted tar archives and reject files or modify their metadata. Use the filter argument to control this behavior.\n  stream.extractall(root)\n",
+    "coherent_paths-tests.log": "......................\n----------------------------------------------------------------------\nRan 22 tests in 7.200s\n\nOK\nFlat checkpoint normalization: cases=888832 mismatches=0\nFrozen square identity parity: cases=30722 mismatches=0\nIntersected grid factor parity: cases=30722 mismatches=0\nPrefix recipe dispatch parity: cases=30722 mismatches=0\nSelected numeric propagation parity: cases=30722 mismatches=0\n",
+    "artifact_budget-tests.log": "...\n----------------------------------------------------------------------\nRan 3 tests in 6.666s\n\nOK\nShared budget checkpoint normalization: identicalEmittedBytes=true\n",
+    "projection_sign-tests.log": "",
+    "dependency-setup.log": "tting up python3-yaml (6.0.1-2build2) ...\r\nSetting up python3-pygments (2.17.2+dfsg-1) ...\r\nSetting up libz3-4:amd64 (4.8.12-3.1build1) ...\r\nSetting up libpfm4:amd64 (4.13.0+git32-g0d4ed0e-1ubuntu0.1) ...\r\nSetting up libclang-common-18-dev:amd64 (1:18.1.3-1ubuntu1) ...\r\nSetting up libgc1:amd64 (1:8.2.6-1build1) ...\r\nSetting up libc6-i386 (2.39-0ubuntu8.9) ...\r\nSetting up libllvm18:amd64 (1:18.1.3-1ubuntu1) ...\r\nSetting up libclang1-18 (1:18.1.3-1ubuntu1) ...\r\nSetting up libz3-dev:amd64 (4.8.12-3.1build1) ...\r\nSetting up libobjc4:amd64 (14.2.0-4ubuntu2~24.04.1) ...\r\nSetting up llvm-18-tools (1:18.1.3-1ubuntu1) ...\r\nSetting up lib32gcc-s1 (14.2.0-4ubuntu2~24.04.1) ...\r\nSetting up lib32stdc++6 (14.2.0-4ubuntu2~24.04.1) ...\r\nSetting up llvm-18-linker-tools (1:18.1.3-1ubuntu1) ...\r\nSetting up llvm-18-runtime (1:18.1.3-1ubuntu1) ...\r\nSetting up libclang-cpp18 (1:18.1.3-1ubuntu1) ...\r\nSetting up libclang-rt-18-dev:amd64 (1:18.1.3-1ubuntu1) ...\r\nSetting up libobjc-13-dev:amd64 (13.3.0-6ubuntu2~24.04.1) ...\r\nSetting up clang-18 (1:18.1.3-1ubuntu1) ...\r\nSetting up clang (1:18.0-59~exp2) ...\r\nSetting up llvm-18 (1:18.1.3-1ubuntu1) ...\r\nSetting up llvm-18-dev (1:18.1.3-1ubuntu1) ...\r\nProcessing triggers for systemd (255.4-1ubuntu8.17) ...\r\nProcessing triggers for man-db (2.12.0-4build2) ...\r\nProcessing triggers for libc-bin (2.39-0ubuntu8.9) ...\r\n/sbin/ldconfig.real: /usr/local/lib/libhwloc.so.15 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libur_adapter_level_zero.so.0 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libtbbmalloc.so.2 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libur_adapter_level_zero_v2.so.0 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libtbbbind_2_5.so.3 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libur_loader.so.0 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libumf.so.1 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libtcm_debug.so.1 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libtbb.so.12 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libtbbmalloc_proxy.so.2 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libtbbbind.so.3 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libur_adapter_opencl.so.0 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libtcm.so.1 is not a symbolic link\r\n\r\n/sbin/ldconfig.real: /usr/local/lib/libtbbbind_2_0.so.3 is not a symbolic link\r\n\r\n"
+  },
+  "coordinateResults": {}
+}
