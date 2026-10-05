@@ -1,0 +1,17 @@
+[
+  {
+    "inputDomains": {
+      "X1": [
+        -31743,
+        -10240
+      ],
+      "X2": [
+        10240,
+        31743
+      ]
+    },
+    "file": "broad.expr",
+    "characters": 22507034,
+    "sha256": "ef14704c5efab6feaa734c0d18324c519f399a0c27eea242e043f2ddf9a0b151"
+  }
+]

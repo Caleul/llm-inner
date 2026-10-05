@@ -1,0 +1,14 @@
+{
+  "artifact": "artifacts/direct-sympy-input-partitions/ordered-guard-state/broad.expr",
+  "sha256": "ef14704c5efab6feaa734c0d18324c519f399a0c27eea242e043f2ddf9a0b151",
+  "characters": 22507034,
+  "position": 0,
+  "tokens": 1,
+  "dimension": 2,
+  "inputCorpusVersion": 2,
+  "verifierSHA256": "a66f4633278d38cd9d270a23fdb4e22443613f59e6768091f2418ac65016c085",
+  "cases": 16388,
+  "mismatches": 0,
+  "firstMismatches": [],
+  "scope": "Emitted coordinate in this input region only; not full-domain or variable-length last-token parity."
+}

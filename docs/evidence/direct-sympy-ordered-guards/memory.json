@@ -1,0 +1,76 @@
+{
+  "workerPID": 39387,
+  "peakSampledRSSBytes": 4492476416,
+  "sampleIntervalSeconds": 1,
+  "lateAttachment": true,
+  "samples": [
+    {
+      "seconds": 0.02263062499696389,
+      "residentBytes": 3933044736
+    },
+    {
+      "seconds": 1.0366561660193838,
+      "residentBytes": 4046667776
+    },
+    {
+      "seconds": 2.0517777079949155,
+      "residentBytes": 4056563712
+    },
+    {
+      "seconds": 3.0585387910250574,
+      "residentBytes": 4244799488
+    },
+    {
+      "seconds": 4.073020083014853,
+      "residentBytes": 4244799488
+    },
+    {
+      "seconds": 5.08688879100373,
+      "residentBytes": 4492476416
+    },
+    {
+      "seconds": 6.100955166039057,
+      "residentBytes": 4492476416
+    },
+    {
+      "seconds": 7.114700915990397,
+      "residentBytes": 4492476416
+    },
+    {
+      "seconds": 8.128430375014432,
+      "residentBytes": 4000743424
+    },
+    {
+      "seconds": 9.1424577080179,
+      "residentBytes": 4000743424
+    },
+    {
+      "seconds": 10.155791041033808,
+      "residentBytes": 4000743424
+    },
+    {
+      "seconds": 11.167290208046325,
+      "residentBytes": 4000743424
+    },
+    {
+      "seconds": 12.181028124992736,
+      "residentBytes": 4000743424
+    },
+    {
+      "seconds": 13.194318750000093,
+      "residentBytes": 3839672320
+    },
+    {
+      "seconds": 14.208020083024167,
+      "residentBytes": 3575136256
+    },
+    {
+      "seconds": 15.221950291015673,
+      "residentBytes": 3295936512
+    },
+    {
+      "seconds": 16.235961041005794,
+      "residentBytes": 3022848000
+    }
+  ]
+}

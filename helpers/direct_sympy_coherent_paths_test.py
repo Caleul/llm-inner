@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from direct_sympy_coherent_paths import CoherentPaths,UnreachableNumericPath
+from direct_sympy_coherent_paths import CoherentPaths,UnreachableNumericPath,OrderedGuardPruner,Guard,PathArm,LiteralView
 from direct_sympy_conversions import FiniteSource
 from direct_sympy_conversions_test import cpp
 from direct_sympy_checkpoint import CheckpointStrings
@@ -71,6 +71,44 @@ class CoherentPathTests(unittest.TestCase):
             with patch.object(CoherentPaths,'literal',side_effect=UnreachableNumericPath('empty')):
                 with self.assertRaisesRegex(ValueError,'No reachable numerical path'):CoherentPaths(registry).write(path,'CompileValue1()',max_characters=65536)
             self.assertEqual(path.read_bytes(),original)
+
+    def test_dispatch_prefix_removes_only_implied_guards_and_retains_signed_zero(self):
+        registry=fixture(['Piecewise((11.0,And(X1>0.0,X2>0.0)),(13.0,X1>0.0),(-0.0,True))'])
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'flat.expr';plan=CoherentPaths(registry)
+            plan.write(path,'CompileValue0()',max_characters=65536)
+            self.assertGreater(plan.stats['orderedGuardEliminations'],0)
+            actual=path.read_text()
+            for x in (-1.,-0.,0.,1.):
+                for y in (-1.,-0.,0.,1.):
+                    expected=11. if x>0 and y>0 else 13. if x>0 else -0.
+                    self.assertEqual(struct.pack('d',evaluate(actual,{'X1':x,'X2':y})),struct.pack('d',expected))
+        registry=fixture(['Piecewise((1.0,X1==0.0),(2.0,And(X1!=0.0,1.0/X1>0.5)),(-0.0,True))'])
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'lazy.expr';plan=CoherentPaths(registry)
+            plan.write(path,'CompileValue0()',max_characters=65536)
+            for x in (-1.,-0.,0.,.5,1.):
+                expected=1. if x==0 else 2. if 1/x>.5 else -0.
+                self.assertEqual(struct.pack('d',evaluate(path.read_text(),{'X1':x,'X2':0.})),struct.pack('d',expected))
+
+    def test_guard_identity_checks_actual_bytes_and_budget_falls_back_without_dropping_paths(self):
+        registry=fixture([]);view=LiteralView(registry,[])
+        def stats():return {'guardProofPasses':0,'guardProofBudgetStops':0,'orderedGuardEliminations':0}
+        class CollidingDigest:
+            def update(self,value):pass
+            def digest(self):return b'same digest'
+        a=Guard(view,'X1>0.0',True);b=Guard(view,'X2>0.0',True)
+        with patch('direct_sympy_coherent_paths.hashlib.sha256',return_value=CollidingDigest()):
+            pruner=OrderedGuardPruner(stats())
+            self.assertNotEqual(pruner.atom(a),pruner.atom(b))
+            self.assertEqual(pruner.atom(a),pruner.atom(Guard(view,a.expression,False)))
+        own=stats();pruner=OrderedGuardPruner(own,max_atoms=1)
+        first=PathArm(view,'1.0',(a,));pruner.prune(first)
+        next_arm=PathArm(view,'2.0',(Guard(view,a.expression,False),b))
+        self.assertIs(pruner.prune(next_arm),next_arm)
+        self.assertEqual(own['orderedGuardEliminations'],0)
+        self.assertEqual(own['guardProofBudgetStops'],1)
+        self.assertIs(pruner.prune(first),first)
 
     def test_same_decision_reused_by_dependencies_has_two_paths_not_four(self):
         registry=fixture(['Piecewise((X1 * 0.5, X1 > 0.0), (X1 * 2.0, True))',

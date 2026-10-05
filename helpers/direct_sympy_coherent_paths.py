@@ -54,6 +54,70 @@ class PathArm:
         return self.view.size(self.expression)+sum(g.view.size(g.expression) for g in self.guards)
 
 
+def same_literal(left,right):
+    """Compare actual expanded bytes without allocating a complete string."""
+    a=iter(left.view.chunks(left.expression));b=iter(right.view.chunks(right.expression))
+    x=y='';i=j=0
+    while True:
+        if i==len(x):x=next(a,'');i=0
+        if j==len(y):y=next(b,'');j=0
+        if not x or not y:return not x and not y
+        size=min(len(x)-i,len(y)-j)
+        if x[i:i+size]!=y[j:j+size]:return False
+        i+=size;j+=size
+
+
+class OrderedGuardPruner:
+    """Drop only predicates implied by the original ordered dispatch prefix.
+
+    SymPy propositions represent byte-identical closed predicates, not their
+    numerical internals. SAT proves implications for every possible truth
+    assignment. Runtime strings retain their original lazy order. Hashes only
+    select candidates; actual expanded bytes establish predicate identity.
+    """
+    def __init__(self,stats,*,max_atoms=128,max_nodes=16384):
+        import sympy as sp
+        self.sp=sp;self.remaining=sp.true;self.predicates={};self.atoms=0
+        self.max_atoms=max_atoms;self.max_nodes=max_nodes;self.stats=stats
+
+    def atom(self,guard):
+        digest=hashlib.sha256()
+        for chunk in guard.view.chunks(guard.expression):digest.update(chunk.encode())
+        bucket=self.predicates.setdefault(digest.digest(),[])
+        for prior,atom in bucket:
+            if same_literal(prior,guard):return atom
+        if self.atoms>=self.max_atoms:return None
+        atom=self.sp.Symbol('GuardProof'+str(self.atoms));self.atoms+=1
+        bucket.append((guard,atom));return atom
+
+    def prune(self,arm):
+        sp=self.sp;original=[];retained=[];prefix=self.remaining;eliminated=0
+        if prefix is None:return arm
+        for guard in arm.guards:
+            atom=self.atom(guard)
+            if atom is None:
+                self.remaining=None;self.stats['guardProofBudgetStops']+=1
+                return arm
+            value=atom if guard.truth else sp.Not(atom);original.append(value)
+            query=sp.And(prefix,sp.Not(value))
+            if sp.count_ops(query)>self.max_nodes:
+                self.remaining=None;self.stats['guardProofBudgetStops']+=1
+                return arm
+            self.stats['guardProofPasses']+=1
+            if sp.satisfiable(query) is False:
+                # This is an auxiliary entailment proof. Numerical strings
+                # already reached their factor/simplify fixed points in
+                # literal(); the final emitted combination passes them again.
+                eliminated+=1
+            else:retained.append(guard)
+            prefix=sp.And(prefix,value)
+        self.stats['orderedGuardEliminations']+=eliminated
+        # Conditions of previous ORIGINAL paths are false when this arm is
+        # reached. Removing implied guards preserves that fact inductively.
+        self.remaining=sp.And(self.remaining,sp.Not(sp.And(*original)))
+        return PathArm(arm.view,arm.expression,tuple(retained))
+
+
 class CoherentPaths:
     def __init__(self,registry,*,max_paths=64,max_search_nodes=2000000):
         if max_paths<1 or max_search_nodes<1:raise ValueError('Positive path/search budgets required')
@@ -64,7 +128,7 @@ class CoherentPaths:
         LiteralView(registry,self.originals)
         self.max_paths=max_paths;self.max_search_nodes=max_search_nodes
         self.predicates={};self.rms_bounds_cache={}
-        self.stats={'splitContexts':0,'completedPaths':0,'contradictions':0,'selectorSelections':0,'CASPasses':0,'numericArithmeticEliminated':0,'numericRecipeAttempts':0,'numericRecipeAdmissions':0,'numericRecipeBudgetStops':0,'coupledProjectionContradictions':0,'rmsBranchRefinements':0,'rmsConstantCells':0}
+        self.stats={'splitContexts':0,'completedPaths':0,'contradictions':0,'selectorSelections':0,'CASPasses':0,'numericArithmeticEliminated':0,'numericRecipeAttempts':0,'numericRecipeAdmissions':0,'numericRecipeBudgetStops':0,'coupledProjectionContradictions':0,'rmsBranchRefinements':0,'rmsConstantCells':0,'orderedGuardEliminations':0,'guardProofPasses':0,'guardProofBudgetStops':0}
 
     @staticmethod
     def alias(node):
@@ -357,8 +421,9 @@ class CoherentPaths:
                     if written>max_characters:raise ValueError('Flat artifact budget exceeded; no complete result')
                     block=text.encode();digest.update(block);encoded.write(block)
                 try:
-                    emit('Piecewise(');count=0
+                    emit('Piecewise(');count=0;pruner=OrderedGuardPruner(self.stats)
                     for arm in self.arms(expression):
+                        arm=pruner.prune(arm)
                         body_size=arm.view.size(arm.expression)
                         guard_sizes=[guard.view.size(guard.expression) for guard in arm.guards]
                         self.stats['lastArm']={'bodyCharacters':body_size,
