@@ -182,14 +182,22 @@ class ConversionStringTests(unittest.TestCase):
         self.assertEqual(ast.unparse(unknown.same_sign_operand(syntax("X1*X2"))),"X1 * X2")
         signed=ConversionSession(StringCompiler(),{"X1":domains["X1"],"X2":Domain(F(-1),F(1),-24,False)},input_dtype="f16")
         self.assertEqual(ast.unparse(signed.same_sign_operand(syntax("X1*X2"))),"X1 * X2")
+        strict=[]
+        for low,high in ((F(2)**-24,F(65504)),(F(-65504),-F(2)**-24)):
+            own=ConversionSession(StringCompiler(),{**domains,"X1":Domain(low,high,-24,False)},input_dtype="f16")
+            own.half_values.discard(own.key(syntax("X2")))
+            own.f32_values.add(own.key(syntax("X2")))
+            text=own.close(expression)
+            self.assertLess(text.count("X1"),result.count("X1"))
+            strict.append(text)
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);source=root/"sign.cpp";binary=root/"sign"
-            source.write_text('#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\n#include <initializer_list>\ntemplate<class T,class U>T word(U value){T result;std::memcpy(&result,&value,sizeof(result));return result;}\n'+'double candidate(double X1,double X2){return '+cpp(syntax(result))+';}\n'+'double control(double X1,double X2){return '+cpp(syntax(general))+';}\n'+'''int main(){unsigned cases=0,mismatches=0;for(uint32_t bits=0;bits<65536;bits++){if((bits&0x7c00)==0x7c00)continue;double x=word<_Float16>(uint16_t(bits));for(float factor:{0x1p-100f,0x1p-24f,0x1p-14f,0.000001f,0.75f,1.0f,1.25f,1024.0f}){double expected=double(_Float16(float(x*double(factor))));uint64_t got=word<uint64_t>(candidate(x,double(factor)));mismatches+=got!=word<uint64_t>(expected);mismatches+=got!=word<uint64_t>(control(x,double(factor)));cases++;}}std::printf("Positive-factor sign parity: cases=%u mismatches=%u\\n",cases,mismatches);return mismatches?1:0;}''')
+            source.write_text('#include <cstdint>\n#include <cstring>\n#include <cmath>\n#include <cstdio>\n#include <initializer_list>\ntemplate<class T,class U>T word(U value){T result;std::memcpy(&result,&value,sizeof(result));return result;}\n'+'double candidate(double X1,double X2){return '+cpp(syntax(result))+';}\n'+'double control(double X1,double X2){return '+cpp(syntax(general))+';}\n'+'double positive(double X1,double X2){return '+cpp(syntax(strict[0]))+';}\n'+'double negative(double X1,double X2){return '+cpp(syntax(strict[1]))+';}\n'+'''int main(){unsigned cases=0,mismatches=0,strictCases=0;for(uint32_t bits=0;bits<65536;bits++){if((bits&0x7c00)==0x7c00)continue;double x=word<_Float16>(uint16_t(bits));for(float factor:{0x1p-100f,0x1p-24f,0x1p-14f,0.000001f,0.75f,1.0f,1.25f,1024.0f}){double expected=double(_Float16(float(x*double(factor))));uint64_t got=word<uint64_t>(candidate(x,double(factor)));mismatches+=got!=word<uint64_t>(expected);mismatches+=got!=word<uint64_t>(control(x,double(factor)));if(x!=0){double exact=x>0?positive(x,double(factor)):negative(x,double(factor));mismatches+=word<uint64_t>(exact)!=word<uint64_t>(expected);strictCases++;}cases++;}}std::printf("Positive-factor sign parity: cases=%u mismatches=%u\\n",cases,mismatches);std::printf("Strict-sign tandem parity: cases=%u mismatches=%u\\n",strictCases,mismatches);return mismatches?1:0;}''')
             built=subprocess.run(['clang++','-O3','-ffp-contract=off','-std=c++17',str(source),'-o',str(binary)],capture_output=True,text=True)
             self.assertEqual(built.returncode,0,built.stderr)
             run=subprocess.run([str(binary)],capture_output=True,text=True,timeout=120)
             self.assertEqual(run.returncode,0,run.stdout+run.stderr)
-            self.assertIn('cases=507904 mismatches=0',run.stdout);print(run.stdout,end='')
+            self.assertIn('cases=507904 mismatches=0',run.stdout);self.assertIn('Strict-sign tandem parity: cases=507888 mismatches=0',run.stdout);print(run.stdout,end='')
 
     @patch.object(ConversionSession,'close_frontier_candidates',lambda self,compact,baseline,*args:baseline)
     def test_closed_envelope_restores_exact_proofs_without_parsing_expanded_result(self):

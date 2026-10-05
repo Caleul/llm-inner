@@ -1,0 +1,7 @@
+.
+----------------------------------------------------------------------
+Ran 1 test in 1.506s
+
+OK
+Positive-factor sign parity: cases=507904 mismatches=0
+Strict-sign tandem parity: cases=507888 mismatches=0

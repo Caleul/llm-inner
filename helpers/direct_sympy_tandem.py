@@ -21,6 +21,13 @@ def lower_tandem(source,certificate,compiler,domains,*,integer_word_exact=False,
     # and every branch threshold still use the original producer.
     sign_raw=raw if sign_expression is None else "Bits64(X999999996)"
     sign=f"U64And({sign_raw}, 9223372036854775808)"
+    # Strict branch enclosures certify the sign of the original source,
+    # even when F32 or Half storage rounds its magnitude to signed zero.
+    # Never infer a sign from a zero-crossing/zero-inclusive interval:
+    # both zero signs must remain observable there. Removing this copy
+    # affects only the sign field, not magnitude or branch thresholds.
+    if certificate.minimum>0:sign="0"
+    elif certificate.maximum<0:sign="9223372036854775808"
     # At a Half midpoint the F32 significand is even. Its whole closed
     # F64 tie cell [mid-2^28 ulps, mid+2^28 ulps] maps to that midpoint.
     # Even Half lower endpoints therefore switch above mid+2^28; odd ones

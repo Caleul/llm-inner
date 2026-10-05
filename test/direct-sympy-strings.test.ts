@@ -166,6 +166,7 @@ test('SymPy elementary conversion strings preserve native IEEE cells and compose
     assert.match(stdout,/Certified frontier composition parity: cases=147472 mismatches=0/);
     assert.match(stdout,/Scoped conversion parity: cases=30722 mismatches=0/);
     assert.match(stdout,/Positive-factor sign parity: cases=507904 mismatches=0/);
+    assert.match(stdout,/Strict-sign tandem parity: cases=507888 mismatches=0/);
     assert.match(stdout,/Compact envelope selector parity: cases=507904 mismatches=0/);
     assert.match(stdout,/Synchronized sibling native parity: cases=131072 mismatches=0/);
     assert.match(stdout,/Exact branch facts native parity: cases=196608 mismatches=0/);
